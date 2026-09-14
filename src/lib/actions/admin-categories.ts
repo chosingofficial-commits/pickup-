@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/rbac";
@@ -40,6 +40,7 @@ export async function createCategoryAction(_prev: ActionState, formData: FormDat
 
   await recordAuditLog({ actorUserId: admin.id, action: "CATEGORY_CREATED", entityType: "Category", metadata: { name: parsed.data.name } });
   revalidatePath("/admin/categories");
+  revalidateTag("categories", "minutes");
   return { status: "success", message: "Category created." };
 }
 
@@ -52,4 +53,5 @@ export async function toggleCategoryActiveAction(formData: FormData): Promise<vo
   await db.category.update({ where: { id: categoryId }, data: { isActive: !category.isActive } });
   await recordAuditLog({ actorUserId: admin.id, action: category.isActive ? "CATEGORY_DISABLED" : "CATEGORY_ENABLED", entityType: "Category", entityId: categoryId });
   revalidatePath("/admin/categories");
+  revalidateTag("categories", "minutes");
 }

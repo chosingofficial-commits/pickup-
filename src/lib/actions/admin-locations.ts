@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/rbac";
@@ -78,6 +78,7 @@ export async function createTownAction(_prev: ActionState, formData: FormData): 
 
   await recordAuditLog({ actorUserId: admin.id, action: "TOWN_CREATED", entityType: "Town", entityId: town.id, metadata: { name: parsed.data.name } });
   revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
   return { status: "success", message: `${parsed.data.name} added as a new service area${parsed.data.activateNow ? " and activated" : ""}. Service area ID: ${serviceArea.id}` };
 }
 
@@ -94,6 +95,7 @@ export async function toggleServiceAreaActiveAction(formData: FormData): Promise
   });
   await recordAuditLog({ actorUserId: admin.id, action: nextActive ? "SERVICE_AREA_ACTIVATED" : "SERVICE_AREA_DEACTIVATED", entityType: "ServiceArea", entityId: serviceAreaId });
   revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
 }
 
 const neighbourhoodSchema = z.object({
@@ -142,6 +144,7 @@ export async function createNeighbourhoodWithZoneAction(_prev: ActionState, form
 
   await recordAuditLog({ actorUserId: admin.id, action: "NEIGHBOURHOOD_CREATED", entityType: "Neighbourhood", entityId: neighbourhood.id });
   revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
   return { status: "success", message: `${parsed.data.name} added with its delivery zone.` };
 }
 
@@ -201,6 +204,7 @@ export async function createDeliveryZoneByRadiusAction(_prev: ActionState, formD
     metadata: { radiusMeters: parsed.data.radiusMeters, centerLat: parsed.data.centerLat, centerLng: parsed.data.centerLng },
   });
   revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
   return { status: "success", message: `${parsed.data.name} added — ${parsed.data.radiusMeters}m radius zone is live.` };
 }
 
@@ -215,6 +219,7 @@ export async function updateDeliveryZoneAction(formData: FormData): Promise<void
   await db.deliveryZone.update({ where: { id: zoneId }, data: { deliveryFee, estimatedMinutesMin, estimatedMinutesMax } });
   await recordAuditLog({ actorUserId: admin.id, action: "DELIVERY_ZONE_UPDATED", entityType: "DeliveryZone", entityId: zoneId });
   revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
 }
 
 export async function toggleDeliveryZoneActiveAction(formData: FormData): Promise<void> {
@@ -226,6 +231,7 @@ export async function toggleDeliveryZoneActiveAction(formData: FormData): Promis
   await db.deliveryZone.update({ where: { id: zoneId }, data: { isActive: !zone.isActive } });
   await recordAuditLog({ actorUserId: admin.id, action: zone.isActive ? "DELIVERY_ZONE_DISABLED" : "DELIVERY_ZONE_ENABLED", entityType: "DeliveryZone", entityId: zoneId });
   revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
 }
 
 const exclusionZoneSchema = z.object({

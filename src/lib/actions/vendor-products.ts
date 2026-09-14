@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -90,6 +90,7 @@ export async function createProductAction(_prev: ActionState, formData: FormData
   });
 
   revalidatePath("/vendor/products");
+  revalidateTag("products", "minutes");
   redirect(`/vendor/products?created=${product.id}`);
 }
 
@@ -152,6 +153,7 @@ export async function updateProductAction(_prev: ActionState, formData: FormData
   });
 
   revalidatePath("/vendor/products");
+  revalidateTag("products", "minutes");
   return { status: "success", message: "Product updated." };
 }
 
@@ -161,6 +163,7 @@ export async function deleteProductAction(formData: FormData): Promise<void> {
   const product = await db.product.findUnique({ where: { id: productId } });
   if (product && product.vendorId === vendorId) {
     await db.product.update({ where: { id: productId }, data: { deletedAt: new Date(), isPublished: false } });
+    revalidateTag("products", "minutes");
   }
   revalidatePath("/vendor/products");
 }
@@ -171,6 +174,7 @@ export async function togglePublishAction(formData: FormData): Promise<void> {
   const product = await db.product.findUnique({ where: { id: productId } });
   if (product && product.vendorId === vendorId) {
     await db.product.update({ where: { id: productId }, data: { isPublished: !product.isPublished } });
+    revalidateTag("products", "minutes");
   }
   revalidatePath("/vendor/products");
 }

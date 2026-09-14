@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -9,14 +10,18 @@ const restaurantInclude = {
   restaurant: { include: { weeklyHours: true } },
 } satisfies Prisma.VendorInclude;
 
-export const getPopularRestaurants = cache(async (limit = 8) => {
-  return db.vendor.findMany({
-    where: { businessType: "RESTAURANT", ...activeVendorFilter, restaurant: { isNot: null } },
-    orderBy: [{ ratingAvg: "desc" }, { createdAt: "desc" }],
-    take: limit,
-    include: restaurantInclude,
-  });
-});
+export const getPopularRestaurants = unstable_cache(
+  async (limit = 8) => {
+    return db.vendor.findMany({
+      where: { businessType: "RESTAURANT", ...activeVendorFilter, restaurant: { isNot: null } },
+      orderBy: [{ ratingAvg: "desc" }, { createdAt: "desc" }],
+      take: limit,
+      include: restaurantInclude,
+    });
+  },
+  ["popular-restaurants"],
+  { revalidate: 300, tags: ["restaurants"] },
+);
 
 export type RestaurantListFilters = { cuisine?: string; q?: string };
 

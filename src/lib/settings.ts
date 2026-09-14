@@ -1,5 +1,5 @@
 import "server-only";
-import { cache } from "react";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { serverEnv } from "@/lib/env/server";
 
@@ -33,11 +33,15 @@ const DEFAULTS: Record<string, string> = {
  * anywhere the admin dashboard should be able to change the value without a
  * redeploy.
  */
-export const getSiteSettings = cache(async (): Promise<Record<string, string>> => {
-  const rows = await db.siteSetting.findMany();
-  const fromDb = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return { ...DEFAULTS, ...fromDb };
-});
+export const getSiteSettings = unstable_cache(
+  async (): Promise<Record<string, string>> => {
+    const rows = await db.siteSetting.findMany();
+    const fromDb = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    return { ...DEFAULTS, ...fromDb };
+  },
+  ["site-settings"],
+  { revalidate: 300, tags: ["site-settings"] },
+);
 
 export async function setSiteSetting(key: string, value: string) {
   await db.siteSetting.upsert({
@@ -45,4 +49,5 @@ export async function setSiteSetting(key: string, value: string) {
     create: { key, value },
     update: { value },
   });
+  revalidateTag("site-settings", "minutes");
 }

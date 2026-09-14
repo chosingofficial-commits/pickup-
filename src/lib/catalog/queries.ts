@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -11,13 +12,22 @@ import type { Prisma } from "@/generated/prisma/client";
  */
 const NOT_AGE_RESTRICTED = { isAgeRestricted: false } as const;
 
-export const getShopCategories = cache(async () => {
-  return db.category.findMany({
-    where: { parentId: null, isActive: true, ...NOT_AGE_RESTRICTED },
-    orderBy: { sortOrder: "asc" },
-    include: { children: { where: { isActive: true, ...NOT_AGE_RESTRICTED }, orderBy: { name: "asc" } } },
-  });
-});
+// Homepage rails below are identical for every visitor and change only when
+// an admin/vendor publishes something — cached across requests for a short
+// window instead of re-querying on every single page view.
+const CATALOG_CACHE_SECONDS = 300;
+
+export const getShopCategories = unstable_cache(
+  async () => {
+    return db.category.findMany({
+      where: { parentId: null, isActive: true, ...NOT_AGE_RESTRICTED },
+      orderBy: { sortOrder: "asc" },
+      include: { children: { where: { isActive: true, ...NOT_AGE_RESTRICTED }, orderBy: { name: "asc" } } },
+    });
+  },
+  ["shop-categories"],
+  { revalidate: CATALOG_CACHE_SECONDS, tags: ["categories"] },
+);
 
 export const getCategoryBySlug = cache(async (slug: string) => {
   return db.category.findUnique({ where: { slug }, include: { parent: true, children: true } });
@@ -32,52 +42,64 @@ export const getAllShoppableCategories = cache(async () => {
 
 const activeVendorFilter = { isApproved: true, isSuspended: false, deletedAt: null } as const;
 
-export const getPopularProducts = cache(async (limit = 10) => {
-  return db.product.findMany({
-    where: {
-      isPublished: true,
-      deletedAt: null,
-      ...NOT_AGE_RESTRICTED,
-      category: { isActive: true, ...NOT_AGE_RESTRICTED },
-      vendor: activeVendorFilter,
-    },
-    orderBy: [{ ratingAvg: "desc" }, { createdAt: "desc" }],
-    take: limit,
-    include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
-  });
-});
+export const getPopularProducts = unstable_cache(
+  async (limit = 10) => {
+    return db.product.findMany({
+      where: {
+        isPublished: true,
+        deletedAt: null,
+        ...NOT_AGE_RESTRICTED,
+        category: { isActive: true, ...NOT_AGE_RESTRICTED },
+        vendor: activeVendorFilter,
+      },
+      orderBy: [{ ratingAvg: "desc" }, { createdAt: "desc" }],
+      take: limit,
+      include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
+    });
+  },
+  ["popular-products"],
+  { revalidate: CATALOG_CACHE_SECONDS, tags: ["products"] },
+);
 
-export const getWeeklyGroceryPicks = cache(async (limit = 10) => {
-  return db.product.findMany({
-    where: {
-      isPublished: true,
-      deletedAt: null,
-      isWeeklyGrocery: true,
-      ...NOT_AGE_RESTRICTED,
-      category: { isActive: true, ...NOT_AGE_RESTRICTED },
-      vendor: activeVendorFilter,
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
-  });
-});
+export const getWeeklyGroceryPicks = unstable_cache(
+  async (limit = 10) => {
+    return db.product.findMany({
+      where: {
+        isPublished: true,
+        deletedAt: null,
+        isWeeklyGrocery: true,
+        ...NOT_AGE_RESTRICTED,
+        category: { isActive: true, ...NOT_AGE_RESTRICTED },
+        vendor: activeVendorFilter,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
+    });
+  },
+  ["weekly-grocery-picks"],
+  { revalidate: CATALOG_CACHE_SECONDS, tags: ["products"] },
+);
 
-export const getFlashDeals = cache(async (limit = 10) => {
-  return db.product.findMany({
-    where: {
-      isPublished: true,
-      deletedAt: null,
-      ...NOT_AGE_RESTRICTED,
-      compareAtPrice: { not: null },
-      category: { isActive: true, ...NOT_AGE_RESTRICTED },
-      vendor: activeVendorFilter,
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
-  });
-});
+export const getFlashDeals = unstable_cache(
+  async (limit = 10) => {
+    return db.product.findMany({
+      where: {
+        isPublished: true,
+        deletedAt: null,
+        ...NOT_AGE_RESTRICTED,
+        compareAtPrice: { not: null },
+        category: { isActive: true, ...NOT_AGE_RESTRICTED },
+        vendor: activeVendorFilter,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
+    });
+  },
+  ["flash-deals"],
+  { revalidate: CATALOG_CACHE_SECONDS, tags: ["products"] },
+);
 
 export type ProductListItem = Prisma.ProductGetPayload<{
   include: { images: { take: 1 }; category: true; vendor: { select: { businessName: true; slug: true } } };
