@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+:root {
+  /* Pick Up brand palette — do not introduce orange/yellow as brand colors */
+  --color-brand-bg: #e8f5e9; /* lightest background / soft highlight */
+  --color-brand-accent: #a5d6a7; /* borders, secondary cards, badges, hover accents */
+  --color-brand-primary: #66bb6a; /* primary buttons, active states, icons, CTAs */
+  --color-brand-primary-hover: #56a85b;
+  --color-brand-primary-active: #468a4a;
+  --color-brand-dark: #1b5e20; /* headings, nav, footer, high-contrast text */
+
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f8f6;
+  --color-border: #dbe7db;
+
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+
+  --shadow-soft: 0 1px 2px rgba(27, 94, 32, 0.04), 0 4px 16px rgba(27, 94, 32, 0.06);
+  --shadow-lifted: 0 8px 24px rgba(27, 94, 32, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--color-surface);
+  --color-foreground: var(--color-brand-dark);
+
+  --color-brand-bg: var(--color-brand-bg);
+  --color-brand-accent: var(--color-brand-accent);
+  --color-brand-primary: var(--color-brand-primary);
+  --color-brand-primary-hover: var(--color-brand-primary-hover);
+  --color-brand-primary-active: var(--color-brand-primary-active);
+  --color-brand-dark: var(--color-brand-dark);
+  --color-surface: var(--color-surface);
+  --color-surface-muted: var(--color-surface-muted);
+  --color-border-brand: var(--color-border);
+
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-heading);
+  --font-bengali: var(--font-bengali);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-lifted: var(--shadow-lifted);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-brand-dark);
+  font-family: var(--font-body), var(--font-bengali), sans-serif;
+}
+
+:lang(bn) {
+  font-family: var(--font-bengali), var(--font-body), sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), var(--font-bengali), sans-serif;
+}
+
+/* Visible focus ring for keyboard navigation, meets accessibility rules */
+:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--color-brand-accent);
+  color: var(--color-brand-dark);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
