@@ -52,6 +52,53 @@ export function VendorApplicationWizard({
   };
   const activeSection = sectionForStep(step);
 
+  // Server-side validation errors can land on a step that isn't currently
+  // visible (the wizard only renders one step at a time), leaving the user
+  // staring at a generic "fix the errors below" banner with nothing to fix
+  // in sight. Jump back to the earliest step that actually has an error.
+  // Adjusted during render (comparing against the previously-seen state),
+  // not in an effect, so it doesn't cost an extra render round-trip.
+  const [handledState, setHandledState] = useState(state);
+  if (state !== handledState) {
+    setHandledState(state);
+    if (state.status === "error" && state.fieldErrors) {
+      const errorSections = new Set(Object.keys(state.fieldErrors).map(fieldToSection));
+      for (let i = 0; i <= lastStep; i++) {
+        if (errorSections.has(sectionForStep(i))) {
+          setStep(i);
+          break;
+        }
+      }
+    }
+  }
+
+  function fieldToSection(field: string): ReturnType<typeof sectionForStep> {
+    switch (field) {
+      case "businessName":
+      case "ownerName":
+      case "phone":
+      case "email":
+        return "type";
+      case "addressText":
+      case "deliveryCoverageText":
+        return "address";
+      case "productCategories":
+        return "categories";
+      case "openingHoursText":
+        return "hours";
+      case "tradeLicenseNo":
+      case "tradeLicenseDocUrl":
+      case "nationalIdNo":
+      case "nationalIdDocUrl":
+      case "bankOrMfsAccount":
+      case "logoUrl":
+      case "coverImageUrl":
+        return "documents";
+      default:
+        return "review";
+    }
+  }
+
   return (
     <form action={formAction} className="space-y-6" noValidate>
       <input type="hidden" name="businessType" value={businessType} />
