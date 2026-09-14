@@ -21,6 +21,7 @@ export function VendorApplicationWizard({
   const [state, formAction] = useActionState(submitVendorApplicationAction, initialActionState);
   const [businessType, setBusinessType] = useState<"GROCERY_VENDOR" | "RESTAURANT">("GROCERY_VENDOR");
   const [step, setStep] = useState(0);
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
 
   const isRestaurant = businessType === "RESTAURANT";
   const steps = isRestaurant
@@ -250,9 +251,10 @@ export function VendorApplicationWizard({
           approved, rejected, or if we need more information.
         </p>
         <label className="flex items-start gap-2 text-sm text-gray-700">
-          <input type="checkbox" name="agreementAccepted" value="1" required className="mt-0.5" />
+          <input type="checkbox" checked={agreementAccepted} onChange={(e) => setAgreementAccepted(e.target.checked)} className="mt-0.5" />
           I confirm the information provided is accurate and I agree to Pick Up&apos;s Vendor Agreement and Terms of Service.
         </label>
+        <input type="hidden" name="agreementAccepted" value={agreementAccepted ? "1" : ""} />
         <FieldError>{state.fieldErrors?.agreementAccepted?.[0]}</FieldError>
       </div>
 
