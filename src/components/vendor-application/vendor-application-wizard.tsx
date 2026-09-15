@@ -75,10 +75,12 @@ export function VendorApplicationWizard({
 
   function fieldToSection(field: string): ReturnType<typeof sectionForStep> {
     switch (field) {
+      case "businessType":
       case "businessName":
       case "ownerName":
       case "phone":
       case "email":
+      case "businessDescription":
         return "type";
       case "addressText":
       case "deliveryCoverageText":
@@ -121,9 +123,16 @@ export function VendorApplicationWizard({
       </ol>
 
       {state.status === "error" && state.message && (
-        <p role="alert" className="rounded-control bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
-          {state.message}
-        </p>
+        <div role="alert" className="rounded-control bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+          <p>{state.message}</p>
+          {state.fieldErrors && Object.keys(state.fieldErrors).length > 0 && (
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
+              {Object.entries(state.fieldErrors).flatMap(([field, messages]) =>
+                (messages ?? []).map((msg, i) => <li key={`${field}-${i}`}>{msg}</li>),
+              )}
+            </ul>
+          )}
+        </div>
       )}
 
       <div className={cn("space-y-4 rounded-card border border-border-brand bg-white p-5", activeSection !== "type" && "hidden")}>
