@@ -80,7 +80,7 @@ export async function Footer() {
             <ul className="mt-3 space-y-2 text-sm">
               {col.links.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-white/85 hover:text-white">
+                  <Link href={link.href} prefetch={false} className="text-white/85 hover:text-white">
                     {link.label}
                   </Link>
                 </li>

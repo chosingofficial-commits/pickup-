@@ -16,7 +16,7 @@ export function RestaurantCard({ vendor, isFavorited }: { vendor: RestaurantCard
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-card border border-border-brand bg-white shadow-soft transition-shadow hover:shadow-lifted">
-      <Link href={href} className="flex flex-1 flex-col">
+      <Link href={href} prefetch={false} className="flex flex-1 flex-col">
         <div className="relative aspect-[16/9]">
           <ProductImage src={vendor.coverImageUrl} alt={vendor.businessName} categorySlug="restaurant" className="h-full w-full" />
           <div className="absolute left-2 top-2">

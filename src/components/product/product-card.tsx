@@ -18,7 +18,7 @@ export function ProductCard({ product, isSaved }: { product: ProductListItem; is
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-card border border-border-brand bg-white shadow-soft transition-shadow hover:shadow-lifted">
       <div className="relative aspect-square">
-        <Link href={href} className="block h-full w-full" tabIndex={-1}>
+        <Link href={href} prefetch={false} className="block h-full w-full" tabIndex={-1}>
           <ProductImage
             src={product.images[0]?.url}
             alt={product.name}
@@ -52,7 +52,7 @@ export function ProductCard({ product, isSaved }: { product: ProductListItem; is
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-3">
-        <Link href={href} className="line-clamp-2 text-sm font-semibold text-brand-dark hover:text-brand-primary">
+        <Link href={href} prefetch={false} className="line-clamp-2 text-sm font-semibold text-brand-dark hover:text-brand-primary">
           {product.name}
         </Link>
         <p className="text-xs text-gray-500">
