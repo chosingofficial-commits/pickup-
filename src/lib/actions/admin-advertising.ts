@@ -73,6 +73,7 @@ export async function createAdCampaignAction(_prev: ActionState, formData: FormD
 
   await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_CREATED", entityType: "Advertisement", entityId: advertisement.id });
   revalidatePath("/admin/advertising/requests");
+  revalidatePath("/admin/advertising/campaigns");
   return { status: "success", message: "Campaign created — awaiting payment confirmation." };
 }
 
@@ -94,6 +95,7 @@ export async function markAdPaymentPaidAction(formData: FormData): Promise<void>
 
   await recordAuditLog({ actorUserId: admin.id, action: "AD_PAYMENT_MARKED_PAID", entityType: "AdPayment", entityId: paymentId });
   revalidatePath("/admin/advertising/requests");
+  revalidatePath("/admin/advertising/campaigns");
 }
 
 export async function cancelAdCampaignAction(formData: FormData): Promise<void> {
@@ -108,6 +110,7 @@ export async function cancelAdCampaignAction(formData: FormData): Promise<void> 
   ]);
   await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_CANCELLED", entityType: "AdCampaign", entityId: campaignId });
   revalidatePath("/admin/advertising/requests");
+  revalidatePath("/admin/advertising/campaigns");
 }
 
 export async function updateAdPricingAction(formData: FormData): Promise<void> {

@@ -34,6 +34,7 @@ const GROUPS: { label: string; links: { href: string; label: string; icon: React
     links: [
       { href: "/admin/vendor-applications", label: "Vendor applications", icon: FileText },
       { href: "/admin/vendors", label: "Vendors & restaurants", icon: Store },
+      { href: "/admin/rider-applications", label: "Rider applications", icon: FileText },
       { href: "/admin/riders", label: "Riders", icon: Bike },
       { href: "/admin/customers", label: "Customers", icon: Users },
     ],
@@ -59,7 +60,8 @@ const GROUPS: { label: string; links: { href: string; label: string; icon: React
   {
     label: "Advertising",
     links: [
-      { href: "/admin/advertising/requests", label: "Ad requests & campaigns", icon: Megaphone },
+      { href: "/admin/advertising/requests", label: "Ad requests", icon: Megaphone },
+      { href: "/admin/advertising/campaigns", label: "Ad campaigns", icon: ClipboardList },
       { href: "/admin/advertising/placements", label: "Placements & pricing", icon: Tag },
     ],
   },
@@ -77,35 +79,56 @@ const GROUPS: { label: string; links: { href: string; label: string; icon: React
   },
 ];
 
+const ALL_LINKS = GROUPS.flatMap((group) => group.links);
+
 export function AdminNav() {
   const pathname = usePathname();
+  const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
 
   return (
-    <nav aria-label="Admin dashboard" className="space-y-5">
-      {GROUPS.map((group) => (
-        <div key={group.label}>
-          <p className="mb-1.5 px-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{group.label}</p>
-          <div className="space-y-0.5">
-            {group.links.map(({ href, label, icon: Icon }) => {
-              const isActive = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
-              return (
+    <>
+      {/* Phones/tablets: a horizontal scrollable row, same pattern as the vendor/rider dashboards. */}
+      <nav aria-label="Admin dashboard" className="no-scrollbar -mx-4 flex gap-1 overflow-x-auto px-4 pb-2 lg:hidden">
+        {ALL_LINKS.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            aria-current={isActive(href) ? "page" : undefined}
+            className={cn(
+              "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-control px-3.5 py-2.5 text-sm font-medium",
+              isActive(href) ? "bg-brand-primary text-white" : "text-brand-dark hover:bg-brand-bg",
+            )}
+          >
+            <Icon className="h-4 w-4" aria-hidden />
+            {label}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Desktop: full grouped sidebar. */}
+      <nav aria-label="Admin dashboard" className="hidden space-y-5 lg:block">
+        {GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="mb-1.5 px-2 text-[11px] font-bold uppercase tracking-wide text-gray-400">{group.label}</p>
+            <div className="space-y-0.5">
+              {group.links.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
                   href={href}
-                  aria-current={isActive ? "page" : undefined}
+                  aria-current={isActive(href) ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-2.5 rounded-control px-3 py-2 text-sm font-medium",
-                    isActive ? "bg-brand-primary text-white" : "text-brand-dark hover:bg-brand-bg",
+                    isActive(href) ? "bg-brand-primary text-white" : "text-brand-dark hover:bg-brand-bg",
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden />
                   {label}
                 </Link>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </nav>
+        ))}
+      </nav>
+    </>
   );
 }

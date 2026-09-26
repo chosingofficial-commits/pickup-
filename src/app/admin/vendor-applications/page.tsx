@@ -63,6 +63,8 @@ export default async function AdminVendorApplicationsPage({
                 tradeLicenseDocUrl: app.tradeLicenseDocUrl ?? "",
                 nationalIdNo: app.nationalIdNo ?? "",
                 nationalIdDocUrl: app.nationalIdDocUrl ?? "",
+                paymentMethod: app.paymentMethod,
+                paymentReference: app.paymentReference,
                 createdAt: app.createdAt.toISOString(),
               }}
             />

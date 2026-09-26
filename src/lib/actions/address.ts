@@ -16,7 +16,7 @@ export async function addAddressAction(_prev: ActionState, formData: FormData): 
     label: formData.get("label") || "Home",
     recipientName: formData.get("recipientName"),
     recipientPhone: formData.get("recipientPhone"),
-    neighbourhoodId: formData.get("neighbourhoodId"),
+    neighbourhoodId: formData.get("neighbourhoodId") || "",
     streetOrVillage: formData.get("streetOrVillage"),
     landmark: formData.get("landmark"),
   });

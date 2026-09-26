@@ -72,7 +72,7 @@ export default async function HomePage() {
         imageUrl={settings[SITE_SETTING_KEYS.heroImageUrl]}
       />
 
-      <AdSlot code="HERO_BANNER" className="mx-4 -mt-4 sm:mx-6 lg:mx-8" />
+      <AdSlot code="HERO_BANNER" className="mx-4 -mt-4 sm:mx-6 lg:mx-8" aspect="aspect-[3/1] lg:aspect-[5/1]" />
 
       <Section title={dict.home.categoriesTitle}>
         <CategoryGrid categories={categories} />

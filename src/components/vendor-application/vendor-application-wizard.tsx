@@ -4,12 +4,16 @@ import { useActionState, useState } from "react";
 import { Check } from "lucide-react";
 import { submitVendorApplicationAction } from "@/lib/actions/vendor-application";
 import { initialActionState } from "@/lib/actions/types";
-import { Input, Label, FieldError, Textarea } from "@/components/ui/input";
+import { Input, Label, FieldError, Textarea, Select } from "@/components/ui/input";
 import { FileUploadField } from "@/components/forms/file-upload-field";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { cn } from "@/lib/utils";
 
 const CUISINE_SUGGESTIONS = ["Bangla food", "Biriyani", "Fast food", "Chinese", "Bakery", "Snacks", "Indigenous food", "Beverages"];
+
+const REGISTRATION_FEE = 1000;
+const MONTHLY_SUBSCRIPTION_FEE = 500;
+const PAYMENT_NUMBER = "01310790678";
 
 export function VendorApplicationWizard({
   categories,
@@ -25,8 +29,8 @@ export function VendorApplicationWizard({
 
   const isRestaurant = businessType === "RESTAURANT";
   const steps = isRestaurant
-    ? ["Business type", "Address", "Cuisine", "Hours", "Documents", "Review"]
-    : ["Business type", "Address", "Categories", "Documents", "Review"];
+    ? ["Business type", "Address", "Cuisine", "Hours", "Documents", "Payment", "Review"]
+    : ["Business type", "Address", "Categories", "Documents", "Payment", "Review"];
   const lastStep = steps.length - 1;
 
   function next() {
@@ -38,17 +42,19 @@ export function VendorApplicationWizard({
 
   // Maps the visible wizard step index to a stable section key so restaurant/vendor
   // flows (which have a different number of steps) show the right fields.
-  const sectionForStep = (i: number): "type" | "address" | "categories" | "hours" | "documents" | "review" => {
+  const sectionForStep = (i: number): "type" | "address" | "categories" | "hours" | "documents" | "payment" | "review" => {
     if (i === 0) return "type";
     if (i === 1) return "address";
     if (isRestaurant) {
       if (i === 2) return "categories";
       if (i === 3) return "hours";
       if (i === 4) return "documents";
+      if (i === 5) return "payment";
       return "review";
     }
     if (i === 2) return "categories";
     if (i === 3) return "documents";
+    if (i === 4) return "payment";
     return "review";
   };
   const activeSection = sectionForStep(step);
@@ -97,6 +103,9 @@ export function VendorApplicationWizard({
       case "logoUrl":
       case "coverImageUrl":
         return "documents";
+      case "paymentMethod":
+      case "paymentReference":
+        return "payment";
       default:
         return "review";
     }
@@ -251,6 +260,47 @@ export function VendorApplicationWizard({
         </div>
         <FileUploadField name="logoUrl" label="Logo (optional)" folder="vendor-logos" />
         <FileUploadField name="coverImageUrl" label="Cover image (optional)" folder="vendor-covers" />
+      </div>
+
+      <div className={cn("space-y-4 rounded-card border border-border-brand bg-white p-5", activeSection !== "payment" && "hidden")}>
+        <h2 className="font-heading text-base font-bold text-brand-dark">Registration payment</h2>
+        <div className="rounded-control bg-brand-bg p-4 text-sm text-brand-dark">
+          <p>
+            A one-time registration fee of <strong>৳{REGISTRATION_FEE}</strong> applies before your application is approved,
+            plus a <strong>৳{MONTHLY_SUBSCRIPTION_FEE}/month</strong> subscription once you&apos;re live on Pick Up.
+          </p>
+          <p className="mt-2">
+            Send <strong>৳{REGISTRATION_FEE}</strong> via bKash or Nagad (Send Money, personal number) to:
+          </p>
+          <p className="mt-1 font-heading text-lg font-bold text-brand-primary">{PAYMENT_NUMBER}</p>
+          <p className="mt-2 text-xs text-gray-600">Or pay in cash in person — ask our team for details after submitting.</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="paymentMethod">Payment method</Label>
+            <Select id="paymentMethod" name="paymentMethod" defaultValue="" required aria-invalid={!!state.fieldErrors?.paymentMethod}>
+              <option value="" disabled>
+                Select how you paid
+              </option>
+              <option value="BKASH">bKash</option>
+              <option value="NAGAD">Nagad</option>
+              <option value="CASH">Cash (in person)</option>
+            </Select>
+            <FieldError>{state.fieldErrors?.paymentMethod?.[0]}</FieldError>
+          </div>
+          <div>
+            <Label htmlFor="paymentReference">Transaction ID</Label>
+            <Input
+              id="paymentReference"
+              name="paymentReference"
+              placeholder='E.g. 8N7A2XYZ1 (or "Cash" if paid in person)'
+              required
+              aria-invalid={!!state.fieldErrors?.paymentReference}
+            />
+            <FieldError>{state.fieldErrors?.paymentReference?.[0]}</FieldError>
+          </div>
+        </div>
       </div>
 
       <div className={cn("space-y-4 rounded-card border border-border-brand bg-white p-5", activeSection !== "review" && "hidden")}>

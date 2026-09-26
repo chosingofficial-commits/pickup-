@@ -19,5 +19,7 @@ export const vendorApplicationSchema = z.object({
   bankOrMfsAccount: z.string().trim().min(3, "Enter a bank or mobile financial account number"),
   logoUrl: z.string().url().optional().or(z.literal("")),
   coverImageUrl: z.string().url().optional().or(z.literal("")),
+  paymentMethod: z.enum(["BKASH", "NAGAD", "CASH"], { message: "Choose how you paid the registration fee" }),
+  paymentReference: z.string().trim().min(1, "Enter the transaction ID (or write \"Cash\" if paid in person)"),
   agreementAccepted: z.literal("1", { message: "You must accept the vendor agreement" }),
 });

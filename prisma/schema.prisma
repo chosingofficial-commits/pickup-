@@ -42,6 +42,12 @@ enum ApplicationStatus {
   SUSPENDED
 }
 
+enum RegistrationPaymentMethod {
+  BKASH
+  NAGAD
+  CASH
+}
+
 enum ProductAvailability {
   AVAILABLE
   OUT_OF_STOCK
@@ -479,6 +485,8 @@ model VendorApplication {
   businessDescription String?
   logoUrl           String?
   coverImageUrl     String?
+  paymentMethod     RegistrationPaymentMethod?
+  paymentReference  String?
   status            ApplicationStatus @default(DRAFT)
   adminNote         String?
   reviewedByUserId  String?

@@ -22,4 +22,5 @@ export async function setRiderApprovalAction(formData: FormData): Promise<void> 
 
   await recordAuditLog({ actorUserId: admin.id, action: isApproved ? "RIDER_APPROVED" : "RIDER_SUSPENDED", entityType: "RiderProfile", entityId: riderId });
   revalidatePath("/admin/riders");
+  revalidatePath("/admin/rider-applications");
 }

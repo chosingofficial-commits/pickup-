@@ -36,6 +36,8 @@ export async function submitVendorApplicationAction(_prev: ActionState, formData
     bankOrMfsAccount: formData.get("bankOrMfsAccount"),
     logoUrl: formData.get("logoUrl"),
     coverImageUrl: formData.get("coverImageUrl"),
+    paymentMethod: formData.get("paymentMethod"),
+    paymentReference: formData.get("paymentReference"),
     agreementAccepted: formData.get("agreementAccepted"),
   });
 
@@ -65,6 +67,8 @@ export async function submitVendorApplicationAction(_prev: ActionState, formData
       bankOrMfsAccount: parsed.data.bankOrMfsAccount,
       logoUrl: parsed.data.logoUrl || null,
       coverImageUrl: parsed.data.coverImageUrl || null,
+      paymentMethod: parsed.data.paymentMethod,
+      paymentReference: parsed.data.paymentReference,
       status: "SUBMITTED",
     },
   });

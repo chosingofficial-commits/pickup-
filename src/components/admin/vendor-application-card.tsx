@@ -19,6 +19,8 @@ export type VendorApplicationRow = {
   tradeLicenseDocUrl: string;
   nationalIdNo: string;
   nationalIdDocUrl: string;
+  paymentMethod: string | null;
+  paymentReference: string | null;
   createdAt: string;
 };
 
@@ -55,6 +57,17 @@ export function VendorApplicationCard({ application }: { application: VendorAppl
         <Link href={application.nationalIdDocUrl} target="_blank" className="text-brand-primary hover:underline">
           View document
         </Link>
+      </div>
+
+      <div className="mt-2 rounded-control bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <strong>Registration payment:</strong>{" "}
+        {application.paymentMethod ? (
+          <>
+            {application.paymentMethod} · Ref: {application.paymentReference || "—"} — verify this before approving.
+          </>
+        ) : (
+          "Not provided — verify payment before approving."
+        )}
       </div>
 
       {done ? (
