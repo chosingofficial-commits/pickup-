@@ -24,7 +24,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
             locale === code ? "bg-brand-primary text-white" : "text-brand-dark hover:bg-brand-bg",
           )}
         >
-          {code === "en" ? "EN" : "বাং"}
+          {code === "en" ? "EN" : "BN"}
         </button>
       ))}
     </div>

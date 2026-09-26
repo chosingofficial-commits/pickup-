@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { fontVariables } from "@/lib/fonts";
+import { getFontVariables } from "@/lib/fonts";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { LocaleProvider } from "@/components/providers/locale-provider";
 import { publicEnv } from "@/lib/env/public";
@@ -40,7 +40,7 @@ export default async function RootLayout({
   const { locale, dict } = await getDictionary();
 
   return (
-    <html lang={locale} className={`${fontVariables} h-full antialiased`}>
+    <html lang={locale} className={`${getFontVariables(locale)} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-white text-brand-dark">
         <LocaleProvider locale={locale} dict={dict}>
           {children}
