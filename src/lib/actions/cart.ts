@@ -172,6 +172,6 @@ export async function toggleWishlistAction(_prev: ActionState, formData: FormDat
   }
 
   revalidatePath(redirectPath);
-  revalidatePath("/wishlist");
+  revalidatePath("/account/wishlist");
   return { status: "success" };
 }

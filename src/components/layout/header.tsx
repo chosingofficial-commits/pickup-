@@ -53,7 +53,7 @@ export async function Header() {
           <LanguageSwitcher className="hidden sm:inline-flex" />
 
           <Link
-            href="/wishlist"
+            href="/account/wishlist"
             aria-label={dict.nav.wishlist}
             className="relative hidden rounded-control p-2.5 text-brand-dark hover:bg-brand-bg sm:inline-flex"
           >
