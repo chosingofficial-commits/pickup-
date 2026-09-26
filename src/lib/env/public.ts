@@ -7,7 +7,9 @@ export const publicEnv = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
   currency: process.env.NEXT_PUBLIC_CURRENCY ?? "BDT",
-  currencySymbol: process.env.NEXT_PUBLIC_CURRENCY_SYMBOL ?? "৳",
+  // Text-based, not the ৳ glyph: keeps English-locale pages from needing
+  // the ~108KB Bengali font just to render a currency prefix (see fonts.ts).
+  currencySymbol: process.env.NEXT_PUBLIC_CURRENCY_SYMBOL ?? "Tk",
   timezone: process.env.NEXT_PUBLIC_TIMEZONE ?? "Asia/Dhaka",
   defaultLocale: (process.env.NEXT_PUBLIC_DEFAULT_LOCALE as "en" | "bn") ?? "en",
   whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+8801700000000",

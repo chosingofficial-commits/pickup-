@@ -25,11 +25,11 @@ export function CreateCampaignForm({ advertisementId, placements }: { advertisem
       <select name="placementId" required className="h-9 rounded-control border border-border-brand px-2 text-xs">
         {placements.map((p) => (
           <option key={p.id} value={p.id}>
-            {p.name} (৳{p.dailyPrice}/day)
+            {p.name} (Tk {p.dailyPrice}/day)
           </option>
         ))}
       </select>
-      <input name="amount" type="number" min="0" step="0.01" placeholder="Amount (৳)" required className="h-9 rounded-control border border-border-brand px-2 text-xs" />
+      <input name="amount" type="number" min="0" step="0.01" placeholder="Amount (Tk)" required className="h-9 rounded-control border border-border-brand px-2 text-xs" />
       <input name="startDate" type="date" required className="h-9 rounded-control border border-border-brand px-2 text-xs" />
       <input name="endDate" type="date" required className="h-9 rounded-control border border-border-brand px-2 text-xs" />
       <button type="submit" className="col-span-2 rounded-control bg-brand-primary px-3 py-2 text-xs font-semibold text-white hover:bg-brand-primary-hover">

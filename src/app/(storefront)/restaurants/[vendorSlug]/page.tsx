@@ -46,7 +46,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
           address: { "@type": "PostalAddress", streetAddress: vendor.addressText, addressLocality: "Khagrachari Sadar", addressCountry: "BD" },
           aggregateRating:
             vendor.ratingCount > 0 ? { "@type": "AggregateRating", ratingValue: Number(vendor.ratingAvg), reviewCount: vendor.ratingCount } : undefined,
-          priceRange: "৳৳",
+          priceRange: "TkTk",
         }}
       />
       <div className="relative aspect-[3/1] w-full sm:aspect-[4/1]">

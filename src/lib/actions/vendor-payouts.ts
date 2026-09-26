@@ -22,7 +22,7 @@ export async function requestPayoutAction(_prev: ActionState, formData: FormData
   const available = stats.earnings - alreadyPending - Number(alreadyPaidAgg._sum.amount ?? 0);
 
   if (parsed.data.amount > available) {
-    return { status: "error", message: `You can request up to ৳${available.toFixed(2)}.` };
+    return { status: "error", message: `You can request up to Tk ${available.toFixed(2)}.` };
   }
 
   const now = new Date();

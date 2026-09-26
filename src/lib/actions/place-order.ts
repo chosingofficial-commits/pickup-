@@ -178,7 +178,7 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
             userId: vendor.userId,
             type: "ORDER",
             title: "New order received",
-            body: `Order ${order.orderNumber} — ৳${orderTotal.toFixed(2)}, ${item.group.lines.length} item${item.group.lines.length === 1 ? "" : "s"}.`,
+            body: `Order ${order.orderNumber} — Tk ${orderTotal.toFixed(2)}, ${item.group.lines.length} item${item.group.lines.length === 1 ? "" : "s"}.`,
             linkUrl: `/vendor/orders/${order.id}`,
           },
         });

@@ -27,7 +27,7 @@ export function DeliveryZoneRow({
       <form ref={formRef} action={updateDeliveryZoneAction} className="flex items-center gap-2">
         <input type="hidden" name="zoneId" value={zoneId} />
         <label className="flex items-center gap-1 text-xs text-gray-500">
-          ৳
+          Tk
           <input
             type="number"
             name="deliveryFee"

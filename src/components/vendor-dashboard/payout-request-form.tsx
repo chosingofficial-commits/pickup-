@@ -14,7 +14,7 @@ export function PayoutRequestForm({ available }: { available: number }) {
       {state.status === "error" && <p className="text-sm text-red-600">{state.message}</p>}
       {state.status === "success" && <p className="text-sm text-brand-primary">{state.message}</p>}
       <div>
-        <Label htmlFor="amount">Amount to withdraw (available: ৳{available.toFixed(2)})</Label>
+        <Label htmlFor="amount">Amount to withdraw (available: Tk {available.toFixed(2)})</Label>
         <Input id="amount" name="amount" type="number" step="0.01" min="0" max={available} required />
         <FieldError>{state.fieldErrors?.amount?.[0]}</FieldError>
       </div>

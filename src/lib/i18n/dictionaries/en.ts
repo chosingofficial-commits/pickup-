@@ -55,7 +55,7 @@ const en = {
     freeDelivery: "Free delivery",
     sponsored: "Sponsored",
     advertisement: "Advertisement",
-    currencySymbol: "৳",
+    currencySymbol: "Tk",
   },
   home: {
     heroTitle: "Groceries, food, and daily essentials — delivered fast",

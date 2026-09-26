@@ -63,10 +63,10 @@ export default async function HomePage() {
           url: publicEnv.appUrl,
           areaServed: areaLabel ?? "Khagrachari Sadar",
           address: { "@type": "PostalAddress", addressLocality: "Khagrachari Sadar", addressCountry: "BD" },
-          priceRange: "৳",
+          priceRange: "Tk",
         }}
       />
-      <AnnouncementBar message="🎉 Free delivery on your first order over ৳500 in Khagrachari Sadar!" />
+      <AnnouncementBar message="🎉 Free delivery on your first order over Tk 500 in Khagrachari Sadar!" />
 
       <HeroSection
         areaLabel={areaLabel}

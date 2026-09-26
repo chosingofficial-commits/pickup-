@@ -12,7 +12,7 @@ export function formatBDT(amount: number | string | { toString(): string }): str
     minimumFractionDigits: value % 1 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(value);
-  return `${publicEnv.currencySymbol}${formatted}`;
+  return `${publicEnv.currencySymbol} ${formatted}`;
 }
 
 export function slugify(input: string): string {

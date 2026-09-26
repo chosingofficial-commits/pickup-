@@ -6,8 +6,8 @@ import { computeCouponDiscount } from "./totals";
 
 /**
  * Integration tests against the seeded demo database (see prisma/seed.ts),
- * which ships WELCOME50 (FIXED ৳50, min ৳300) and SAVE10 (PERCENTAGE 10%,
- * max ৳100, min ৳500) as platform-wide coupons, and a demo customer.
+ * which ships WELCOME50 (FIXED Tk 50, min Tk 300) and SAVE10 (PERCENTAGE 10%,
+ * max Tk 100, min Tk 500) as platform-wide coupons, and a demo customer.
  */
 describe("validateCoupon", () => {
   let customerId: string;
@@ -41,7 +41,7 @@ describe("validateCoupon", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.coupon.type).toBe("PERCENTAGE");
-      // 10% of 2000 is 200, but the coupon caps at ৳100.
+      // 10% of 2000 is 200, but the coupon caps at Tk 100.
       expect(computeCouponDiscount(2000, result.coupon)).toBe(100);
     }
   });

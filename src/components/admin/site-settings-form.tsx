@@ -28,7 +28,7 @@ export function SiteSettingsForm({ defaults }: { defaults: Record<string, string
           <Input id="whatsappNumber" name="whatsappNumber" defaultValue={defaults.whatsapp_number} />
         </div>
         <div>
-          <Label htmlFor="freeDeliveryThreshold">Free delivery threshold (৳)</Label>
+          <Label htmlFor="freeDeliveryThreshold">Free delivery threshold (Tk)</Label>
           <Input id="freeDeliveryThreshold" name="freeDeliveryThreshold" type="number" min="0" defaultValue={defaults.free_delivery_threshold} />
         </div>
         <div>
@@ -40,7 +40,7 @@ export function SiteSettingsForm({ defaults }: { defaults: Record<string, string
           <Input id="vatRatePct" name="vatRatePct" type="number" min="0" max="100" step="0.5" defaultValue={defaults.vat_rate_pct} />
         </div>
         <div>
-          <Label htmlFor="riderDeliveryRate">Rider pay per delivery (৳, estimate)</Label>
+          <Label htmlFor="riderDeliveryRate">Rider pay per delivery (Tk, estimate)</Label>
           <Input id="riderDeliveryRate" name="riderDeliveryRate" type="number" min="0" defaultValue={defaults.rider_delivery_rate} />
         </div>
       </div>

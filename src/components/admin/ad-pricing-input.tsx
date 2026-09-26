@@ -8,7 +8,7 @@ export function AdPricingInput({ pricingId, price }: { pricingId: string; price:
   return (
     <form ref={formRef} action={updateAdPricingAction} className="flex items-center gap-1">
       <input type="hidden" name="pricingId" value={pricingId} />
-      <span className="text-xs text-gray-500">৳</span>
+      <span className="text-xs text-gray-500">Tk</span>
       <input
         type="number"
         name="price"

@@ -31,7 +31,7 @@ export function AdminCouponForm() {
           <Label htmlFor="ac-type">Discount type</Label>
           <Select id="ac-type" name="type" defaultValue="FIXED">
             <option value="PERCENTAGE">Percentage</option>
-            <option value="FIXED">Fixed amount (৳)</option>
+            <option value="FIXED">Fixed amount (Tk)</option>
           </Select>
         </div>
         <div>
@@ -40,11 +40,11 @@ export function AdminCouponForm() {
           <FieldError>{state.fieldErrors?.value?.[0]}</FieldError>
         </div>
         <div>
-          <Label htmlFor="ac-min">Minimum order (৳)</Label>
+          <Label htmlFor="ac-min">Minimum order (Tk)</Label>
           <Input id="ac-min" name="minOrderAmount" type="number" step="0.01" min="0" defaultValue={0} />
         </div>
         <div>
-          <Label htmlFor="ac-max">Max discount (optional, ৳)</Label>
+          <Label htmlFor="ac-max">Max discount (optional, Tk)</Label>
           <Input id="ac-max" name="maxDiscountAmount" type="number" step="0.01" min="0" />
         </div>
         <div>

@@ -137,7 +137,7 @@ export function IncomingDeliveryAlert({ isOnline }: { isOnline: boolean }) {
           Deliver to {current.neighbourhoodName} · {current.itemCount} item{current.itemCount === 1 ? "" : "s"}
           {current.distanceKm != null && ` · ${current.distanceKm} km from you`}
         </p>
-        <p className="mt-2 font-heading text-lg font-bold text-brand-dark">৳ {current.total}</p>
+        <p className="mt-2 font-heading text-lg font-bold text-brand-dark">Tk {current.total}</p>
 
         {queue.length > 1 && <p className="mt-2 text-xs text-gray-500">+{queue.length - 1} more available</p>}
 

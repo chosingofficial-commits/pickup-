@@ -97,7 +97,7 @@ export function AdvertisementRequestForm({ defaults }: { defaults: { name: strin
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="budget">Advertising budget (৳)</Label>
+          <Label htmlFor="budget">Advertising budget (Tk)</Label>
           <Input id="budget" name="budget" type="number" min="0" step="0.01" required aria-invalid={!!state.fieldErrors?.budget} />
           <FieldError>{state.fieldErrors?.budget?.[0]}</FieldError>
         </div>

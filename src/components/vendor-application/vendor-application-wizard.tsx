@@ -266,11 +266,11 @@ export function VendorApplicationWizard({
         <h2 className="font-heading text-base font-bold text-brand-dark">Registration payment</h2>
         <div className="rounded-control bg-brand-bg p-4 text-sm text-brand-dark">
           <p>
-            A one-time registration fee of <strong>৳{REGISTRATION_FEE}</strong> applies before your application is approved,
-            plus a <strong>৳{MONTHLY_SUBSCRIPTION_FEE}/month</strong> subscription once you&apos;re live on Pick Up.
+            A one-time registration fee of <strong>Tk {REGISTRATION_FEE}</strong> applies before your application is approved,
+            plus a <strong>Tk {MONTHLY_SUBSCRIPTION_FEE}/month</strong> subscription once you&apos;re live on Pick Up.
           </p>
           <p className="mt-2">
-            Send <strong>৳{REGISTRATION_FEE}</strong> via bKash or Nagad (Send Money, personal number) to:
+            Send <strong>Tk {REGISTRATION_FEE}</strong> via bKash or Nagad (Send Money, personal number) to:
           </p>
           <p className="mt-1 font-heading text-lg font-bold text-brand-primary">{PAYMENT_NUMBER}</p>
           <p className="mt-2 text-xs text-gray-600">Or pay in cash in person — ask our team for details after submitting.</p>

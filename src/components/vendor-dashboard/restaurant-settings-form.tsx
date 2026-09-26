@@ -22,7 +22,7 @@ export function RestaurantSettingsForm({
           <Input id="preparationTimeMinutes" name="preparationTimeMinutes" type="number" min={5} defaultValue={defaults.preparationTimeMinutes} />
         </div>
         <div>
-          <Label htmlFor="minimumOrderAmount">Minimum order amount (৳)</Label>
+          <Label htmlFor="minimumOrderAmount">Minimum order amount (Tk)</Label>
           <Input id="minimumOrderAmount" name="minimumOrderAmount" type="number" min={0} defaultValue={defaults.minimumOrderAmount} />
         </div>
       </div>

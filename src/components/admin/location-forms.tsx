@@ -144,7 +144,7 @@ export function AddNeighbourhoodForm({ towns }: { towns: Option[] }) {
         <Input id="nb-name" name="name" required />
       </div>
       <div>
-        <Label htmlFor="nb-fee">Delivery fee (৳)</Label>
+        <Label htmlFor="nb-fee">Delivery fee (Tk)</Label>
         <Input id="nb-fee" name="deliveryFee" type="number" min="0" step="1" required />
       </div>
       <div>
@@ -195,7 +195,7 @@ export function AddDeliveryZoneByRadiusForm({ towns }: { towns: Option[] }) {
         <Input id="dzr-name" name="name" required />
       </div>
       <div>
-        <Label htmlFor="dzr-fee">Delivery fee (৳)</Label>
+        <Label htmlFor="dzr-fee">Delivery fee (Tk)</Label>
         <Input id="dzr-fee" name="deliveryFee" type="number" min="0" step="1" required />
       </div>
       <div>

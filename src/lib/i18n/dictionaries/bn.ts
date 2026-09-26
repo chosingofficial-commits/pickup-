@@ -57,7 +57,7 @@ const bn: Dictionary = {
     freeDelivery: "ফ্রি ডেলিভারি",
     sponsored: "স্পনসরড",
     advertisement: "বিজ্ঞাপন",
-    currencySymbol: "৳",
+    currencySymbol: "Tk",
   },
   home: {
     heroTitle: "মুদি পণ্য, খাবার ও নিত্যপ্রয়োজনীয় জিনিস — দ্রুত ডেলিভারি",

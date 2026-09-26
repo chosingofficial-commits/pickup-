@@ -67,7 +67,7 @@ export default function TermsPage() {
 
         <h2 className="font-heading text-brand-dark">5. Products, pricing, and availability</h2>
         <p>
-          Prices are shown in Bangladeshi Taka (৳) and are set by each Vendor, plus any delivery fee, applicable
+          Prices are shown in Bangladeshi Taka (Tk) and are set by each Vendor, plus any delivery fee, applicable
           tax, and platform charges disclosed at checkout. Vendors are responsible for keeping stock levels,
           availability, and product descriptions accurate; Pick Up does not guarantee that a listed product is in
           stock or that photos exactly match what is delivered. We and Vendors may correct pricing or listing

@@ -70,7 +70,7 @@ export function ProductForm({
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
-          <Label htmlFor="price">Price (৳)</Label>
+          <Label htmlFor="price">Price (Tk)</Label>
           <Input id="price" name="price" type="number" step="0.01" min="0" defaultValue={defaults?.price} required aria-invalid={!!state.fieldErrors?.price} />
           <FieldError>{state.fieldErrors?.price?.[0]}</FieldError>
         </div>

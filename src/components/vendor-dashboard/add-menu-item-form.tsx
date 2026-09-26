@@ -20,7 +20,7 @@ export function AddMenuItemForm({ menuId }: { menuId: string }) {
         <FieldError>{state.fieldErrors?.name?.[0]}</FieldError>
       </div>
       <div>
-        <Label htmlFor={`item-price-${menuId}`}>Price (৳)</Label>
+        <Label htmlFor={`item-price-${menuId}`}>Price (Tk)</Label>
         <Input id={`item-price-${menuId}`} name="price" type="number" step="0.01" min="0" required aria-invalid={!!state.fieldErrors?.price} />
         <FieldError>{state.fieldErrors?.price?.[0]}</FieldError>
       </div>

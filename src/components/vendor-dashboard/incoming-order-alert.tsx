@@ -140,7 +140,7 @@ export function IncomingOrderAlert({ businessType }: { businessType: BusinessTyp
           {current.customerName} · {current.itemCount} item{current.itemCount === 1 ? "" : "s"}
         </p>
         {current.addressLabel && <p className="text-sm text-gray-600">{current.addressLabel}</p>}
-        <p className="mt-2 font-heading text-lg font-bold text-brand-dark">৳ {current.total}</p>
+        <p className="mt-2 font-heading text-lg font-bold text-brand-dark">Tk {current.total}</p>
 
         {queue.length > 1 && <p className="mt-2 text-xs text-gray-500">+{queue.length - 1} more waiting</p>}
 

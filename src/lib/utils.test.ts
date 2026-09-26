@@ -3,24 +3,24 @@ import { formatBDT, slugify, cn } from "./utils";
 
 describe("formatBDT", () => {
   it("formats a whole number without decimals", () => {
-    expect(formatBDT(500)).toBe("৳500");
+    expect(formatBDT(500)).toBe("Tk 500");
   });
 
   it("formats a fractional amount with two decimals", () => {
-    expect(formatBDT(199.5)).toBe("৳199.50");
+    expect(formatBDT(199.5)).toBe("Tk 199.50");
   });
 
   it("accepts a numeric string", () => {
-    expect(formatBDT("650")).toBe("৳650");
+    expect(formatBDT("650")).toBe("Tk 650");
   });
 
   it("accepts a Prisma Decimal-like object with toString()", () => {
     const decimalLike = { toString: () => "1234.56" };
-    expect(formatBDT(decimalLike)).toBe("৳1,234.56");
+    expect(formatBDT(decimalLike)).toBe("Tk 1,234.56");
   });
 
   it("adds thousands separators", () => {
-    expect(formatBDT(12000)).toBe("৳12,000");
+    expect(formatBDT(12000)).toBe("Tk 12,000");
   });
 });
 
