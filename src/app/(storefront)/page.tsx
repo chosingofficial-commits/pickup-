@@ -32,7 +32,11 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const user = await getCurrentUser();
+  // getCurrentUser() is only needed here to scope favoritedVendorIds to the
+  // signed-in visitor — chain off the same promise instead of awaiting it
+  // up front, so it runs alongside the other independent queries rather
+  // than serializing in front of them.
+  const userPromise = getCurrentUser();
   const [{ dict }, areaLabel, categories, popularProducts, weeklyGroceryPicks, flashDeals, restaurants, neighbourhoods, reviews, settings, favoritedVendorIds] =
     await Promise.all([
       getDictionary(),
@@ -45,7 +49,7 @@ export default async function HomePage() {
       getOrderableNeighbourhoods(),
       getFeaturedReviews(6),
       getSiteSettings(),
-      user ? getFavoritedVendorIds(user.id) : Promise.resolve(new Set<string>()),
+      userPromise.then((user) => (user ? getFavoritedVendorIds(user.id) : new Set<string>())),
     ]);
 
   return (

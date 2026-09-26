@@ -22,16 +22,18 @@ const NAV_LINKS = [
 ];
 
 export async function Header() {
-  const [{ dict }, user, selectedLocation, neighbourhoods] = await Promise.all([
+  // Cart/wishlist counts only depend on the user, not on dictionary/location —
+  // chain them off the same user promise instead of waiting for an entire
+  // first round of fetches to finish before starting a second one. Header
+  // renders on every page, so this round-trip was paid on every navigation.
+  const userPromise = getCurrentUser();
+  const [{ dict }, user, selectedLocation, neighbourhoods, cartCount, wishlistCount] = await Promise.all([
     getDictionary(),
-    getCurrentUser(),
+    userPromise,
     getSelectedLocation(),
     getOrderableNeighbourhoods(),
-  ]);
-
-  const [cartCount, wishlistCount] = await Promise.all([
-    getCartItemCount(user?.id),
-    getWishlistItemCount(user?.id),
+    userPromise.then((u) => getCartItemCount(u?.id)),
+    userPromise.then((u) => getWishlistItemCount(u?.id)),
   ]);
 
   const neighbourhoodOptions = neighbourhoods.map((n) => ({ id: n.id, name: n.name, townName: n.town.name }));

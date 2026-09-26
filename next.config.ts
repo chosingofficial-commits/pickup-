@@ -9,9 +9,10 @@ const nextConfig: NextConfig = {
   images: {
     // Product/vendor/ad images are uploaded to whatever S3-compatible
     // endpoint an operator configures at deploy time (see StorageAdapter),
-    // so the hostname isn't known at build time. Optimization is disabled
-    // rather than allow-listing every possible provider domain.
-    unoptimized: true,
+    // so the hostname isn't known at build time — allow any https origin
+    // rather than disabling optimization outright, which would also skip
+    // resizing/format conversion for the app's own local /public assets.
+    remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
 };
 

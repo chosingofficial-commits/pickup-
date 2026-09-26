@@ -18,11 +18,11 @@ export default async function RestaurantsPage({
   searchParams: Promise<{ cuisine?: string; q?: string }>;
 }) {
   const sp = await searchParams;
-  const user = await getCurrentUser();
+  const userPromise = getCurrentUser();
   const [restaurants, cuisines, favoritedVendorIds] = await Promise.all([
     getRestaurantsList(sp),
     listCuisines(),
-    user ? getFavoritedVendorIds(user.id) : Promise.resolve(new Set<string>()),
+    userPromise.then((user) => (user ? getFavoritedVendorIds(user.id) : new Set<string>())),
   ]);
 
   return (
