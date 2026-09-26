@@ -95,7 +95,7 @@ export async function Footer() {
           <p>
             © {year} Pick Up. {dict.footer.rights}
           </p>
-          <p>Khagrachari Sadar, Bangladesh · Prices shown in BDT (৳)</p>
+          <p>Khagrachari Sadar, Bangladesh · Prices shown in BDT (Tk)</p>
         </Container>
       </div>
     </footer>
