@@ -25,7 +25,12 @@ export async function getVendorDashboardStats(vendorId: string) {
   const [orderCount, revenueAgg, commissionAgg, payoutAgg, pendingOrders] = await Promise.all([
     db.order.count({ where: { vendorId, status: { notIn: ["CANCELLED", "FAILED_DELIVERY"] } } }),
     db.order.aggregate({ where: { vendorId, status: "DELIVERED" }, _sum: { total: true } }),
-    db.commissionEntry.aggregate({ where: { vendorId }, _sum: { commissionAmount: true, vendorEarnings: true } }),
+    // Only orders that actually reached DELIVERED count toward earnings —
+    // CommissionEntry rows are written at order-placement time, well before
+    // delivery, so an unfiltered sum here would count in-progress, cancelled,
+    // failed, returned, and refunded orders as available-for-payout money the
+    // platform hasn't (and may never) collect.
+    db.commissionEntry.aggregate({ where: { vendorId, order: { status: "DELIVERED" } }, _sum: { commissionAmount: true, vendorEarnings: true } }),
     db.vendorPayout.aggregate({ where: { vendorId, status: "PENDING" }, _sum: { amount: true } }),
     db.order.count({ where: { vendorId, status: { in: ["ORDER_PLACED", "CONFIRMED", "PREPARING", "READY_FOR_PICKUP"] } } }),
   ]);

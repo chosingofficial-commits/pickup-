@@ -19,7 +19,9 @@ export async function getAdminOverviewStats() {
     db.vendor.count({ where: { isApproved: true, isSuspended: false } }),
     db.vendorApplication.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
     db.riderProfile.count(),
-    db.commissionEntry.aggregate({ _sum: { commissionAmount: true } }),
+    // Same DELIVERED-only rule as totalSalesAgg/getDailySalesSeries above —
+    // commission on an order that hasn't been delivered isn't realized revenue.
+    db.commissionEntry.aggregate({ where: { order: { status: "DELIVERED" } }, _sum: { commissionAmount: true } }),
     db.refund.count({ where: { status: "REQUESTED" } }),
     db.vendorPayout.count({ where: { status: "PENDING" } }),
   ]);
