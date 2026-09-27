@@ -1,10 +1,64 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
+import { toPoisha } from "@/lib/rider/ledger";
 import type { ActionState } from "./types";
+
+/**
+ * Records one manual ledger entry, guarded by a client-generated idempotency
+ * key so a duplicate form submission (double-click, resubmit-on-error) is
+ * caught here rather than double-recorded. The unique constraint on
+ * idempotencyKey is the real guarantee; the pre-check is a fast path that
+ * also lets us return a friendly "already recorded" message instead of a raw
+ * constraint-violation error.
+ */
+async function recordManualLedgerEntry(params: {
+  adminId: string;
+  riderId: string;
+  type: "CASH_HANDOVER" | "PAYOUT" | "ADJUSTMENT";
+  balanceImpactPoisha: number;
+  amountPoisha: number;
+  idempotencyKey: string;
+  payoutMethod?: string;
+  referenceNo?: string;
+  note?: string;
+}): Promise<ActionState> {
+  const existing = await db.riderLedgerEntry.findUnique({ where: { idempotencyKey: params.idempotencyKey } });
+  if (existing) return { status: "success", message: "Already recorded." };
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.riderLedgerEntry.create({
+        data: {
+          riderId: params.riderId,
+          type: params.type,
+          balanceImpactPoisha: params.balanceImpactPoisha,
+          amountPoisha: params.amountPoisha,
+          payoutMethod: params.payoutMethod || null,
+          referenceNo: params.referenceNo || null,
+          note: params.note || null,
+          idempotencyKey: params.idempotencyKey,
+          createdByUserId: params.adminId,
+        },
+      });
+      await tx.riderProfile.update({ where: { id: params.riderId }, data: { balancePoisha: { increment: params.balanceImpactPoisha } } });
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { status: "success", message: "Already recorded." };
+    }
+    throw err;
+  }
+
+  await recordAuditLog({ actorUserId: params.adminId, action: `RIDER_LEDGER_${params.type}`, entityType: "RiderProfile", entityId: params.riderId, metadata: { amountPoisha: params.amountPoisha } });
+  revalidatePath("/admin/riders");
+  revalidatePath(`/admin/riders/${params.riderId}`);
+  return { status: "success", message: "Saved." };
+}
 
 export async function setRiderApprovalAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
@@ -60,4 +114,67 @@ export async function updateRiderOfficeVerificationAction(_prev: ActionState, fo
   revalidatePath("/admin/riders");
   revalidatePath("/admin/rider-applications");
   return { status: "success", message: "Saved." };
+}
+
+/** Cash the rider hands over reduces what they owe the platform. */
+export async function recordRiderHandoverAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const riderId = String(formData.get("riderId") ?? "");
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
+  const amount = Number(formData.get("amount") ?? 0);
+  const note = String(formData.get("note") ?? "");
+  if (!riderId || !idempotencyKey) return { status: "error", message: "Invalid request." };
+  if (!Number.isFinite(amount) || amount <= 0) return { status: "error", message: "Enter a valid amount." };
+
+  const amountPoisha = toPoisha(amount);
+  return recordManualLedgerEntry({ adminId: admin.id, riderId, type: "CASH_HANDOVER", balanceImpactPoisha: -amountPoisha, amountPoisha, idempotencyKey, note });
+}
+
+/** A payout to the rider reduces what the platform owes them (or increases what they owe, if their balance was already positive). */
+export async function recordRiderPayoutAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const riderId = String(formData.get("riderId") ?? "");
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
+  const amount = Number(formData.get("amount") ?? 0);
+  const payoutMethod = String(formData.get("payoutMethod") ?? "");
+  const referenceNo = String(formData.get("referenceNo") ?? "");
+  const note = String(formData.get("note") ?? "");
+  if (!riderId || !idempotencyKey) return { status: "error", message: "Invalid request." };
+  if (!Number.isFinite(amount) || amount <= 0) return { status: "error", message: "Enter a valid amount." };
+  if (!payoutMethod) return { status: "error", message: "Choose a payout method." };
+
+  const amountPoisha = toPoisha(amount);
+  return recordManualLedgerEntry({ adminId: admin.id, riderId, type: "PAYOUT", balanceImpactPoisha: amountPoisha, amountPoisha, idempotencyKey, payoutMethod, referenceNo, note });
+}
+
+/** A manual correction. The admin picks the direction explicitly — a note is required so every adjustment is explained in the ledger. */
+export async function recordRiderAdjustmentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const riderId = String(formData.get("riderId") ?? "");
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
+  const amount = Number(formData.get("amount") ?? 0);
+  const direction = String(formData.get("direction") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+  if (!riderId || !idempotencyKey) return { status: "error", message: "Invalid request." };
+  if (!Number.isFinite(amount) || amount <= 0) return { status: "error", message: "Enter a valid amount." };
+  if (direction !== "increase" && direction !== "decrease") return { status: "error", message: "Choose a direction." };
+  if (!note) return { status: "error", message: "Explain the reason for this adjustment." };
+
+  const amountPoisha = toPoisha(amount);
+  const balanceImpactPoisha = direction === "increase" ? amountPoisha : -amountPoisha;
+  return recordManualLedgerEntry({ adminId: admin.id, riderId, type: "ADJUSTMENT", balanceImpactPoisha, amountPoisha, idempotencyKey, note });
+}
+
+export async function setRiderCommissionRateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const riderId = String(formData.get("riderId") ?? "");
+  const ratePct = Number(formData.get("commissionRatePct") ?? "");
+  if (!riderId) return { status: "error", message: "Rider not found." };
+  if (!Number.isFinite(ratePct) || ratePct < 0 || ratePct > 100) return { status: "error", message: "Enter a rate between 0 and 100." };
+
+  await db.riderProfile.update({ where: { id: riderId }, data: { commissionRatePct: ratePct } });
+  await recordAuditLog({ actorUserId: admin.id, action: "RIDER_COMMISSION_RATE_CHANGED", entityType: "RiderProfile", entityId: riderId, metadata: { ratePct } });
+  revalidatePath("/admin/riders");
+  revalidatePath(`/admin/riders/${riderId}`);
+  return { status: "success", message: "Rate updated." };
 }

@@ -40,8 +40,17 @@ export function SiteSettingsForm({ defaults }: { defaults: Record<string, string
           <Input id="vatRatePct" name="vatRatePct" type="number" min="0" max="100" step="0.5" defaultValue={defaults.vat_rate_pct} />
         </div>
         <div>
-          <Label htmlFor="riderDeliveryRate">Rider pay per delivery (Tk, estimate)</Label>
-          <Input id="riderDeliveryRate" name="riderDeliveryRate" type="number" min="0" defaultValue={defaults.rider_delivery_rate} />
+          <Label htmlFor="defaultRiderCommissionRatePct">Default rider commission rate (%)</Label>
+          <Input
+            id="defaultRiderCommissionRatePct"
+            name="defaultRiderCommissionRatePct"
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            defaultValue={defaults.default_rider_commission_rate_pct}
+          />
+          <p className="mt-1 text-xs text-gray-500">Applied to new riders. Each rider&apos;s individual rate can be changed later on their profile.</p>
         </div>
       </div>
       <div>

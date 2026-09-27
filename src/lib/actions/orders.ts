@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canTransition, TRANSITION_ACTOR } from "@/lib/orders/status-flow";
 import { recordAuditLog } from "@/lib/audit";
+import { computeDeliveryEarning, toPoisha } from "@/lib/rider/ledger";
 import type { ActionState } from "./types";
 import type { OrderStatus } from "@/generated/prisma/client";
 
@@ -37,7 +39,7 @@ export async function advanceOrderStatusAction(_prev: ActionState, formData: For
 
   const order = await db.order.findUnique({
     where: { id: orderId },
-    include: { vendor: true, delivery: true },
+    include: { vendor: true, delivery: true, orderGroup: { include: { payment: true } } },
   });
   if (!order) return { status: "error", message: "Order not found." };
 
@@ -83,6 +85,14 @@ export async function advanceOrderStatusAction(_prev: ActionState, formData: For
         data: { deliveredAt: nextStatus === "DELIVERED" ? new Date() : undefined, isTrackingActive: false },
       });
     }
+
+    if (nextStatus === "DELIVERED" && order.delivery?.riderId) {
+      await createDeliveryEarningEntry(tx, order, order.delivery.id, order.delivery.riderId);
+    }
+
+    if ((nextStatus === "RETURNED" || nextStatus === "REFUNDED") && order.delivery) {
+      await reverseDeliveryEarningEntry(tx, order.delivery.id);
+    }
   });
 
   await recordAuditLog({ actorUserId: user.id, action: "ORDER_STATUS_CHANGED", entityType: "Order", entityId: orderId, metadata: { from: order.status, to: nextStatus } });
@@ -92,6 +102,98 @@ export async function advanceOrderStatusAction(_prev: ActionState, formData: For
   revalidatePath("/rider");
   revalidatePath("/rider/deliveries");
   return { status: "success" };
+}
+
+type OrderForEarning = {
+  id: string;
+  deliveryFee: Prisma.Decimal;
+  total: Prisma.Decimal;
+  standardDeliveryFeePoisha: number | null;
+  orderGroup: { payment: { provider: string } | null };
+};
+
+/**
+ * Creates the DELIVERY_EARNING ledger entry for a just-delivered order.
+ * Idempotent two ways: an in-transaction existence check (fast path, avoids
+ * a DB round-trip to the constraint in the common case) plus a partial
+ * unique index on (deliveryId) WHERE type = 'DELIVERY_EARNING' (the real
+ * guarantee — catches a genuine race between two concurrent "mark
+ * delivered" calls that both pass the existence check before either commits).
+ */
+export async function createDeliveryEarningEntry(tx: Prisma.TransactionClient, order: OrderForEarning, deliveryId: string, riderId: string): Promise<void> {
+  const existing = await tx.riderLedgerEntry.findFirst({ where: { deliveryId, type: "DELIVERY_EARNING" }, select: { id: true } });
+  if (existing) return;
+
+  const rider = await tx.riderProfile.findUniqueOrThrow({ where: { id: riderId }, select: { commissionRatePct: true } });
+  // Orders placed before standardDeliveryFeePoisha existed fall back to the
+  // actually-charged deliveryFee — a small, one-time drift for old orders only.
+  const standardFeePoisha = order.standardDeliveryFeePoisha ?? toPoisha(Number(order.deliveryFee));
+  const { riderEarningPoisha, platformSharePoisha } = computeDeliveryEarning(standardFeePoisha, Number(rider.commissionRatePct));
+  const isCod = order.orderGroup.payment?.provider === "COD";
+  const orderTotalPoisha = toPoisha(Number(order.total));
+  const balanceImpactPoisha = isCod ? orderTotalPoisha - riderEarningPoisha : -riderEarningPoisha;
+  const amountPoisha = isCod ? orderTotalPoisha : riderEarningPoisha;
+
+  await tx.delivery.update({
+    where: { id: deliveryId },
+    data: {
+      riderRatePctSnapshot: rider.commissionRatePct,
+      deliveryFeePoisha: standardFeePoisha,
+      riderEarningPoisha,
+      platformDeliverySharePoisha: platformSharePoisha,
+      isCod,
+      orderTotalPoisha,
+    },
+  });
+
+  try {
+    await tx.riderLedgerEntry.create({
+      data: {
+        riderId,
+        type: "DELIVERY_EARNING",
+        deliveryId,
+        balanceImpactPoisha,
+        amountPoisha,
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return; // lost a race to another concurrent call — safe no-op
+    throw err;
+  }
+
+  await tx.riderProfile.update({ where: { id: riderId }, data: { balancePoisha: { increment: balanceImpactPoisha } } });
+}
+
+/**
+ * Reverses a delivery's earning entry when a DELIVERED order is later
+ * RETURNED or REFUNDED. Idempotent the same two ways as the entry it undoes.
+ * No-ops if the delivery was never actually credited (e.g. FAILED_DELIVERY
+ * never passes through DELIVERED, so there's nothing to reverse).
+ */
+export async function reverseDeliveryEarningEntry(tx: Prisma.TransactionClient, deliveryId: string): Promise<void> {
+  const earning = await tx.riderLedgerEntry.findFirst({ where: { deliveryId, type: "DELIVERY_EARNING" } });
+  if (!earning) return;
+
+  const existingReversal = await tx.riderLedgerEntry.findFirst({ where: { deliveryId, type: "DELIVERY_REVERSAL" }, select: { id: true } });
+  if (existingReversal) return;
+
+  const balanceImpactPoisha = -earning.balanceImpactPoisha;
+  try {
+    await tx.riderLedgerEntry.create({
+      data: {
+        riderId: earning.riderId,
+        type: "DELIVERY_REVERSAL",
+        deliveryId,
+        balanceImpactPoisha,
+        amountPoisha: earning.amountPoisha,
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return;
+    throw err;
+  }
+
+  await tx.riderProfile.update({ where: { id: earning.riderId }, data: { balancePoisha: { increment: balanceImpactPoisha } } });
 }
 
 const WAIT_MINUTES = 3;

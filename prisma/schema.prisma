@@ -230,6 +230,7 @@ model User {
   advertiserProfile Advertiser?
   statusChanges    DeliveryStatusHistory[] @relation("StatusChangedBy")
   ageVerifications AgeVerification[]
+  createdRiderLedgerEntries RiderLedgerEntry[]
 
   @@index([role])
 }
@@ -264,12 +265,20 @@ model RiderProfile {
   currentLocationAt DateTime?
   ratingAvg         Decimal   @default(0) @db.Decimal(2, 1)
   ratingCount       Int       @default(0)
+  // This rider's own commission rate — set by admin, defaults to the
+  // site-wide default_rider_commission_rate_pct setting for new riders.
+  commissionRatePct Decimal   @default(25) @db.Decimal(5, 2)
+  // Cached running balance, in poisha. Positive = rider owes the platform;
+  // negative = platform owes the rider. Updated transactionally alongside
+  // every RiderLedgerEntry insert — never derived on read (see lib/rider/ledger.ts).
+  balancePoisha     Int       @default(0)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   deliveries       Delivery[]
   locationUpdates  RiderLocationUpdate[]
   restrictedLogs   RestrictedDeliveryLog[]
+  ledgerEntries    RiderLedgerEntry[]
 }
 
 // ---------------------------------------------------------------------------
@@ -831,6 +840,13 @@ model Order {
   commissionRatePct Decimal    @db.Decimal(5, 2)
   commissionAmount  Decimal    @db.Decimal(10, 2)
   vendorEarnings    Decimal    @db.Decimal(10, 2)
+  // Snapshot of the delivery zone's standard fee AT ORDER PLACEMENT, in
+  // poisha — so a later zone-fee change never affects an in-flight order.
+  // The rider's delivery earning is always computed from this value, never
+  // from `deliveryFee` below (which may be reduced by a coupon/promo).
+  // Nullable only because orders placed before this column existed won't
+  // have it — see lib/rider/ledger.ts for the fallback.
+  standardDeliveryFeePoisha Int?
   containsAgeRestrictedItems Boolean @default(false)
   customerNote    String?
   scheduledFor    DateTime?
@@ -887,11 +903,21 @@ model Delivery {
   pickedUpAt      DateTime?
   deliveredAt     DateTime?
   isTrackingActive Boolean     @default(false)
+  // Snapshot fields, written once when the ledger DELIVERY_EARNING entry is
+  // created (see lib/actions/orders.ts) — never recomputed afterward, so a
+  // later change to the rider's commissionRatePct never rewrites history.
+  riderRatePctSnapshot        Decimal? @db.Decimal(5, 2)
+  deliveryFeePoisha           Int?
+  riderEarningPoisha          Int?
+  platformDeliverySharePoisha Int?
+  isCod                       Boolean?
+  orderTotalPoisha            Int?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
   locationUpdates RiderLocationUpdate[]
   restrictedLog   RestrictedDeliveryLog?
+  ledgerEntries   RiderLedgerEntry[]
 }
 
 model DeliveryStatusHistory {
@@ -905,6 +931,55 @@ model DeliveryStatusHistory {
   createdAt      DateTime    @default(now())
 
   @@index([orderId, createdAt])
+}
+
+enum RiderLedgerEntryType {
+  DELIVERY_EARNING
+  DELIVERY_REVERSAL
+  CASH_HANDOVER
+  PAYOUT
+  ADJUSTMENT
+}
+
+/// Append-only running ledger of rider money. Corrections are new rows
+/// (ADJUSTMENT / DELIVERY_REVERSAL), never edits or deletes — see
+/// lib/rider/ledger.ts for the sign convention and rounding rule.
+///
+/// Two uniqueness rules are enforced as PARTIAL indexes in migration SQL
+/// (Prisma's schema DSL can't express a WHERE-qualified unique constraint):
+///   CREATE UNIQUE INDEX ... ON "RiderLedgerEntry" ("deliveryId") WHERE "type" = 'DELIVERY_EARNING'
+///   CREATE UNIQUE INDEX ... ON "RiderLedgerEntry" ("deliveryId") WHERE "type" = 'DELIVERY_REVERSAL'
+/// — so a delivery can have at most one earning entry and at most one
+/// reversal entry, no matter how many times "mark delivered" fires.
+model RiderLedgerEntry {
+  id          String               @id @default(cuid())
+  riderId     String
+  rider       RiderProfile         @relation(fields: [riderId], references: [id])
+  type        RiderLedgerEntryType
+  deliveryId  String?
+  delivery    Delivery?            @relation(fields: [deliveryId], references: [id])
+  // Signed, in poisha. Positive = increases what the rider owes the platform;
+  // negative = decreases it (increases what the platform owes the rider).
+  balanceImpactPoisha Int
+  // Unsigned magnitude, for display — always > 0.
+  amountPoisha        Int
+  payoutMethod        String?
+  referenceNo         String?
+  note                String?
+  occurredAt          DateTime  @default(now())
+  createdByUserId     String?
+  createdByUser       User?     @relation(fields: [createdByUserId], references: [id])
+  // Client-generated, stable per form-mount — a resubmission of the same
+  // in-flight admin form (handover/payout/adjustment) carries the same key,
+  // so a duplicate insert is caught by this unique constraint instead of
+  // double-recording the entry. Null for system-generated entries
+  // (DELIVERY_EARNING / DELIVERY_REVERSAL), which are already protected by
+  // the partial indexes above.
+  idempotencyKey      String?   @unique
+  createdAt           DateTime  @default(now())
+
+  @@index([riderId, createdAt])
+  @@index([deliveryId])
 }
 
 /// Live rider GPS pings, kept only while a delivery is active. A retention

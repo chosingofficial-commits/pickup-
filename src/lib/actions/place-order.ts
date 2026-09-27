@@ -8,6 +8,7 @@ import { getCheckoutState, clearCheckoutState } from "@/lib/checkout/cookie";
 import { getSelectedCouponCode, setSelectedCouponCode } from "@/lib/cart/coupon-cookie";
 import { validateCoupon } from "@/lib/cart/coupon";
 import { groupSubtotal, computeCouponDiscount, computeVendorDeliveryFee, round2 } from "@/lib/cart/totals";
+import { toPoisha } from "@/lib/rider/ledger";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
 import { recordAuditLog } from "@/lib/audit";
 import { getPaymentAdapter } from "@/lib/payments/registry";
@@ -138,6 +139,11 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
             commissionRatePct,
             commissionAmount,
             vendorEarnings: round2(item.groupSub - commissionAmount),
+            // Snapshot of the zone's standard fee right now — a rider's
+            // delivery earning is always computed from this, never from
+            // `deliveryFee` above (which may be reduced by a coupon/promo),
+            // and never recomputed from a possibly-since-changed zone rate.
+            standardDeliveryFeePoisha: toPoisha(Number(zone.deliveryFee)),
             scheduledFor,
           },
         });

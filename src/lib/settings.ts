@@ -11,7 +11,7 @@ export const SITE_SETTING_KEYS = {
   defaultCommissionRatePct: "default_commission_rate_pct",
   freeDeliveryThreshold: "free_delivery_threshold",
   vatRatePct: "vat_rate_pct",
-  riderDeliveryRate: "rider_delivery_rate",
+  defaultRiderCommissionRatePct: "default_rider_commission_rate_pct",
   heroImageUrl: "hero_image_url",
 } as const;
 
@@ -23,7 +23,7 @@ const DEFAULTS: Record<string, string> = {
   [SITE_SETTING_KEYS.defaultCommissionRatePct]: String(serverEnv.DEFAULT_COMMISSION_RATE_PCT),
   [SITE_SETTING_KEYS.freeDeliveryThreshold]: "500",
   [SITE_SETTING_KEYS.vatRatePct]: "0",
-  [SITE_SETTING_KEYS.riderDeliveryRate]: "40",
+  [SITE_SETTING_KEYS.defaultRiderCommissionRatePct]: "25",
   [SITE_SETTING_KEYS.heroImageUrl]: "",
 };
 

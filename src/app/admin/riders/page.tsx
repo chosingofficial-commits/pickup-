@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { getDuplicateNationalIdNumbers } from "@/lib/rider/queries";
+import { getAllRidersBalanceSummary } from "@/lib/rider/ledger";
 import { RiderCard } from "@/components/admin/rider-card";
 
 export const metadata: Metadata = { title: "Riders" };
 
 export default async function AdminRidersPage() {
-  const [riders, duplicateNids] = await Promise.all([
-    db.riderProfile.findMany({
-      where: { isApproved: true },
-      include: { user: { select: { name: true, phone: true, createdAt: true } }, _count: { select: { deliveries: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
+  const riders = await db.riderProfile.findMany({
+    where: { isApproved: true },
+    include: { user: { select: { name: true, phone: true, createdAt: true } }, _count: { select: { deliveries: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  const [duplicateNids, todayCollectedFor] = await Promise.all([
     getDuplicateNationalIdNumbers(),
+    getAllRidersBalanceSummary(riders.map((r) => r.id)),
   ]);
 
   return (
@@ -41,6 +43,8 @@ export default async function AdminRidersPage() {
                 isDuplicateNid: !!rider.nationalIdNo && duplicateNids.has(rider.nationalIdNo),
                 isOnline: rider.isOnline,
                 deliveryCount: rider._count.deliveries,
+                balancePoisha: rider.balancePoisha,
+                todayCollectedPoisha: todayCollectedFor(rider.id),
               }}
             />
           ))}

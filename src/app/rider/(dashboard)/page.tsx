@@ -5,12 +5,18 @@ import { StatCard } from "@/components/ui/stat-card";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getAvailableAssignments, getRiderDeliveryStats } from "@/lib/rider/queries";
+import { getRiderBalance, getTodayCashCollected, fromPoisha } from "@/lib/rider/ledger";
 import { getAvailableNextStatuses, statusLabel } from "@/lib/orders/status-flow";
-import { getSiteSettings, SITE_SETTING_KEYS } from "@/lib/settings";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Rider dashboard" };
+
+function formatBalance(balancePoisha: number): string {
+  if (balancePoisha === 0) return "All settled";
+  const amount = formatBDT(Math.abs(fromPoisha(balancePoisha)));
+  return balancePoisha > 0 ? `You owe Pick Up ${amount}` : `Pick Up owes you ${amount}`;
+}
 
 export default async function RiderAvailablePage() {
   const user = await getCurrentUser();
@@ -19,16 +25,14 @@ export default async function RiderAvailablePage() {
   // non-silent fallback (never a blank page) in case that guard ever changes.
   if (!user?.riderProfile) redirect("/rider/register");
 
-  const [assignments, stats, settings, riderProfile] = await Promise.all([
+  const [assignments, stats, balancePoisha, todayCollectedPoisha, riderProfile] = await Promise.all([
     getAvailableAssignments(),
     getRiderDeliveryStats(user.riderProfile.id),
-    getSiteSettings(),
+    getRiderBalance(user.riderProfile.id),
+    getTodayCashCollected(user.riderProfile.id),
     db.riderProfile.findUnique({ where: { id: user.riderProfile.id }, select: { ratingAvg: true, ratingCount: true } }),
   ]);
 
-  const rate = Number(settings[SITE_SETTING_KEYS.riderDeliveryRate]);
-  const todayEarnings = stats.deliveredToday * rate;
-  const totalEarnings = stats.deliveredTotal * rate;
   const rating = riderProfile && riderProfile.ratingCount > 0 ? `${Number(riderProfile.ratingAvg).toFixed(1)} (${riderProfile.ratingCount})` : "No ratings yet";
 
   return (
@@ -38,8 +42,8 @@ export default async function RiderAvailablePage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard icon={Package} label="Total deliveries" value={String(stats.deliveredTotal)} />
         <StatCard icon={CheckCircle2} label="Delivered today" value={String(stats.deliveredToday)} />
-        <StatCard icon={Wallet} label="Today's earnings (est.)" value={formatBDT(todayEarnings)} />
-        <StatCard icon={Wallet} label="Total earnings (est.)" value={formatBDT(totalEarnings)} />
+        <StatCard icon={Wallet} label="Cash collected today" value={formatBDT(fromPoisha(todayCollectedPoisha))} />
+        <StatCard icon={Wallet} label="Balance" value={formatBalance(balancePoisha)} />
         <StatCard icon={Star} label="Rating" value={rating} />
       </div>
 

@@ -17,7 +17,7 @@ export async function updateSiteSettingsAction(_prev: ActionState, formData: For
     [SITE_SETTING_KEYS.defaultCommissionRatePct, String(formData.get("defaultCommissionRatePct") ?? "10")],
     [SITE_SETTING_KEYS.freeDeliveryThreshold, String(formData.get("freeDeliveryThreshold") ?? "500")],
     [SITE_SETTING_KEYS.vatRatePct, String(formData.get("vatRatePct") ?? "0")],
-    [SITE_SETTING_KEYS.riderDeliveryRate, String(formData.get("riderDeliveryRate") ?? "40")],
+    [SITE_SETTING_KEYS.defaultRiderCommissionRatePct, String(formData.get("defaultRiderCommissionRatePct") ?? "25")],
     [SITE_SETTING_KEYS.heroImageUrl, String(formData.get("heroImageUrl") ?? "")],
   ];
 

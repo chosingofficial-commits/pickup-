@@ -21,7 +21,13 @@ export type RiderCardData = {
   isDuplicateNid: boolean;
   isOnline?: boolean;
   deliveryCount?: number;
+  balancePoisha?: number;
+  todayCollectedPoisha?: number;
 };
+
+function formatTk(poisha: number): string {
+  return `Tk ${Math.abs(poisha / 100).toFixed(2)}`;
+}
 
 export function RiderCard({ rider, mode }: { rider: RiderCardData; mode: "pending" | "approved" }) {
   const [approveState, approveAction, approvePending] = useActionState(setRiderApprovalAction, initialActionState);
@@ -36,12 +42,26 @@ export function RiderCard({ rider, mode }: { rider: RiderCardData; mode: "pendin
     <div className="space-y-3 rounded-card border border-border-brand bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-brand-dark">{rider.name}</p>
+          <p className="text-sm font-semibold text-brand-dark">
+            {mode === "approved" ? (
+              <Link href={`/admin/riders/${rider.id}`} className="hover:underline">
+                {rider.name}
+              </Link>
+            ) : (
+              rider.name
+            )}
+          </p>
           <p className="text-xs text-gray-500">
             {rider.phone} · {rider.vehicleType ?? "No vehicle set"}
             {mode === "approved" && ` · ${rider.deliveryCount ?? 0} deliveries`}
           </p>
           <p className="text-xs text-gray-500">NID: {rider.nationalIdNo ?? "—"}</p>
+          {mode === "approved" && rider.balancePoisha != null && (
+            <p className="mt-1 text-xs font-semibold text-brand-dark">
+              {rider.balancePoisha === 0 ? "All settled" : rider.balancePoisha > 0 ? `Owes platform: ${formatTk(rider.balancePoisha)}` : `Platform owes: ${formatTk(rider.balancePoisha)}`}
+              {rider.todayCollectedPoisha ? ` · Collected today: ${formatTk(rider.todayCollectedPoisha)}` : ""}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {mode === "approved" && <Badge variant={rider.isOnline ? "success" : "outline"}>{rider.isOnline ? "Online" : "Offline"}</Badge>}

@@ -38,7 +38,7 @@ export async function getRiderActiveDeliveries(riderId: string) {
 export async function getRiderHistory(riderId: string) {
   return db.order.findMany({
     where: { delivery: { riderId }, status: { in: ["DELIVERED", "FAILED_DELIVERY"] } },
-    include: { vendor: true, customer: { select: { name: true } } },
+    include: { vendor: true, customer: { select: { name: true } }, delivery: true },
     orderBy: { updatedAt: "desc" },
     take: 100,
   });
