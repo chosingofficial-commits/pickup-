@@ -3,7 +3,24 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getStorageAdapter } from "@/lib/storage/registry";
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES } from "@/lib/storage/types";
 
-const ALLOWED_FOLDERS = ["vendor-logos", "vendor-covers", "vendor-documents", "products", "menu-items", "ads", "avatars", "hero"];
+const ALLOWED_FOLDERS = ["vendor-logos", "vendor-covers", "vendor-documents", "products", "menu-items", "ads", "hero"];
+const PRIVATE_FOLDERS = ["vendor-documents"];
+
+// The client-supplied `file.type` is just a request header the caller
+// controls — for the private, sensitive-document folder we additionally
+// check the actual file bytes so a renamed/relabeled SVG or HTML file can't
+// slip past the MIME allowlist.
+const MAGIC_BYTES: Record<string, (buf: Buffer) => boolean> = {
+  "application/pdf": (b) => b.subarray(0, 5).toString("latin1") === "%PDF-",
+  "image/jpeg": (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  "image/png": (b) => b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  "image/webp": (b) => b.length >= 12 && b.subarray(0, 4).toString("latin1") === "RIFF" && b.subarray(8, 12).toString("latin1") === "WEBP",
+};
+
+function matchesDeclaredType(buffer: Buffer, declaredType: string): boolean {
+  const check = MAGIC_BYTES[declaredType];
+  return check ? check(buffer) : false;
+}
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -22,9 +39,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "File is too large (max 8MB)." }, { status: 400 });
   }
 
+  const isPrivate = PRIVATE_FOLDERS.includes(folder);
   const buffer = Buffer.from(await file.arrayBuffer());
-  const adapter = getStorageAdapter();
-  const result = await adapter.upload({ buffer, filename: file.name, contentType: file.type }, `${folder}/${user.id}`);
 
-  return NextResponse.json({ url: result.url, key: result.key });
+  if (isPrivate && !matchesDeclaredType(buffer, file.type)) {
+    return NextResponse.json({ error: "File content doesn't match its declared type." }, { status: 400 });
+  }
+
+  const adapter = getStorageAdapter();
+  const result = await adapter.upload({ buffer, filename: file.name, contentType: file.type }, `${folder}/${user.id}`, { private: isPrivate });
+
+  // Private uploads never get a usable `url` — only the caller's own record
+  // of the key can ever be used to fetch the file back, through the
+  // authenticated document route.
+  return NextResponse.json(isPrivate ? { key: result.key } : { url: result.url, key: result.key });
 }

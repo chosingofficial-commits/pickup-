@@ -476,9 +476,9 @@ model VendorApplication {
   addressText       String
   deliveryCoverageText String
   tradeLicenseNo    String?
-  tradeLicenseDocUrl String?
+  tradeLicenseDocKey String?          @map("tradeLicenseDocUrl")
   nationalIdNo      String?
-  nationalIdDocUrl  String?
+  nationalIdDocKey  String?          @map("nationalIdDocUrl")
   bankOrMfsAccount  String?
   productCategories String[]
   openingHoursText  String?

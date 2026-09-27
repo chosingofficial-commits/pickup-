@@ -45,7 +45,8 @@ export function FileUploadField({
       const res = await fetch("/api/uploads", { method: "POST", body });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
-      setUrl(data.url);
+      // Private folders (e.g. vendor-documents) return only a `key`, no `url`.
+      setUrl(data.url ?? data.key);
       setStatus("done");
     } catch (err) {
       setStatus("error");

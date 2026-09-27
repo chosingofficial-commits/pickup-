@@ -42,3 +42,4 @@ next-env.d.ts
 
 # local-only fallback storage (never used in production, see storage adapter)
 /public/uploads/dev/
+/private-uploads/

@@ -16,9 +16,9 @@ export type VendorApplicationRow = {
   addressText: string;
   status: string;
   tradeLicenseNo: string;
-  tradeLicenseDocUrl: string;
+  tradeLicenseDocKey: string;
   nationalIdNo: string;
-  nationalIdDocUrl: string;
+  nationalIdDocKey: string;
   paymentMethod: string | null;
   paymentReference: string | null;
   createdAt: string;
@@ -50,13 +50,17 @@ export function VendorApplicationCard({ application }: { application: VendorAppl
 
       <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
         <span>Trade licence: {application.tradeLicenseNo}</span>
-        <Link href={application.tradeLicenseDocUrl} target="_blank" className="text-brand-primary hover:underline">
-          View document
-        </Link>
+        {application.tradeLicenseDocKey && (
+          <Link href={`/admin/vendor-applications/${application.id}/documents/trade-license`} target="_blank" className="text-brand-primary hover:underline">
+            View document
+          </Link>
+        )}
         <span>NID: {application.nationalIdNo}</span>
-        <Link href={application.nationalIdDocUrl} target="_blank" className="text-brand-primary hover:underline">
-          View document
-        </Link>
+        {application.nationalIdDocKey && (
+          <Link href={`/admin/vendor-applications/${application.id}/documents/national-id`} target="_blank" className="text-brand-primary hover:underline">
+            View document
+          </Link>
+        )}
       </div>
 
       <div className="mt-2 rounded-control bg-amber-50 px-3 py-2 text-xs text-amber-900">

@@ -47,6 +47,14 @@ export async function submitVendorApplicationAction(_prev: ActionState, formData
     return { status: "error", message: "Please fix the errors below.", fieldErrors };
   }
 
+  // The uploaded document keys are attacker-controlled form input — without
+  // this check, a user could submit another user's `vendor-documents/<id>/...`
+  // key and it would later be served back to them as "their own" document.
+  const ownDocPrefix = `vendor-documents/${user.id}/`;
+  if (!parsed.data.tradeLicenseDocUrl.startsWith(ownDocPrefix) || !parsed.data.nationalIdDocUrl.startsWith(ownDocPrefix)) {
+    return { status: "error", message: "Please re-upload your documents and try again." };
+  }
+
   const application = await db.vendorApplication.create({
     data: {
       applicantUserId: user.id,
@@ -61,9 +69,9 @@ export async function submitVendorApplicationAction(_prev: ActionState, formData
       openingHoursText: parsed.data.openingHoursText || null,
       businessDescription: parsed.data.businessDescription || null,
       tradeLicenseNo: parsed.data.tradeLicenseNo,
-      tradeLicenseDocUrl: parsed.data.tradeLicenseDocUrl,
+      tradeLicenseDocKey: parsed.data.tradeLicenseDocUrl,
       nationalIdNo: parsed.data.nationalIdNo,
-      nationalIdDocUrl: parsed.data.nationalIdDocUrl,
+      nationalIdDocKey: parsed.data.nationalIdDocUrl,
       bankOrMfsAccount: parsed.data.bankOrMfsAccount,
       logoUrl: parsed.data.logoUrl || null,
       coverImageUrl: parsed.data.coverImageUrl || null,
