@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Wallet, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,9 @@ export const metadata: Metadata = { title: "Delivery history" };
 
 export default async function RiderHistoryPage() {
   const user = await getCurrentUser();
-  if (!user?.riderProfile) return null;
+  // See rider/(dashboard)/page.tsx — unreachable today (layout redirects
+  // first), kept as a non-silent fallback.
+  if (!user?.riderProfile) redirect("/rider/register");
 
   const [history, stats, settings] = await Promise.all([
     getRiderHistory(user.riderProfile.id),

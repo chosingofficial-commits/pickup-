@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Phone, MessageCircle, MapPin, Store } from "lucide-react";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { LocationBroadcaster } from "@/components/rider/location-broadcaster";
@@ -11,7 +12,9 @@ export const metadata: Metadata = { title: "My deliveries" };
 
 export default async function RiderDeliveriesPage() {
   const user = await getCurrentUser();
-  if (!user?.riderProfile) return null;
+  // See rider/(dashboard)/page.tsx — unreachable today (layout redirects
+  // first), kept as a non-silent fallback.
+  if (!user?.riderProfile) redirect("/rider/register");
 
   const deliveries = await getRiderActiveDeliveries(user.riderProfile.id);
 

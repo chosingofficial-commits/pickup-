@@ -37,3 +37,7 @@ export const loginRateLimiter: RateLimiter = new InMemoryRateLimiter(10, 5 * 60 
 export const registrationRateLimiter: RateLimiter = new InMemoryRateLimiter(5, 15 * 60 * 1000);
 export const coverageRequestRateLimiter: RateLimiter = new InMemoryRateLimiter(5, 15 * 60 * 1000);
 export const supportTicketRateLimiter: RateLimiter = new InMemoryRateLimiter(5, 15 * 60 * 1000);
+// Rider registration is unauthenticated and accepts a file upload (higher
+// abuse cost per attempt than plain signup), so it gets its own, longer window
+// rather than sharing registrationRateLimiter's 5-per-15-minutes.
+export const riderRegistrationRateLimiter: RateLimiter = new InMemoryRateLimiter(5, 60 * 60 * 1000);

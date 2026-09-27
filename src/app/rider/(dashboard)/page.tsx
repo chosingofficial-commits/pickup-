@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Package, MapPin, CheckCircle2, Wallet, Star } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
@@ -13,7 +14,10 @@ export const metadata: Metadata = { title: "Rider dashboard" };
 
 export default async function RiderAvailablePage() {
   const user = await getCurrentUser();
-  if (!user?.riderProfile) return null;
+  // The layout above this page already redirects anyone without an approved
+  // rider profile, so this is unreachable in practice today — kept as a
+  // non-silent fallback (never a blank page) in case that guard ever changes.
+  if (!user?.riderProfile) redirect("/rider/register");
 
   const [assignments, stats, settings, riderProfile] = await Promise.all([
     getAvailableAssignments(),

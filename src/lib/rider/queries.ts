@@ -44,6 +44,17 @@ export async function getRiderHistory(riderId: string) {
   });
 }
 
+/** National ID numbers that appear on more than one RiderProfile — surfaced as an admin warning badge. Registration itself never blocks on this. */
+export async function getDuplicateNationalIdNumbers(): Promise<Set<string>> {
+  const groups = await db.riderProfile.groupBy({
+    by: ["nationalIdNo"],
+    where: { nationalIdNo: { not: null } },
+    _count: { nationalIdNo: true },
+    having: { nationalIdNo: { _count: { gt: 1 } } },
+  });
+  return new Set(groups.map((g) => g.nationalIdNo!));
+}
+
 export async function getRiderDeliveryStats(riderId: string) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);

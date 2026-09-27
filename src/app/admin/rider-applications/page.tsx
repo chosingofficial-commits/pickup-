@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
-import { setRiderApprovalAction } from "@/lib/actions/admin-riders";
 import { db } from "@/lib/db";
+import { getDuplicateNationalIdNumbers } from "@/lib/rider/queries";
+import { RiderCard } from "@/components/admin/rider-card";
 
 export const metadata: Metadata = { title: "Rider applications" };
 
 export default async function AdminRiderApplicationsPage() {
-  const riders = await db.riderProfile.findMany({
-    where: { isApproved: false },
-    include: { user: { select: { name: true, phone: true, createdAt: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const [riders, duplicateNids] = await Promise.all([
+    db.riderProfile.findMany({
+      where: { isApproved: false },
+      include: { user: { select: { name: true, phone: true, createdAt: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    getDuplicateNationalIdNumbers(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -18,24 +22,26 @@ export default async function AdminRiderApplicationsPage() {
       {riders.length === 0 ? (
         <p className="text-sm text-gray-500">No pending rider applications.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {riders.map((rider) => (
-            <div key={rider.id} className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border-brand bg-white p-4">
-              <div>
-                <p className="text-sm font-semibold text-brand-dark">{rider.user.name}</p>
-                <p className="text-xs text-gray-500">
-                  {rider.user.phone} · {rider.vehicleType ?? "No vehicle set"} · applied{" "}
-                  {rider.user.createdAt.toLocaleDateString()}
-                </p>
-              </div>
-              <form action={setRiderApprovalAction}>
-                <input type="hidden" name="riderId" value={rider.id} />
-                <input type="hidden" name="isApproved" value="1" />
-                <button type="submit" className="rounded-control bg-brand-primary px-4 py-2 text-xs font-semibold text-white hover:bg-brand-primary-hover">
-                  Approve
-                </button>
-              </form>
-            </div>
+            <RiderCard
+              key={rider.id}
+              mode="pending"
+              rider={{
+                id: rider.id,
+                name: rider.user.name,
+                phone: rider.user.phone,
+                vehicleType: rider.vehicleType,
+                createdAt: rider.user.createdAt.toISOString(),
+                hasNationalIdDoc: !!rider.nationalIdDocKey,
+                nationalIdNo: rider.nationalIdNo,
+                licenseCheckedInOffice: rider.licenseCheckedInOffice,
+                photoCheckedInOffice: rider.photoCheckedInOffice,
+                licenseNumber: rider.licenseNumber,
+                adminNote: rider.adminNote,
+                isDuplicateNid: !!rider.nationalIdNo && duplicateNids.has(rider.nationalIdNo),
+              }}
+            />
           ))}
         </div>
       )}

@@ -6,6 +6,17 @@ const nextConfig: NextConfig = {
   // Node.js Web App / Cloud / VPS hosting, or the Dockerfile in this repo.
   output: "standalone",
 
+  experimental: {
+    serverActions: {
+      // Default is 1MB, too small for a phone photo of an NID (2-5MB typical).
+      // Set well above the 5MB app-level file-size limit enforced in
+      // registerRiderAction, so an oversized upload reaches that check and
+      // gets a clear error message instead of being cut off by this generic
+      // framework limit first.
+      bodySizeLimit: "10mb",
+    },
+  },
+
   images: {
     // Product/vendor/ad images are uploaded to whatever S3-compatible
     // endpoint an operator configures at deploy time (see StorageAdapter),

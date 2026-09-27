@@ -250,6 +250,13 @@ model RiderProfile {
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   vehicleType       String?
   licenseNumber     String?
+  // NID number is admin-only — never render it on any rider-facing or public
+  // page, and never pass it to recordAuditLog or any other logging.
+  nationalIdNo      String?
+  nationalIdDocKey  String?
+  licenseCheckedInOffice Boolean @default(false)
+  photoCheckedInOffice   Boolean @default(false)
+  adminNote         String?
   isOnline          Boolean   @default(false)
   isApproved        Boolean   @default(false)
   currentLat        Decimal?  @db.Decimal(9, 6)
