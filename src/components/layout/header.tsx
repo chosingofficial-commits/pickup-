@@ -41,7 +41,7 @@ export async function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border-brand bg-white/95 backdrop-blur">
       <Container className="flex flex-wrap items-center gap-3 py-3">
-        <Link href="/" className="shrink-0">
+        <Link href="/" prefetch={false} className="shrink-0">
           <Logo />
         </Link>
 
@@ -54,6 +54,7 @@ export async function Header() {
 
           <Link
             href="/account/wishlist"
+            prefetch={false}
             aria-label={dict.nav.wishlist}
             className="relative hidden rounded-control p-2.5 text-brand-dark hover:bg-brand-bg sm:inline-flex"
           >
@@ -65,7 +66,7 @@ export async function Header() {
             )}
           </Link>
 
-          <Link href="/cart" aria-label={dict.nav.cart} className="relative rounded-control p-2.5 text-brand-dark hover:bg-brand-bg">
+          <Link href="/cart" prefetch={false} aria-label={dict.nav.cart} className="relative rounded-control p-2.5 text-brand-dark hover:bg-brand-bg">
             <ShoppingCart className="h-5 w-5" aria-hidden />
             {cartCount > 0 && (
               <Badge variant="brand" className="absolute -right-1 -top-1 min-w-[18px] justify-center px-1 py-0 text-[10px]">
@@ -78,6 +79,7 @@ export async function Header() {
             <div className="flex items-center gap-1.5">
               <Link
                 href={user.role === "ADMIN" ? "/admin" : user.role === "VENDOR" ? "/vendor" : user.role === "RIDER" ? "/rider" : "/account"}
+                prefetch={false}
                 className="hidden items-center gap-1.5 rounded-control px-3 py-2 text-sm font-medium text-brand-dark hover:bg-brand-bg sm:flex"
               >
                 <UserRound className="h-4 w-4" aria-hidden />
@@ -91,11 +93,12 @@ export async function Header() {
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              <Link href="/login" className="rounded-control px-3 py-2 text-sm font-semibold text-brand-dark hover:bg-brand-bg">
+              <Link href="/login" prefetch={false} className="rounded-control px-3 py-2 text-sm font-semibold text-brand-dark hover:bg-brand-bg">
                 {dict.nav.login}
               </Link>
               <Link
                 href="/register"
+                prefetch={false}
                 className="hidden rounded-control bg-brand-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-primary-hover sm:inline-flex"
               >
                 {dict.nav.signup}
@@ -108,11 +111,11 @@ export async function Header() {
       <nav aria-label="Categories" className="hidden border-t border-border-brand bg-brand-bg/60 md:block">
         <Container className="flex items-center gap-6 py-2 text-sm font-medium text-brand-dark">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="whitespace-nowrap hover:text-brand-primary">
+            <Link key={link.href} href={link.href} prefetch={false} className="whitespace-nowrap hover:text-brand-primary">
               {dict.nav[link.labelKey]}
             </Link>
           ))}
-          <Link href="/vendor/register" className="ml-auto flex items-center gap-1.5 whitespace-nowrap font-semibold text-brand-primary hover:text-brand-primary-hover">
+          <Link href="/vendor/register" prefetch={false} className="ml-auto flex items-center gap-1.5 whitespace-nowrap font-semibold text-brand-primary hover:text-brand-primary-hover">
             <Store className="h-4 w-4" aria-hidden />
             {dict.nav.becomeVendor}
           </Link>
