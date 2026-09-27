@@ -1,0 +1,32 @@
+name: Keep-alive
+
+# Pings pages that query the database, once a day, so the Supabase free-tier
+# project sees regular activity and doesn't auto-pause from inactivity.
+# Public URLs only — no secrets needed or used here.
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # 03:17 UTC daily (off-the-hour to avoid GitHub's peak-load minute)
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check homepage
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://pickupn.com)
+          echo "https://pickupn.com -> $status"
+          if [ "$status" != "200" ]; then
+            echo "::error::Homepage returned $status, expected 200"
+            exit 1
+          fi
+
+      - name: Check marketplace (queries the database)
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://pickupn.com/marketplace)
+          echo "https://pickupn.com/marketplace -> $status"
+          if [ "$status" != "200" ]; then
+            echo "::error::/marketplace returned $status, expected 200"
+            exit 1
+          fi
