@@ -11,7 +11,7 @@ import { getSelectedCouponCode } from "@/lib/cart/coupon-cookie";
 import { validateCoupon } from "@/lib/cart/coupon";
 import { getSiteSettings, SITE_SETTING_KEYS } from "@/lib/settings";
 import { getFreeDeliveryPromoSettings, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
-import { groupSubtotal, computeCouponDiscount, computeVatAmount, freeDeliveryPromoApplies, round2 } from "@/lib/cart/totals";
+import { groupSubtotal, computeCouponDiscount, computeVatAmount, freeDeliveryApplies, round2 } from "@/lib/cart/totals";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Your cart" };
@@ -58,16 +58,12 @@ export default async function CartPage() {
   const vatRatePct = Number(settings[SITE_SETTING_KEYS.vatRatePct]);
   const vatAmount = computeVatAmount(subtotal, vatRatePct);
 
-  // Note: the per-vendor "spend X in this zone, get free delivery" rule
-  // (computeVendorDeliveryFee against the zone's own freeDeliveryThreshold)
-  // isn't estimated here — this page only has the delivery fee from the
-  // location cookie, not the zone's threshold, so showing a plain per-group
-  // fee is a safe (if occasionally pessimistic) preview; checkout/review
-  // has the real zone data and is the authoritative number. The first-order
-  // promo below is sitewide, so it doesn't need zone data and applies here too.
+  // The per-zone "spend X, get free delivery" rule is retired (see the
+  // sitewide "all orders" offer below) — both free-delivery offers are
+  // sitewide, so no zone data is needed to preview them here.
   const deliveryFeePerGroup = location?.isCovered ? Number(location.deliveryFee ?? 0) : null;
-  const freeDeliveryPromoApplied = freeDeliveryPromoApplies(subtotal, isFirstOrder, freeDeliveryPromo);
-  const deliveryTotal = deliveryFeePerGroup == null ? null : freeDeliveryPromoApplied ? 0 : deliveryFeePerGroup * groups.length;
+  const deliveryIsFree = freeDeliveryApplies(subtotal, isFirstOrder, freeDeliveryPromo);
+  const deliveryTotal = deliveryFeePerGroup == null ? null : deliveryIsFree ? 0 : deliveryFeePerGroup * groups.length;
 
   let discount = 0;
   let couponError: string | null = null;

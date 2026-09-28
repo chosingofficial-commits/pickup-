@@ -66,6 +66,24 @@ export default async function HomePage() {
     userPromise.then((user) => (user ? getFavoritedVendorIds(user.id) : new Set<string>())),
   ]);
 
+  // Banner shows whichever offers are actively advertised (admin toggle, not
+  // per-visitor eligibility — that's checked separately at checkout). The
+  // all-orders offer's banner text is optional, so it may contribute nothing
+  // here even while still applying the discount.
+  const freeDeliveryMessages = [
+    freeDeliveryPromo.firstOrder.enabled
+      ? t(locale === "bn" ? freeDeliveryPromo.firstOrder.bannerTextBn : freeDeliveryPromo.firstOrder.bannerTextEn, {
+          amount: freeDeliveryPromo.firstOrder.minOrderAmount,
+        })
+      : null,
+    freeDeliveryPromo.allOrders.enabled && (locale === "bn" ? freeDeliveryPromo.allOrders.bannerTextBn : freeDeliveryPromo.allOrders.bannerTextEn).trim()
+      ? t(locale === "bn" ? freeDeliveryPromo.allOrders.bannerTextBn : freeDeliveryPromo.allOrders.bannerTextEn, {
+          amount: freeDeliveryPromo.allOrders.minOrderAmount,
+        })
+      : null,
+  ].filter((m): m is string => !!m);
+  const freeDeliveryBannerMessage = freeDeliveryMessages.length > 0 ? freeDeliveryMessages.join("  ·  ") : null;
+
   return (
     <>
       <JsonLd
@@ -80,14 +98,7 @@ export default async function HomePage() {
           priceRange: "Tk",
         }}
       />
-      {freeDeliveryPromo.enabled && (
-        <AnnouncementBar
-          message={t(locale === "bn" ? freeDeliveryPromo.bannerTextBn : freeDeliveryPromo.bannerTextEn, {
-            amount: freeDeliveryPromo.minOrderAmount,
-          })}
-          versionKey={freeDeliveryPromo.versionKey}
-        />
-      )}
+      {freeDeliveryBannerMessage && <AnnouncementBar message={freeDeliveryBannerMessage} versionKey={freeDeliveryPromo.versionKey} />}
 
       <HeroSection
         areaLabel={areaLabel}

@@ -7,8 +7,8 @@ import { getFullCart } from "@/lib/cart/queries";
 import { getCheckoutState, clearCheckoutState } from "@/lib/checkout/cookie";
 import { getSelectedCouponCode, setSelectedCouponCode } from "@/lib/cart/coupon-cookie";
 import { validateCoupon } from "@/lib/cart/coupon";
-import { groupSubtotal, computeCouponDiscount, computeVendorDeliveryFee, freeDeliveryPromoApplies, round2 } from "@/lib/cart/totals";
-import { getFreeDeliveryPromoSettings, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
+import { groupSubtotal, computeCouponDiscount, freeDeliveryApplies, round2 } from "@/lib/cart/totals";
+import { getFreeDeliveryPromoSettingsUncached, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
 import { toPoisha } from "@/lib/rider/ledger";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
 import { recordAuditLog } from "@/lib/audit";
@@ -77,8 +77,10 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
     if (validatedCoupon.ok) totalDiscount = computeCouponDiscount(subtotal, validatedCoupon.coupon);
   }
 
-  const [freeDeliveryPromo, isFirstOrder] = await Promise.all([getFreeDeliveryPromoSettings(), isFirstOrderCustomer(user.id)]);
-  const freeDeliveryApplies = freeDeliveryPromoApplies(subtotal, isFirstOrder, freeDeliveryPromo);
+  // Uncached read — this is the actual charge, so it must never lag behind
+  // the very latest admin-saved offer settings, even momentarily.
+  const [freeDeliveryPromo, isFirstOrder] = await Promise.all([getFreeDeliveryPromoSettingsUncached(), isFirstOrderCustomer(user.id)]);
+  const deliveryIsFree = freeDeliveryApplies(subtotal, isFirstOrder, freeDeliveryPromo);
 
   const zone = address.deliveryZone;
   const paymentMethod = checkoutState.paymentMethod as PaymentProvider;
@@ -94,12 +96,10 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
 
       for (const group of groups) {
         const groupSub = groupSubtotal(group.lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })));
-        const deliveryFee = freeDeliveryApplies
-          ? 0
-          : computeVendorDeliveryFee(groupSub, {
-              deliveryFee: Number(zone.deliveryFee),
-              freeDeliveryThreshold: zone.freeDeliveryThreshold != null ? Number(zone.freeDeliveryThreshold) : null,
-            });
+        // Per-zone freeDeliveryThreshold is no longer used — free delivery is
+        // decided entirely by the sitewide offers above; the zone only sets
+        // the flat per-vendor fee amount when neither offer applies.
+        const deliveryFee = deliveryIsFree ? 0 : round2(Number(zone.deliveryFee));
         const discountShare = subtotal > 0 ? round2((groupSub / subtotal) * totalDiscount) : 0;
         runningSubtotal += groupSub;
         runningDeliveryFee += deliveryFee;

@@ -22,6 +22,13 @@ export function SiteSettingsForm({ defaults }: { defaults: Record<string, string
   const [freeDeliveryBn, setFreeDeliveryBn] = useState(defaults.free_delivery_banner_text_bn ?? "");
   const [freeDeliveryEnabled, setFreeDeliveryEnabled] = useState(defaults.free_delivery_promo_enabled !== "0");
 
+  const [allOrdersAmount, setAllOrdersAmount] = useState(defaults.all_orders_free_delivery_threshold ?? "500");
+  const [allOrdersEn, setAllOrdersEn] = useState(defaults.all_orders_banner_text_en ?? "");
+  const [allOrdersBn, setAllOrdersBn] = useState(defaults.all_orders_banner_text_bn ?? "");
+  // Default OFF, unlike the first-order offer — this replaces the old
+  // per-zone rule, which an owner may not want live again immediately.
+  const [allOrdersEnabled, setAllOrdersEnabled] = useState(defaults.all_orders_free_delivery_enabled === "1");
+
   return (
     <form action={formAction} className="space-y-4">
       {state.status === "success" && <p className="text-sm text-brand-primary">{state.message}</p>}
@@ -134,6 +141,79 @@ export function SiteSettingsForm({ defaults }: { defaults: Record<string, string
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Live preview</p>
           <p className="text-brand-dark">{freeDeliveryEnabled ? previewText(freeDeliveryEn, freeDeliveryAmount) : "(offer hidden — switch is off)"}</p>
           {freeDeliveryEnabled && <p className="text-brand-dark">{previewText(freeDeliveryBn, freeDeliveryAmount)}</p>}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-control border border-border-brand p-4">
+        <h3 className="font-heading text-sm font-bold text-brand-dark">Free delivery on all orders</h3>
+        <p className="text-xs text-gray-500">
+          Replaces the old per-zone &quot;spend X, get free delivery&quot; rule with one sitewide switch. Off by default.
+        </p>
+
+        <label className="flex items-center gap-2 text-sm font-medium text-brand-dark">
+          <input
+            type="checkbox"
+            name="allOrdersFreeDeliveryEnabled"
+            value="1"
+            checked={allOrdersEnabled}
+            onChange={(e) => setAllOrdersEnabled(e.target.checked)}
+          />
+          Apply free delivery to every order at checkout
+        </label>
+
+        <div className="max-w-xs">
+          <Label htmlFor="allOrdersFreeDeliveryThreshold">Minimum order amount (Tk)</Label>
+          <Input
+            id="allOrdersFreeDeliveryThreshold"
+            name="allOrdersFreeDeliveryThreshold"
+            type="number"
+            min="1"
+            max="100000"
+            step="1"
+            value={allOrdersAmount}
+            onChange={(e) => setAllOrdersAmount(e.target.value)}
+            required
+          />
+          <p className="mt-1 text-xs text-gray-500">Any order (not just a customer&apos;s first) reaching this amount (Tk) gets free delivery.</p>
+        </div>
+
+        <div>
+          <Label htmlFor="allOrdersBannerTextEn">Banner text — English (optional)</Label>
+          <Textarea
+            id="allOrdersBannerTextEn"
+            name="allOrdersBannerTextEn"
+            rows={2}
+            value={allOrdersEn}
+            onChange={(e) => setAllOrdersEn(e.target.value)}
+            placeholder="Leave blank to apply the discount without a banner"
+          />
+        </div>
+        <div>
+          <Label htmlFor="allOrdersBannerTextBn">Banner text — Bengali (optional)</Label>
+          <Textarea
+            id="allOrdersBannerTextBn"
+            name="allOrdersBannerTextBn"
+            rows={2}
+            value={allOrdersBn}
+            onChange={(e) => setAllOrdersBn(e.target.value)}
+            placeholder="Leave blank to apply the discount without a banner"
+          />
+        </div>
+        <p className="text-xs text-gray-500">
+          Use <code>{"{amount}"}</code> where the minimum order amount should appear. If both banner fields are left blank, this offer
+          applies at checkout without appearing in the announcement banner.
+        </p>
+
+        <div className="space-y-1.5 rounded-control bg-surface-muted p-3 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Live preview</p>
+          {!allOrdersEnabled ? (
+            <p className="text-brand-dark">(offer off)</p>
+          ) : (
+            <>
+              <p className="text-brand-dark">{allOrdersEn.trim() ? previewText(allOrdersEn, allOrdersAmount) : "(no banner text — discount still applies)"}</p>
+              {allOrdersBn.trim() && <p className="text-brand-dark">{previewText(allOrdersBn, allOrdersAmount)}</p>}
+            </>
+          )}
         </div>
       </div>
 

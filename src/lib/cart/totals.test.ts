@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lineTotal, groupSubtotal, computeCouponDiscount, computeVendorDeliveryFee, computeVatAmount, round2 } from "./totals";
+import { lineTotal, groupSubtotal, computeCouponDiscount, freeDeliveryApplies, computeVatAmount, round2 } from "./totals";
 
 describe("lineTotal", () => {
   it("multiplies (unit price + add-ons) by quantity", () => {
@@ -53,18 +53,34 @@ describe("computeCouponDiscount", () => {
   });
 });
 
-describe("computeVendorDeliveryFee", () => {
-  it("charges the zone's delivery fee below the free-delivery threshold", () => {
-    expect(computeVendorDeliveryFee(200, { deliveryFee: 30, freeDeliveryThreshold: 500 })).toBe(30);
+describe("freeDeliveryApplies", () => {
+  const off = { enabled: false, minOrderAmount: 300 };
+  const on300 = { enabled: true, minOrderAmount: 300 };
+
+  it("is false when both offers are off, regardless of subtotal or first-order status", () => {
+    expect(freeDeliveryApplies(10000, true, { firstOrder: off, allOrders: off })).toBe(false);
   });
 
-  it("waives delivery fee at or above the free-delivery threshold", () => {
-    expect(computeVendorDeliveryFee(500, { deliveryFee: 30, freeDeliveryThreshold: 500 })).toBe(0);
-    expect(computeVendorDeliveryFee(600, { deliveryFee: 30, freeDeliveryThreshold: 500 })).toBe(0);
+  it("first-order offer applies only for a first order at/above its amount", () => {
+    expect(freeDeliveryApplies(300, true, { firstOrder: on300, allOrders: off })).toBe(true);
+    expect(freeDeliveryApplies(299, true, { firstOrder: on300, allOrders: off })).toBe(false);
+    expect(freeDeliveryApplies(500, false, { firstOrder: on300, allOrders: off })).toBe(false);
   });
 
-  it("always charges the fee when there is no free-delivery threshold", () => {
-    expect(computeVendorDeliveryFee(999999, { deliveryFee: 30, freeDeliveryThreshold: null })).toBe(30);
+  it("all-orders offer applies for any order (not just first) at/above its amount", () => {
+    expect(freeDeliveryApplies(300, false, { firstOrder: off, allOrders: on300 })).toBe(true);
+    expect(freeDeliveryApplies(299, false, { firstOrder: off, allOrders: on300 })).toBe(false);
+  });
+
+  it("applies if either offer alone would apply, when both are on", () => {
+    const firstOrder = { enabled: true, minOrderAmount: 1000 };
+    const allOrders = { enabled: true, minOrderAmount: 300 };
+    // Below the first-order amount but above the all-orders amount, first order:
+    expect(freeDeliveryApplies(500, true, { firstOrder, allOrders })).toBe(true);
+    // Same subtotal, not a first order — only the all-orders offer can apply:
+    expect(freeDeliveryApplies(500, false, { firstOrder, allOrders })).toBe(true);
+    // Below both amounts:
+    expect(freeDeliveryApplies(200, true, { firstOrder, allOrders })).toBe(false);
   });
 });
 

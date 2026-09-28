@@ -23,6 +23,15 @@ export async function updateSiteSettingsAction(_prev: ActionState, formData: For
     return { status: "error", message: "Both English and Bengali banner text are required." };
   }
 
+  const allOrdersThresholdRaw = String(formData.get("allOrdersFreeDeliveryThreshold") ?? "500");
+  const allOrdersThresholdNum = Number(allOrdersThresholdRaw);
+  if (!Number.isInteger(allOrdersThresholdNum) || allOrdersThresholdNum <= 0 || allOrdersThresholdNum > FREE_DELIVERY_MIN_AMOUNT_MAX) {
+    return { status: "error", message: `All-orders free delivery minimum amount must be a whole number between 1 and ${FREE_DELIVERY_MIN_AMOUNT_MAX}.` };
+  }
+  // Banner text is optional for this offer — the discount can apply quietly, unadvertised.
+  const allOrdersBannerTextEn = String(formData.get("allOrdersBannerTextEn") ?? "").trim();
+  const allOrdersBannerTextBn = String(formData.get("allOrdersBannerTextBn") ?? "").trim();
+
   const entries: [string, string][] = [
     [SITE_SETTING_KEYS.supportPhone, String(formData.get("supportPhone") ?? "")],
     [SITE_SETTING_KEYS.supportEmail, String(formData.get("supportEmail") ?? "")],
@@ -33,6 +42,10 @@ export async function updateSiteSettingsAction(_prev: ActionState, formData: For
     [SITE_SETTING_KEYS.freeDeliveryPromoEnabled, formData.get("freeDeliveryPromoEnabled") === "1" ? "1" : "0"],
     [SITE_SETTING_KEYS.freeDeliveryBannerTextEn, freeDeliveryBannerTextEn],
     [SITE_SETTING_KEYS.freeDeliveryBannerTextBn, freeDeliveryBannerTextBn],
+    [SITE_SETTING_KEYS.allOrdersFreeDeliveryEnabled, formData.get("allOrdersFreeDeliveryEnabled") === "1" ? "1" : "0"],
+    [SITE_SETTING_KEYS.allOrdersFreeDeliveryThreshold, String(allOrdersThresholdNum)],
+    [SITE_SETTING_KEYS.allOrdersBannerTextEn, allOrdersBannerTextEn],
+    [SITE_SETTING_KEYS.allOrdersBannerTextBn, allOrdersBannerTextBn],
     [SITE_SETTING_KEYS.vatRatePct, String(formData.get("vatRatePct") ?? "0")],
     [SITE_SETTING_KEYS.defaultRiderCommissionRatePct, String(formData.get("defaultRiderCommissionRatePct") ?? "25")],
     [SITE_SETTING_KEYS.heroImageUrl, String(formData.get("heroImageUrl") ?? "")],

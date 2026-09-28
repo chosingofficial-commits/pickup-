@@ -33,22 +33,24 @@ export function computeCouponDiscount(subtotal: number, coupon: Coupon | null): 
   return round2(Math.min(capped, subtotal));
 }
 
-/** Delivery fee for one vendor's order in a given zone (waived past the zone's free threshold). */
-export function computeVendorDeliveryFee(vendorSubtotal: number, zone: { deliveryFee: number; freeDeliveryThreshold?: number | null }): number {
-  if (zone.freeDeliveryThreshold != null && vendorSubtotal >= zone.freeDeliveryThreshold) return 0;
-  return round2(zone.deliveryFee);
-}
-
-export type FreeDeliveryPromo = { enabled: boolean; minOrderAmount: number };
+export type FreeDeliveryOffer = { enabled: boolean; minOrderAmount: number };
+export type FreeDeliveryOffers = {
+  /** Sitewide, only for a customer's very first order (no prior OrderGroup). */
+  firstOrder: FreeDeliveryOffer;
+  /** Sitewide, every order — replaces the old per-zone DeliveryZone.freeDeliveryThreshold rule. */
+  allOrders: FreeDeliveryOffer;
+};
 
 /**
- * True when the sitewide first-order free-delivery promo waives delivery for
- * this order — the single source of truth used by the homepage banner
- * (whether the amount it advertises is real) and by cart/checkout/place-order
- * (whether to actually waive the fee), so they can never disagree.
+ * True when ANY active free-delivery offer waives delivery for this order —
+ * the single source of truth used by the homepage banner (so it never
+ * advertises something checkout won't honor) and by cart/checkout/place-order
+ * (so the number a customer sees never drifts from what they're charged).
  */
-export function freeDeliveryPromoApplies(orderSubtotal: number, isFirstOrder: boolean, promo: FreeDeliveryPromo): boolean {
-  return promo.enabled && isFirstOrder && orderSubtotal >= promo.minOrderAmount;
+export function freeDeliveryApplies(orderSubtotal: number, isFirstOrder: boolean, offers: FreeDeliveryOffers): boolean {
+  const firstOrderApplies = offers.firstOrder.enabled && isFirstOrder && orderSubtotal >= offers.firstOrder.minOrderAmount;
+  const allOrdersApplies = offers.allOrders.enabled && orderSubtotal >= offers.allOrders.minOrderAmount;
+  return firstOrderApplies || allOrdersApplies;
 }
 
 export function computeVatAmount(subtotal: number, vatRatePct: number): number {
