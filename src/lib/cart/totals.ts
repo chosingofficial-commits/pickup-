@@ -39,6 +39,18 @@ export function computeVendorDeliveryFee(vendorSubtotal: number, zone: { deliver
   return round2(zone.deliveryFee);
 }
 
+export type FreeDeliveryPromo = { enabled: boolean; minOrderAmount: number };
+
+/**
+ * True when the sitewide first-order free-delivery promo waives delivery for
+ * this order — the single source of truth used by the homepage banner
+ * (whether the amount it advertises is real) and by cart/checkout/place-order
+ * (whether to actually waive the fee), so they can never disagree.
+ */
+export function freeDeliveryPromoApplies(orderSubtotal: number, isFirstOrder: boolean, promo: FreeDeliveryPromo): boolean {
+  return promo.enabled && isFirstOrder && orderSubtotal >= promo.minOrderAmount;
+}
+
 export function computeVatAmount(subtotal: number, vatRatePct: number): number {
   return round2(subtotal * (vatRatePct / 100));
 }

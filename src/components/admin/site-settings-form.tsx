@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useActionState } from "react";
 import { updateSiteSettingsAction } from "@/lib/actions/admin-settings";
 import { initialActionState } from "@/lib/actions/types";
@@ -7,12 +8,24 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { FileUploadField } from "@/components/forms/file-upload-field";
 
+/** Same `{amount}` substitution as lib/i18n/get-dictionary.ts's t() — duplicated
+ * here since that module is server-only and can't be imported into this client form. */
+function previewText(template: string, amount: string): string {
+  return template.replace(/\{amount\}/g, amount || "{amount}");
+}
+
 export function SiteSettingsForm({ defaults }: { defaults: Record<string, string> }) {
   const [state, formAction] = useActionState(updateSiteSettingsAction, initialActionState);
+
+  const [freeDeliveryAmount, setFreeDeliveryAmount] = useState(defaults.free_delivery_threshold ?? "500");
+  const [freeDeliveryEn, setFreeDeliveryEn] = useState(defaults.free_delivery_banner_text_en ?? "");
+  const [freeDeliveryBn, setFreeDeliveryBn] = useState(defaults.free_delivery_banner_text_bn ?? "");
+  const [freeDeliveryEnabled, setFreeDeliveryEnabled] = useState(defaults.free_delivery_promo_enabled !== "0");
 
   return (
     <form action={formAction} className="space-y-4">
       {state.status === "success" && <p className="text-sm text-brand-primary">{state.message}</p>}
+      {state.status === "error" && state.message && <p className="text-sm text-red-600">{state.message}</p>}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -26,10 +39,6 @@ export function SiteSettingsForm({ defaults }: { defaults: Record<string, string
         <div>
           <Label htmlFor="whatsappNumber">WhatsApp number</Label>
           <Input id="whatsappNumber" name="whatsappNumber" defaultValue={defaults.whatsapp_number} />
-        </div>
-        <div>
-          <Label htmlFor="freeDeliveryThreshold">Free delivery threshold (Tk)</Label>
-          <Input id="freeDeliveryThreshold" name="freeDeliveryThreshold" type="number" min="0" defaultValue={defaults.free_delivery_threshold} />
         </div>
         <div>
           <Label htmlFor="defaultCommissionRatePct">Default commission rate (%)</Label>
@@ -64,6 +73,70 @@ export function SiteSettingsForm({ defaults }: { defaults: Record<string, string
         defaultUrl={defaults.hero_image_url}
         hint="Replaces the default scooter graphic on the homepage. JPEG, PNG, or WebP."
       />
+
+      <div className="space-y-3 rounded-control border border-border-brand p-4">
+        <h3 className="font-heading text-sm font-bold text-brand-dark">First-order free delivery offer</h3>
+
+        <label className="flex items-center gap-2 text-sm font-medium text-brand-dark">
+          <input
+            type="checkbox"
+            name="freeDeliveryPromoEnabled"
+            value="1"
+            checked={freeDeliveryEnabled}
+            onChange={(e) => setFreeDeliveryEnabled(e.target.checked)}
+          />
+          Show the offer and apply it at checkout
+        </label>
+
+        <div className="max-w-xs">
+          <Label htmlFor="freeDeliveryThreshold">Minimum order amount (Tk)</Label>
+          <Input
+            id="freeDeliveryThreshold"
+            name="freeDeliveryThreshold"
+            type="number"
+            min="1"
+            max="100000"
+            step="1"
+            value={freeDeliveryAmount}
+            onChange={(e) => setFreeDeliveryAmount(e.target.value)}
+            required
+          />
+          <p className="mt-1 text-xs text-gray-500">A customer&apos;s first order must reach this amount (Tk) to qualify.</p>
+        </div>
+
+        <div>
+          <Label htmlFor="freeDeliveryBannerTextEn">Banner text — English</Label>
+          <Textarea
+            id="freeDeliveryBannerTextEn"
+            name="freeDeliveryBannerTextEn"
+            rows={2}
+            value={freeDeliveryEn}
+            onChange={(e) => setFreeDeliveryEn(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="freeDeliveryBannerTextBn">Banner text — Bengali</Label>
+          <Textarea
+            id="freeDeliveryBannerTextBn"
+            name="freeDeliveryBannerTextBn"
+            rows={2}
+            value={freeDeliveryBn}
+            onChange={(e) => setFreeDeliveryBn(e.target.value)}
+            required
+          />
+        </div>
+        <p className="text-xs text-gray-500">
+          Use <code>{"{amount}"}</code> where the minimum order amount should appear.
+        </p>
+
+        <div className="space-y-1.5 rounded-control bg-surface-muted p-3 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Live preview</p>
+          <p className="text-brand-dark">{freeDeliveryEnabled ? previewText(freeDeliveryEn, freeDeliveryAmount) : "(offer hidden — switch is off)"}</p>
+          {freeDeliveryEnabled && <p className="text-brand-dark">{previewText(freeDeliveryBn, freeDeliveryAmount)}</p>}
+        </div>
+      </div>
+
       <SubmitButton className="w-auto px-6">Save settings</SubmitButton>
     </form>
   );

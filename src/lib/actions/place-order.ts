@@ -7,7 +7,8 @@ import { getFullCart } from "@/lib/cart/queries";
 import { getCheckoutState, clearCheckoutState } from "@/lib/checkout/cookie";
 import { getSelectedCouponCode, setSelectedCouponCode } from "@/lib/cart/coupon-cookie";
 import { validateCoupon } from "@/lib/cart/coupon";
-import { groupSubtotal, computeCouponDiscount, computeVendorDeliveryFee, round2 } from "@/lib/cart/totals";
+import { groupSubtotal, computeCouponDiscount, computeVendorDeliveryFee, freeDeliveryPromoApplies, round2 } from "@/lib/cart/totals";
+import { getFreeDeliveryPromoSettings, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
 import { toPoisha } from "@/lib/rider/ledger";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
 import { recordAuditLog } from "@/lib/audit";
@@ -76,6 +77,9 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
     if (validatedCoupon.ok) totalDiscount = computeCouponDiscount(subtotal, validatedCoupon.coupon);
   }
 
+  const [freeDeliveryPromo, isFirstOrder] = await Promise.all([getFreeDeliveryPromoSettings(), isFirstOrderCustomer(user.id)]);
+  const freeDeliveryApplies = freeDeliveryPromoApplies(subtotal, isFirstOrder, freeDeliveryPromo);
+
   const zone = address.deliveryZone;
   const paymentMethod = checkoutState.paymentMethod as PaymentProvider;
   const scheduledFor = checkoutState.scheduledFor ? new Date(checkoutState.scheduledFor) : null;
@@ -90,10 +94,12 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
 
       for (const group of groups) {
         const groupSub = groupSubtotal(group.lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })));
-        const deliveryFee = computeVendorDeliveryFee(groupSub, {
-          deliveryFee: Number(zone.deliveryFee),
-          freeDeliveryThreshold: zone.freeDeliveryThreshold != null ? Number(zone.freeDeliveryThreshold) : null,
-        });
+        const deliveryFee = freeDeliveryApplies
+          ? 0
+          : computeVendorDeliveryFee(groupSub, {
+              deliveryFee: Number(zone.deliveryFee),
+              freeDeliveryThreshold: zone.freeDeliveryThreshold != null ? Number(zone.freeDeliveryThreshold) : null,
+            });
         const discountShare = subtotal > 0 ? round2((groupSub / subtotal) * totalDiscount) : 0;
         runningSubtotal += groupSub;
         runningDeliveryFee += deliveryFee;

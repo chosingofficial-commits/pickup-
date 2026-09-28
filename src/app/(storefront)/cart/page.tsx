@@ -10,7 +10,8 @@ import { getSelectedLocation } from "@/lib/location/cookie";
 import { getSelectedCouponCode } from "@/lib/cart/coupon-cookie";
 import { validateCoupon } from "@/lib/cart/coupon";
 import { getSiteSettings, SITE_SETTING_KEYS } from "@/lib/settings";
-import { groupSubtotal, computeCouponDiscount, computeVendorDeliveryFee, computeVatAmount, round2 } from "@/lib/cart/totals";
+import { getFreeDeliveryPromoSettings, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
+import { groupSubtotal, computeCouponDiscount, computeVatAmount, freeDeliveryPromoApplies, round2 } from "@/lib/cart/totals";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Your cart" };
@@ -30,11 +31,13 @@ export default async function CartPage() {
     );
   }
 
-  const [{ groups }, location, couponCode, settings] = await Promise.all([
+  const [{ groups }, location, couponCode, settings, freeDeliveryPromo, isFirstOrder] = await Promise.all([
     getFullCart(user.id),
     getSelectedLocation(),
     getSelectedCouponCode(),
     getSiteSettings(),
+    getFreeDeliveryPromoSettings(),
+    isFirstOrderCustomer(user.id),
   ]);
 
   if (groups.length === 0) {
@@ -55,15 +58,16 @@ export default async function CartPage() {
   const vatRatePct = Number(settings[SITE_SETTING_KEYS.vatRatePct]);
   const vatAmount = computeVatAmount(subtotal, vatRatePct);
 
-  const freeDeliveryThreshold = Number(settings[SITE_SETTING_KEYS.freeDeliveryThreshold]);
+  // Note: the per-vendor "spend X in this zone, get free delivery" rule
+  // (computeVendorDeliveryFee against the zone's own freeDeliveryThreshold)
+  // isn't estimated here — this page only has the delivery fee from the
+  // location cookie, not the zone's threshold, so showing a plain per-group
+  // fee is a safe (if occasionally pessimistic) preview; checkout/review
+  // has the real zone data and is the authoritative number. The first-order
+  // promo below is sitewide, so it doesn't need zone data and applies here too.
   const deliveryFeePerGroup = location?.isCovered ? Number(location.deliveryFee ?? 0) : null;
-  const deliveryTotal =
-    deliveryFeePerGroup != null
-      ? groups.reduce((sum, g) => {
-          const groupSub = groupSubtotal(g.lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })));
-          return sum + computeVendorDeliveryFee(groupSub, { deliveryFee: deliveryFeePerGroup, freeDeliveryThreshold });
-        }, 0)
-      : null;
+  const freeDeliveryPromoApplied = freeDeliveryPromoApplies(subtotal, isFirstOrder, freeDeliveryPromo);
+  const deliveryTotal = deliveryFeePerGroup == null ? null : freeDeliveryPromoApplied ? 0 : deliveryFeePerGroup * groups.length;
 
   let discount = 0;
   let couponError: string | null = null;

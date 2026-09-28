@@ -15,7 +15,8 @@ import { RestaurantCard } from "@/components/restaurant/restaurant-card";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { Section } from "@/components/ui/container";
 import { JsonLd } from "@/components/seo/json-ld";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, t } from "@/lib/i18n/get-dictionary";
+import { getFreeDeliveryPromoSettings } from "@/lib/promotions/free-delivery";
 import { getShopCategories, getPopularProducts, getFlashDeals, getWeeklyGroceryPicks } from "@/lib/catalog/queries";
 import { getPopularRestaurants } from "@/lib/restaurant/queries";
 import { getActiveServiceAreaLabel, getOrderableNeighbourhoods } from "@/lib/location/queries";
@@ -37,20 +38,33 @@ export default async function HomePage() {
   // up front, so it runs alongside the other independent queries rather
   // than serializing in front of them.
   const userPromise = getCurrentUser();
-  const [{ dict }, areaLabel, categories, popularProducts, weeklyGroceryPicks, flashDeals, restaurants, neighbourhoods, reviews, settings, favoritedVendorIds] =
-    await Promise.all([
-      getDictionary(),
-      getActiveServiceAreaLabel(),
-      getShopCategories(),
-      getPopularProducts(10),
-      getWeeklyGroceryPicks(10),
-      getFlashDeals(10),
-      getPopularRestaurants(6),
-      getOrderableNeighbourhoods(),
-      getFeaturedReviews(6),
-      getSiteSettings(),
-      userPromise.then((user) => (user ? getFavoritedVendorIds(user.id) : new Set<string>())),
-    ]);
+  const [
+    { dict, locale },
+    areaLabel,
+    categories,
+    popularProducts,
+    weeklyGroceryPicks,
+    flashDeals,
+    restaurants,
+    neighbourhoods,
+    reviews,
+    settings,
+    freeDeliveryPromo,
+    favoritedVendorIds,
+  ] = await Promise.all([
+    getDictionary(),
+    getActiveServiceAreaLabel(),
+    getShopCategories(),
+    getPopularProducts(10),
+    getWeeklyGroceryPicks(10),
+    getFlashDeals(10),
+    getPopularRestaurants(6),
+    getOrderableNeighbourhoods(),
+    getFeaturedReviews(6),
+    getSiteSettings(),
+    getFreeDeliveryPromoSettings(),
+    userPromise.then((user) => (user ? getFavoritedVendorIds(user.id) : new Set<string>())),
+  ]);
 
   return (
     <>
@@ -66,7 +80,13 @@ export default async function HomePage() {
           priceRange: "Tk",
         }}
       />
-      <AnnouncementBar message="🎉 Free delivery on your first order over Tk 500 in Khagrachari Sadar!" />
+      {freeDeliveryPromo.enabled && (
+        <AnnouncementBar
+          message={t(locale === "bn" ? freeDeliveryPromo.bannerTextBn : freeDeliveryPromo.bannerTextEn, {
+            amount: freeDeliveryPromo.minOrderAmount,
+          })}
+        />
+      )}
 
       <HeroSection
         areaLabel={areaLabel}
