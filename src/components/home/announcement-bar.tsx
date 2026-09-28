@@ -22,7 +22,7 @@ export function AnnouncementBar({ message }: { message: string }) {
   if (dismissedInStorage || manuallyDismissed) return null;
 
   return (
-    <div className="relative bg-brand-primary px-4 py-2 text-center text-xs font-medium text-white sm:text-sm">
+    <div className="relative bg-brand-primary px-8 py-1.5 text-center text-[11px] font-medium text-white md:px-4 md:py-2 md:text-sm">
       <span>{message}</span>
       <button
         type="button"
@@ -31,7 +31,7 @@ export function AnnouncementBar({ message }: { message: string }) {
           window.localStorage.setItem(DISMISS_KEY, "1");
           setManuallyDismissed(true);
         }}
-        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 hover:bg-white/20"
+        className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-4 hover:bg-white/20 md:right-3 md:p-1"
       >
         <X className="h-3.5 w-3.5" aria-hidden />
       </button>

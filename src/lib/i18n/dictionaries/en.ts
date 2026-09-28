@@ -23,6 +23,9 @@ const en = {
   location: {
     deliveringIn: "Now delivering in {area}",
     selectLocation: "Select delivery location",
+    // Short enough to fit on one line at 360px next to the pin icon — used
+    // only on the compact mobile header trigger when no location is set yet.
+    setLocationShort: "Set location",
     useCurrentLocation: "Use my current location",
     enterAddressManually: "Enter address manually",
     searchAddress: "Search for area, road, or landmark",

@@ -43,3 +43,6 @@ next-env.d.ts
 # local-only fallback storage (never used in production, see storage adapter)
 /public/uploads/dev/
 /private-uploads/
+
+# ad-hoc local screenshots (e.g. before/after UI comparisons), never committed
+/screenshots/

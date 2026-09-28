@@ -25,6 +25,7 @@ const bn: Dictionary = {
   location: {
     deliveringIn: "এখন {area}-এ ডেলিভারি চালু আছে",
     selectLocation: "ডেলিভারি লোকেশন নির্বাচন করুন",
+    setLocationShort: "লোকেশন সেট করুন",
     useCurrentLocation: "আমার বর্তমান অবস্থান ব্যবহার করুন",
     enterAddressManually: "ঠিকানা নিজে লিখুন",
     searchAddress: "এলাকা, রোড বা ল্যান্ডমার্ক খুঁজুন",

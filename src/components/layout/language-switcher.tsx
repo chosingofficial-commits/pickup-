@@ -20,7 +20,10 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           onClick={() => setLocale(code)}
           aria-pressed={locale === code}
           className={cn(
-            "rounded-full px-2.5 py-1 transition-colors",
+            // Padding-only sizing (~44px tap target) so display stays the
+            // browser's default inline-block at every breakpoint, exactly as
+            // before — md: restores the original padding untouched.
+            "rounded-full px-3.5 py-3.5 transition-colors md:px-2.5 md:py-1",
             locale === code ? "bg-brand-primary text-white" : "text-brand-dark hover:bg-brand-bg",
           )}
         >

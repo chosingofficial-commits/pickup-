@@ -79,10 +79,14 @@ export function LocationSelector({
       <button
         type="button"
         onClick={() => dialogRef.current?.showModal()}
-        className="flex max-w-[220px] items-center gap-1.5 rounded-control border border-border-brand bg-white px-3 py-2 text-left text-sm font-medium text-brand-dark hover:bg-brand-bg sm:max-w-[280px]"
+        className="flex min-h-11 max-w-[130px] items-center gap-1.5 rounded-control border border-border-brand bg-white px-2.5 py-2 text-left text-sm font-medium text-brand-dark hover:bg-brand-bg md:min-h-0 md:max-w-[220px] md:px-3 lg:max-w-[280px]"
       >
         <MapPin className="h-4 w-4 shrink-0 text-brand-primary" aria-hidden />
-        <span className="truncate">
+        {/* Mobile: the area name only (e.g. "Khagrachari Sadar" from "Khagrachari Sadar, Khagrachari"), or a short "Set location" when nothing's selected yet — both fit on one line at 360px without truncating. Desktop keeps the full label unchanged. */}
+        <span className="truncate md:hidden">
+          {initialSelection ? initialSelection.label.split(",")[0] : dict.location.setLocationShort}
+        </span>
+        <span className="hidden truncate md:inline">
           {initialSelection?.label ?? dict.location.selectLocation}
         </span>
       </button>

@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
 import { SearchBar } from "./search-bar";
+import { MobileSearchToggle } from "./mobile-search-toggle";
 import { LanguageSwitcher } from "./language-switcher";
 import { LocationSelector } from "@/components/location/location-selector";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -40,17 +41,19 @@ export async function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border-brand bg-white/95 backdrop-blur">
-      <Container className="flex flex-wrap items-center gap-3 py-3">
+      <Container className="flex flex-wrap items-center gap-2 py-2 md:gap-3 md:py-3">
         <Link href="/" prefetch={false} className="shrink-0">
-          <Logo />
+          <Logo size="sm" iconOnly className="md:hidden" />
+          <Logo className="hidden md:inline-flex" />
         </Link>
 
         <LocationSelector neighbourhoods={neighbourhoodOptions} initialSelection={selectedLocation} />
 
-        <SearchBar placeholder={dict.nav.search} className="order-last w-full sm:order-none sm:flex-1" />
+        <MobileSearchToggle placeholder={dict.nav.search} className="md:hidden" />
+        <SearchBar placeholder={dict.nav.search} className="hidden md:order-none md:block md:flex-1" />
 
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-          <LanguageSwitcher className="hidden sm:inline-flex" />
+        <div className="ml-auto flex items-center gap-1 md:gap-2">
+          <LanguageSwitcher />
 
           <Link
             href="/account/wishlist"
@@ -66,7 +69,12 @@ export async function Header() {
             )}
           </Link>
 
-          <Link href="/cart" prefetch={false} aria-label={dict.nav.cart} className="relative rounded-control p-2.5 text-brand-dark hover:bg-brand-bg">
+          <Link
+            href="/cart"
+            prefetch={false}
+            aria-label={dict.nav.cart}
+            className="relative rounded-control p-3 text-brand-dark hover:bg-brand-bg md:p-2.5"
+          >
             <ShoppingCart className="h-5 w-5" aria-hidden />
             {cartCount > 0 && (
               <Badge variant="brand" className="absolute -right-1 -top-1 min-w-[18px] justify-center px-1 py-0 text-[10px]">
@@ -86,14 +94,14 @@ export async function Header() {
                 {user.name.split(" ")[0]}
               </Link>
               <form action={logoutAction}>
-                <button type="submit" className="rounded-control px-3 py-2 text-sm font-medium text-brand-dark hover:bg-brand-bg">
+                <button type="submit" className="rounded-control px-3 py-3 text-sm font-medium text-brand-dark hover:bg-brand-bg md:py-2">
                   {dict.nav.logout}
                 </button>
               </form>
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              <Link href="/login" prefetch={false} className="rounded-control px-3 py-2 text-sm font-semibold text-brand-dark hover:bg-brand-bg">
+              <Link href="/login" prefetch={false} className="rounded-control px-3 py-3 text-sm font-semibold text-brand-dark hover:bg-brand-bg md:py-2">
                 {dict.nav.login}
               </Link>
               <Link
@@ -108,14 +116,23 @@ export async function Header() {
         </div>
       </Container>
 
-      <nav aria-label="Categories" className="hidden border-t border-border-brand bg-brand-bg/60 md:block">
-        <Container className="flex items-center gap-6 py-2 text-sm font-medium text-brand-dark">
+      <nav aria-label="Categories" className="border-t border-border-brand bg-brand-bg/60">
+        <Container className="flex items-center gap-4 overflow-x-auto text-xs font-medium text-brand-dark [scrollbar-width:none] [-ms-overflow-style:none] md:gap-6 md:overflow-visible md:py-2 md:text-sm [&::-webkit-scrollbar]:hidden">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} prefetch={false} className="whitespace-nowrap hover:text-brand-primary">
+            <Link
+              key={link.href}
+              href={link.href}
+              prefetch={false}
+              className="shrink-0 whitespace-nowrap py-3.5 hover:text-brand-primary md:shrink md:py-0"
+            >
               {dict.nav[link.labelKey]}
             </Link>
           ))}
-          <Link href="/vendor/register" prefetch={false} className="ml-auto flex items-center gap-1.5 whitespace-nowrap font-semibold text-brand-primary hover:text-brand-primary-hover">
+          <Link
+            href="/vendor/register"
+            prefetch={false}
+            className="ml-auto flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap font-semibold text-brand-primary hover:text-brand-primary-hover md:min-h-0"
+          >
             <Store className="h-4 w-4" aria-hidden />
             {dict.nav.becomeVendor}
           </Link>
