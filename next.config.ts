@@ -15,6 +15,14 @@ const nextConfig: NextConfig = {
       // framework limit first.
       bodySizeLimit: "10mb",
     },
+    // Default is (CPU count - 1) build workers, which on Hostinger's build
+    // machine spawns far more parallel workers than its actual memory/process
+    // headroom supports — this is what caused both the EMAXCONNSESSION
+    // (Supabase session-pooler exhaustion, 15-connection cap vs. 47 workers)
+    // and the "node process exited before we could connect to it" Turbopack
+    // subprocess crash on repeated deploys. Capping it well below what a
+    // small container can autodetect trades build speed for reliability.
+    cpus: 2,
   },
 
   images: {
