@@ -15,39 +15,47 @@ describe("getRiderBalanceStatus", () => {
   });
 });
 
+// All instants below are UTC — Asia/Dhaka is a fixed UTC+6 offset (no DST),
+// so "Dhaka local time" = UTC + 6 hours throughout (same convention as
+// lib/restaurant/status.test.ts). "now" is Wednesday 2026-09-30, 15:30 Dhaka.
+const NOW = new Date("2026-09-30T09:30:00Z");
+
 describe("getPeriodStart", () => {
-  // Wednesday, 2026-09-30, 15:30 local time.
-  const wednesday = new Date(2026, 8, 30, 15, 30);
-
   it("returns undefined for all time (no lower bound)", () => {
-    expect(getPeriodStart("all", wednesday)).toBeUndefined();
+    expect(getPeriodStart("all", NOW)).toBeUndefined();
   });
 
-  it("returns midnight of the same day for today", () => {
-    const start = getPeriodStart("today", wednesday)!;
-    expect(start.getFullYear()).toBe(2026);
-    expect(start.getMonth()).toBe(8);
-    expect(start.getDate()).toBe(30);
-    expect(start.getHours()).toBe(0);
-    expect(start.getMinutes()).toBe(0);
+  it("returns Dhaka midnight of the current Dhaka calendar day for today — not the server's own midnight", () => {
+    // Dhaka midnight on 2026-09-30 is 2026-09-29T18:00:00Z (18:00 UTC the
+    // day before) — a server running in UTC would naively compute
+    // 2026-09-30T00:00:00Z instead, which is 6am Dhaka time, 6 hours late.
+    expect(getPeriodStart("today", NOW)).toEqual(new Date("2026-09-29T18:00:00Z"));
   });
 
-  it("returns the preceding Monday midnight for week", () => {
-    const start = getPeriodStart("week", wednesday)!;
-    expect(start.getDate()).toBe(28); // Monday 2026-09-28
-    expect(start.getHours()).toBe(0);
+  it("counts a delivery at 1am Dhaka time as part of today", () => {
+    const todayStart = getPeriodStart("today", NOW)!;
+    const deliveryAt1amDhaka = new Date("2026-09-29T19:00:00Z"); // 2026-09-30 01:00 Dhaka
+    expect(deliveryAt1amDhaka.getTime()).toBeGreaterThanOrEqual(todayStart.getTime());
   });
 
-  it("treats Sunday as the last day of its week, not the start of a new one", () => {
-    const sunday = new Date(2026, 8, 27, 10, 0); // Sunday 2026-09-27
-    const start = getPeriodStart("week", sunday)!;
-    expect(start.getDate()).toBe(21); // Monday 2026-09-21
+  it("does not count a delivery from 11pm Dhaka time the previous day as today", () => {
+    const todayStart = getPeriodStart("today", NOW)!;
+    const deliveryAt11pmPrevDayDhaka = new Date("2026-09-29T17:00:00Z"); // 2026-09-29 23:00 Dhaka
+    expect(deliveryAt11pmPrevDayDhaka.getTime()).toBeLessThan(todayStart.getTime());
   });
 
-  it("returns the 1st of the current month at midnight for month", () => {
-    const start = getPeriodStart("month", wednesday)!;
-    expect(start.getDate()).toBe(1);
-    expect(start.getMonth()).toBe(8);
-    expect(start.getHours()).toBe(0);
+  it("starts the week on Saturday (the Bangladesh work week)", () => {
+    // Wednesday 2026-09-30 Dhaka -> the preceding Saturday is 2026-09-26,
+    // whose Dhaka midnight is 2026-09-25T18:00:00Z.
+    expect(getPeriodStart("week", NOW)).toEqual(new Date("2026-09-25T18:00:00Z"));
+  });
+
+  it("treats Saturday itself as the start of its own week", () => {
+    const saturdayDhaka = new Date("2026-09-26T09:30:00Z"); // Sat 2026-09-26, 15:30 Dhaka
+    expect(getPeriodStart("week", saturdayDhaka)).toEqual(new Date("2026-09-25T18:00:00Z"));
+  });
+
+  it("returns the 1st of the current Dhaka calendar month at Dhaka midnight", () => {
+    expect(getPeriodStart("month", NOW)).toEqual(new Date("2026-08-31T18:00:00Z"));
   });
 });
