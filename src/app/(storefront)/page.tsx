@@ -85,6 +85,7 @@ export default async function HomePage() {
           message={t(locale === "bn" ? freeDeliveryPromo.bannerTextBn : freeDeliveryPromo.bannerTextEn, {
             amount: freeDeliveryPromo.minOrderAmount,
           })}
+          versionKey={freeDeliveryPromo.versionKey}
         />
       )}
 

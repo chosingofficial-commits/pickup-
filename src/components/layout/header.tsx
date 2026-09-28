@@ -53,9 +53,11 @@ export async function Header() {
     <header className="sticky top-0 z-40 border-b border-border-brand bg-white/95 backdrop-blur">
       {/*
         Mobile (<md): a single non-wrapping row — logo, location (flexible,
-        truncates), search icon, language toggle, cart, account — entirely
-        separate markup from desktop below, so desktop can't regress from
-        anything done here. See mobile-search-toggle.tsx / mobile-language-toggle.tsx.
+        truncates), search icon, language toggle, cart — entirely separate
+        markup from desktop below, so desktop can't regress from anything
+        done here. No account icon here: the bottom MobileNav tab bar already
+        has "Account", so the row gives that space to the location label
+        instead. See mobile-search-toggle.tsx / mobile-language-toggle.tsx.
       */}
       <Container className="relative flex flex-nowrap items-center gap-1 py-2 md:hidden">
         <Link href="/" prefetch={false} className="flex h-11 w-11 shrink-0 items-center justify-center">
@@ -84,15 +86,6 @@ export async function Header() {
               {cartCount}
             </Badge>
           )}
-        </Link>
-
-        <Link
-          href={accountHref}
-          prefetch={false}
-          aria-label={user ? dict.nav.account : dict.nav.login}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-brand-dark hover:bg-brand-bg"
-        >
-          <UserRound className="h-5 w-5" aria-hidden />
         </Link>
       </Container>
 

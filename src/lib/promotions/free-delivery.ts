@@ -7,16 +7,24 @@ export type FreeDeliveryPromoSettings = {
   minOrderAmount: number;
   bannerTextEn: string;
   bannerTextBn: string;
+  // Changes whenever the amount or either banner text changes — AnnouncementBar
+  // stores this alongside a dismissal, so an edit in admin makes a
+  // previously-dismissed banner reappear instead of staying hidden forever.
+  versionKey: string;
 };
 
 /** Reads through getSiteSettings()'s tagged cache, so an admin save (which revalidates that tag) is reflected immediately. */
 export async function getFreeDeliveryPromoSettings(): Promise<FreeDeliveryPromoSettings> {
   const settings = await getSiteSettings();
+  const minOrderAmount = Number(settings[SITE_SETTING_KEYS.freeDeliveryThreshold]);
+  const bannerTextEn = settings[SITE_SETTING_KEYS.freeDeliveryBannerTextEn];
+  const bannerTextBn = settings[SITE_SETTING_KEYS.freeDeliveryBannerTextBn];
   return {
     enabled: settings[SITE_SETTING_KEYS.freeDeliveryPromoEnabled] === "1",
-    minOrderAmount: Number(settings[SITE_SETTING_KEYS.freeDeliveryThreshold]),
-    bannerTextEn: settings[SITE_SETTING_KEYS.freeDeliveryBannerTextEn],
-    bannerTextBn: settings[SITE_SETTING_KEYS.freeDeliveryBannerTextBn],
+    minOrderAmount,
+    bannerTextEn,
+    bannerTextBn,
+    versionKey: `${minOrderAmount}|${bannerTextEn}|${bannerTextBn}`,
   };
 }
 
