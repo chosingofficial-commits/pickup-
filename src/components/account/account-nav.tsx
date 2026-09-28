@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Package, MapPin, Heart, Store, Star, Ticket, Bell, LifeBuoy, ShieldCheck } from "lucide-react";
+import { User, Package, MapPin, Heart, Store, Star, Ticket, Bell, LifeBuoy, ShieldCheck, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logoutAction } from "@/lib/actions/auth";
 
 const LINKS = [
   { href: "/account", label: "Profile", icon: User },
@@ -23,6 +24,19 @@ export function AccountNav() {
 
   return (
     <nav aria-label="Account" className="no-scrollbar -mx-4 flex gap-1 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
+      {/* First, not last — on mobile this is a scrollable row, and burying
+          "Log out" after 10 other links would defeat the point of putting it
+          here in the first place (the header's own logout button is icon-only
+          on mobile now and just links to /account, it doesn't log out). */}
+      <form action={logoutAction} className="contents">
+        <button
+          type="submit"
+          className="flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-control px-3.5 py-2.5 text-sm font-medium text-brand-dark hover:bg-brand-bg lg:shrink"
+        >
+          <LogOut className="h-4 w-4" aria-hidden />
+          Log out
+        </button>
+      </form>
       {LINKS.map(({ href, label, icon: Icon }) => {
         const isActive = href === "/account" ? pathname === "/account" : pathname.startsWith(href);
         return (

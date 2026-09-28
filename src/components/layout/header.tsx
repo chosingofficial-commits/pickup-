@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { SearchBar } from "./search-bar";
 import { MobileSearchToggle } from "./mobile-search-toggle";
 import { LanguageSwitcher } from "./language-switcher";
+import { MobileLanguageToggle } from "./mobile-language-toggle";
 import { LocationSelector } from "@/components/location/location-selector";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -38,29 +39,77 @@ export async function Header() {
   ]);
 
   const neighbourhoodOptions = neighbourhoods.map((n) => ({ id: n.id, name: n.name, townName: n.town.name }));
+  const accountHref = !user
+    ? "/login"
+    : user.role === "ADMIN"
+      ? "/admin"
+      : user.role === "VENDOR"
+        ? "/vendor"
+        : user.role === "RIDER"
+          ? "/rider"
+          : "/account";
 
   return (
     <header className="sticky top-0 z-40 border-b border-border-brand bg-white/95 backdrop-blur">
-      <Container className="flex flex-wrap items-center gap-2 py-2 md:gap-3 md:py-3">
-        <Link href="/" prefetch={false} className="shrink-0">
-          <Logo size="sm" iconOnly className="md:hidden" />
-          <Logo className="hidden md:inline-flex" />
+      {/*
+        Mobile (<md): a single non-wrapping row — logo, location (flexible,
+        truncates), search icon, language toggle, cart, account — entirely
+        separate markup from desktop below, so desktop can't regress from
+        anything done here. See mobile-search-toggle.tsx / mobile-language-toggle.tsx.
+      */}
+      <Container className="relative flex flex-nowrap items-center gap-1 py-2 md:hidden">
+        <Link href="/" prefetch={false} className="flex h-11 w-11 shrink-0 items-center justify-center">
+          <Logo size="sm" iconOnly />
         </Link>
 
-        <LocationSelector neighbourhoods={neighbourhoodOptions} initialSelection={selectedLocation} />
+        <LocationSelector
+          neighbourhoods={neighbourhoodOptions}
+          initialSelection={selectedLocation}
+          shortLabel
+          triggerClassName="min-h-11 min-w-0 flex-1 gap-1 px-2"
+        />
 
-        <MobileSearchToggle placeholder={dict.nav.search} className="md:hidden" />
-        <SearchBar placeholder={dict.nav.search} className="hidden md:order-none md:block md:flex-1" />
+        <MobileSearchToggle placeholder={dict.nav.search} />
+        <MobileLanguageToggle />
 
-        <div className="ml-auto flex items-center gap-1 md:gap-2">
+        <Link
+          href="/cart"
+          prefetch={false}
+          aria-label={dict.nav.cart}
+          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-brand-dark hover:bg-brand-bg"
+        >
+          <ShoppingCart className="h-5 w-5" aria-hidden />
+          {cartCount > 0 && (
+            <Badge variant="brand" className="absolute -right-1 -top-1 min-w-[18px] justify-center px-1 py-0 text-[10px]">
+              {cartCount}
+            </Badge>
+          )}
+        </Link>
+
+        <Link
+          href={accountHref}
+          prefetch={false}
+          aria-label={user ? dict.nav.account : dict.nav.login}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-brand-dark hover:bg-brand-bg"
+        >
+          <UserRound className="h-5 w-5" aria-hidden />
+        </Link>
+      </Container>
+
+      {/* Desktop (>=md): unchanged from the original header — verified pixel-identical at 1280px. */}
+      <Container className="hidden flex-wrap items-center gap-3 py-3 md:flex">
+        <Link href="/" prefetch={false} className="shrink-0">
+          <Logo />
+        </Link>
+
+        <LocationSelector neighbourhoods={neighbourhoodOptions} initialSelection={selectedLocation} triggerClassName="max-w-[280px]" />
+
+        <SearchBar placeholder={dict.nav.search} className="order-none flex-1" />
+
+        <div className="ml-auto flex items-center gap-2">
           <LanguageSwitcher />
 
-          <Link
-            href="/account/wishlist"
-            prefetch={false}
-            aria-label={dict.nav.wishlist}
-            className="relative hidden rounded-control p-2.5 text-brand-dark hover:bg-brand-bg sm:inline-flex"
-          >
+          <Link href="/account/wishlist" prefetch={false} aria-label={dict.nav.wishlist} className="relative rounded-control p-2.5 text-brand-dark hover:bg-brand-bg">
             <Heart className="h-5 w-5" aria-hidden />
             {wishlistCount > 0 && (
               <Badge variant="brand" className="absolute -right-1 -top-1 min-w-[18px] justify-center px-1 py-0 text-[10px]">
@@ -69,12 +118,7 @@ export async function Header() {
             )}
           </Link>
 
-          <Link
-            href="/cart"
-            prefetch={false}
-            aria-label={dict.nav.cart}
-            className="relative rounded-control p-3 text-brand-dark hover:bg-brand-bg md:p-2.5"
-          >
+          <Link href="/cart" prefetch={false} aria-label={dict.nav.cart} className="relative rounded-control p-2.5 text-brand-dark hover:bg-brand-bg">
             <ShoppingCart className="h-5 w-5" aria-hidden />
             {cartCount > 0 && (
               <Badge variant="brand" className="absolute -right-1 -top-1 min-w-[18px] justify-center px-1 py-0 text-[10px]">
@@ -86,28 +130,28 @@ export async function Header() {
           {user ? (
             <div className="flex items-center gap-1.5">
               <Link
-                href={user.role === "ADMIN" ? "/admin" : user.role === "VENDOR" ? "/vendor" : user.role === "RIDER" ? "/rider" : "/account"}
+                href={accountHref}
                 prefetch={false}
-                className="hidden items-center gap-1.5 rounded-control px-3 py-2 text-sm font-medium text-brand-dark hover:bg-brand-bg sm:flex"
+                className="flex items-center gap-1.5 rounded-control px-3 py-2 text-sm font-medium text-brand-dark hover:bg-brand-bg"
               >
                 <UserRound className="h-4 w-4" aria-hidden />
                 {user.name.split(" ")[0]}
               </Link>
               <form action={logoutAction}>
-                <button type="submit" className="rounded-control px-3 py-3 text-sm font-medium text-brand-dark hover:bg-brand-bg md:py-2">
+                <button type="submit" className="rounded-control px-3 py-2 text-sm font-medium text-brand-dark hover:bg-brand-bg">
                   {dict.nav.logout}
                 </button>
               </form>
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              <Link href="/login" prefetch={false} className="rounded-control px-3 py-3 text-sm font-semibold text-brand-dark hover:bg-brand-bg md:py-2">
+              <Link href="/login" prefetch={false} className="rounded-control px-3 py-2 text-sm font-semibold text-brand-dark hover:bg-brand-bg">
                 {dict.nav.login}
               </Link>
               <Link
                 href="/register"
                 prefetch={false}
-                className="hidden rounded-control bg-brand-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-primary-hover sm:inline-flex"
+                className="rounded-control bg-brand-primary px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-primary-hover"
               >
                 {dict.nav.signup}
               </Link>
