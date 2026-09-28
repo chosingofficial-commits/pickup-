@@ -5,8 +5,8 @@
   "description": "Pick Up - Bangladesh-focused multi-vendor grocery, essentials, and restaurant delivery marketplace",
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
-    "build:deploy": "npm run db:migrate:deploy && npm run build",
+    "build": "npm run db:migrate:deploy && next build --webpack",
+    "build:local": "next build --webpack",
     "postbuild": "node scripts/copy-standalone-assets.mjs",
     "start": "next start",
     "lint": "eslint",
