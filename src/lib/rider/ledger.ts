@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { getPeriodStart, type PeriodKey } from "./balance";
 
 export function toPoisha(taka: number): number {
   return Math.round(taka * 100);
@@ -72,3 +73,44 @@ export async function getAllRidersBalanceSummary(riderIds: string[]) {
   const map = new Map(collectedByRider.map((r) => [r.riderId, Number(r._sum.amountPoisha ?? 0)]));
   return (riderId: string) => map.get(riderId) ?? 0;
 }
+
+export type RiderPaymentSummary = {
+  platformEarningsPoisha: number;
+  cashCollectedPoisha: number;
+  receivedFromRidersPoisha: number;
+  paidToRidersPoisha: number;
+  stillToCollectPoisha: number;
+  weOweRidersPoisha: number;
+};
+
+/**
+ * Admin payment overview. "Delivered deliveries" is deliberately filtered by
+ * the order's CURRENT status ("DELIVERED"), not just the presence of a
+ * DELIVERY_EARNING entry — a later RETURNED/REFUNDED moves the order off
+ * DELIVERED (see advanceOrderStatusAction), so this naturally nets out
+ * reversed deliveries without needing to join the reversal ledger rows.
+ */
+export async function getRiderPaymentSummary(period: PeriodKey): Promise<RiderPaymentSummary> {
+  const since = getPeriodStart(period);
+  const deliveredFilter = { deliveredAt: since ? { gte: since } : undefined, order: { status: "DELIVERED" as const } };
+  const occurredFilter = since ? { gte: since } : undefined;
+
+  const [earnings, cashCollected, received, paid, stillToCollect, weOwe] = await Promise.all([
+    db.delivery.aggregate({ where: deliveredFilter, _sum: { platformDeliverySharePoisha: true } }),
+    db.delivery.aggregate({ where: { ...deliveredFilter, isCod: true }, _sum: { orderTotalPoisha: true } }),
+    db.riderLedgerEntry.aggregate({ where: { type: "CASH_HANDOVER", occurredAt: occurredFilter }, _sum: { amountPoisha: true } }),
+    db.riderLedgerEntry.aggregate({ where: { type: "PAYOUT", occurredAt: occurredFilter }, _sum: { amountPoisha: true } }),
+    db.riderProfile.aggregate({ where: { balancePoisha: { gt: 0 } }, _sum: { balancePoisha: true } }),
+    db.riderProfile.aggregate({ where: { balancePoisha: { lt: 0 } }, _sum: { balancePoisha: true } }),
+  ]);
+
+  return {
+    platformEarningsPoisha: earnings._sum.platformDeliverySharePoisha ?? 0,
+    cashCollectedPoisha: cashCollected._sum.orderTotalPoisha ?? 0,
+    receivedFromRidersPoisha: received._sum.amountPoisha ?? 0,
+    paidToRidersPoisha: paid._sum.amountPoisha ?? 0,
+    stillToCollectPoisha: stillToCollect._sum.balancePoisha ?? 0,
+    weOweRidersPoisha: Math.abs(weOwe._sum.balancePoisha ?? 0),
+  };
+}
+

@@ -116,18 +116,26 @@ export async function updateRiderOfficeVerificationAction(_prev: ActionState, fo
   return { status: "success", message: "Saved." };
 }
 
-/** Cash the rider hands over reduces what they owe the platform. */
+/**
+ * Cash the rider hands over reduces what they owe the platform.
+ * payoutMethod/referenceNo are optional — the plain handover form on the
+ * rider detail page omits them, while the admin-list "Mark as paid" quick
+ * action (which owes vs. owes-you follow the same balance-settling shape)
+ * fills them in to record how the money actually came in.
+ */
 export async function recordRiderHandoverAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const riderId = String(formData.get("riderId") ?? "");
   const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
   const amount = Number(formData.get("amount") ?? 0);
+  const payoutMethod = String(formData.get("payoutMethod") ?? "");
+  const referenceNo = String(formData.get("referenceNo") ?? "");
   const note = String(formData.get("note") ?? "");
   if (!riderId || !idempotencyKey) return { status: "error", message: "Invalid request." };
   if (!Number.isFinite(amount) || amount <= 0) return { status: "error", message: "Enter a valid amount." };
 
   const amountPoisha = toPoisha(amount);
-  return recordManualLedgerEntry({ adminId: admin.id, riderId, type: "CASH_HANDOVER", balanceImpactPoisha: -amountPoisha, amountPoisha, idempotencyKey, note });
+  return recordManualLedgerEntry({ adminId: admin.id, riderId, type: "CASH_HANDOVER", balanceImpactPoisha: -amountPoisha, amountPoisha, idempotencyKey, payoutMethod, referenceNo, note });
 }
 
 /** A payout to the rider reduces what the platform owes them (or increases what they owe, if their balance was already positive). */

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { setRiderApprovalAction, updateRiderOfficeVerificationAction } from "@/lib/actions/admin-riders";
 import { initialActionState } from "@/lib/actions/types";
 import { Badge } from "@/components/ui/badge";
+import { RiderBalanceBadge } from "@/components/admin/rider-balance-badge";
+import { RiderMarkPaidAction } from "@/components/admin/rider-ledger-forms";
 
 export type RiderCardData = {
   id: string;
@@ -57,10 +59,11 @@ export function RiderCard({ rider, mode }: { rider: RiderCardData; mode: "pendin
           </p>
           <p className="text-xs text-gray-500">NID: {rider.nationalIdNo ?? "—"}</p>
           {mode === "approved" && rider.balancePoisha != null && (
-            <p className="mt-1 text-xs font-semibold text-brand-dark">
-              {rider.balancePoisha === 0 ? "All settled" : rider.balancePoisha > 0 ? `Owes platform: ${formatTk(rider.balancePoisha)}` : `Platform owes: ${formatTk(rider.balancePoisha)}`}
-              {rider.todayCollectedPoisha ? ` · Collected today: ${formatTk(rider.todayCollectedPoisha)}` : ""}
-            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <RiderBalanceBadge balancePoisha={rider.balancePoisha} />
+              {rider.todayCollectedPoisha ? <span className="text-xs text-gray-500">Collected today: {formatTk(rider.todayCollectedPoisha)}</span> : null}
+              <RiderMarkPaidAction riderId={rider.id} riderName={rider.name} balancePoisha={rider.balancePoisha} />
+            </div>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">

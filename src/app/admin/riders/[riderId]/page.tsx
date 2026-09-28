@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getRiderBalance, getRiderLedger, fromPoisha } from "@/lib/rider/ledger";
-import { RiderHandoverForm, RiderPayoutForm, RiderAdjustmentForm, RiderCommissionRateForm } from "@/components/admin/rider-ledger-forms";
+import { RiderHandoverForm, RiderPayoutForm, RiderAdjustmentForm, RiderCommissionRateForm, RiderMarkPaidAction } from "@/components/admin/rider-ledger-forms";
+import { RiderBalanceBadge } from "@/components/admin/rider-balance-badge";
 import { Badge } from "@/components/ui/badge";
 import { formatBDT } from "@/lib/utils";
 
@@ -36,10 +37,10 @@ export default async function AdminRiderDetailPage({ params }: { params: Promise
 
       <div className="rounded-card border border-border-brand bg-white p-4">
         <p className="text-xs text-gray-500">Current balance</p>
-        <p className="font-heading text-2xl font-bold text-brand-dark">
-          {balancePoisha === 0 ? "All settled" : formatBDT(Math.abs(fromPoisha(balancePoisha)))}
-        </p>
-        {balancePoisha !== 0 && <p className="text-xs text-gray-500">{balancePoisha > 0 ? "Rider owes the platform" : "Platform owes the rider"}</p>}
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <RiderBalanceBadge balancePoisha={balancePoisha} />
+          <RiderMarkPaidAction riderId={riderId} riderName={rider.user.name} balancePoisha={balancePoisha} />
+        </div>
       </div>
 
       <RiderCommissionRateForm riderId={riderId} currentRatePct={Number(rider.commissionRatePct)} />
