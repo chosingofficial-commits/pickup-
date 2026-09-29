@@ -1252,7 +1252,13 @@ model Advertisement {
   title           String
   description     String
   targetUrl       String
+  /// Public URL — set only after approval, when the image is copied out of
+  /// the private bucket (see pendingBannerImageKey). Null before that.
   bannerImageUrl  String?
+  /// Private-bucket storage key for an uploaded-but-not-yet-approved ad
+  /// image — never publicly reachable. Cleared (and the object deleted)
+  /// once the advertisement is approved or rejected.
+  pendingBannerImageKey String?
   preferredPlacementCode AdPlacementCode
   budget          Decimal    @db.Decimal(10, 2)
   paymentMethod   PaymentProvider

@@ -25,12 +25,14 @@ export function AdCard({ ad, className }: { ad: Pick<AdCardData, "title" | "imag
           fill
           sizes="(min-width: 1024px) 33vw, (min-width: 640px) 46vw, 88vw"
           className="object-cover"
-          // The local filesystem fallback storage (no object storage
-          // configured) returns an http:// URL — Next's image optimizer
-          // refuses to proxy plain http origins, so skip optimization for
-          // exactly that case. Production always uses a real https object
-          // store, so this branch never applies there.
-          unoptimized={ad.imageUrl.startsWith("http://")}
+          // Skip Next's image optimizer for: (1) http:// URLs from the local
+          // filesystem fallback storage, which it refuses to proxy outright
+          // (production always uses a real https object store, so this
+          // never applies there); (2) the admin-only photo route, whose
+          // internal optimizer fetch doesn't carry the admin's session
+          // cookie and so 401s — the browser's own request to the <img> tag
+          // does carry it, so rendering it unoptimized (a plain <img>) works.
+          unoptimized={ad.imageUrl.startsWith("http://") || ad.imageUrl.startsWith("/admin/advertising/photo/")}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-surface-muted text-4xl">📣</div>

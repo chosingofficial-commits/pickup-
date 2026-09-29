@@ -14,6 +14,7 @@ export function AdPricingInput({ pricingId, price }: { pricingId: string; price:
         name="price"
         defaultValue={price}
         min={0}
+        step={1}
         onBlur={() => formRef.current?.requestSubmit()}
         className="h-8 w-20 rounded-control border border-border-brand px-2 text-xs"
       />

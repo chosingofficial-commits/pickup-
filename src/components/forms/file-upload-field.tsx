@@ -14,18 +14,26 @@ export function FileUploadField({
   defaultUrl,
   fieldId,
   onUrlChange,
+  onPreviewChange,
 }: {
   name: string;
   label: string;
-  folder: "vendor-logos" | "vendor-covers" | "vendor-documents" | "products" | "menu-items" | "ads" | "avatars" | "hero";
+  folder: "vendor-logos" | "vendor-covers" | "vendor-documents" | "products" | "menu-items" | "ad-pending" | "avatars" | "hero";
   accept?: string;
   required?: boolean;
   hint?: string;
   defaultUrl?: string | null;
   /** Override the DOM id when several fields share the same `name` (e.g. multiple photo slots posted via FormData.getAll). */
   fieldId?: string;
-  /** For a parent that wants to mirror the uploaded URL into its own state (e.g. a live preview). */
+  /** For a parent that wants to mirror the uploaded URL/key into its own state (e.g. to submit it). */
   onUrlChange?: (url: string | null) => void;
+  /**
+   * Fires immediately on file selection with a local `URL.createObjectURL`
+   * preview — independent of the upload (and of whether the destination
+   * folder is private, in which case the server never returns anything
+   * publicly viewable). Use this for a live preview instead of onUrlChange.
+   */
+  onPreviewChange?: (previewUrl: string | null) => void;
 }) {
   const inputId = `upload-${fieldId ?? name}`;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,6 +45,7 @@ export function FileUploadField({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    onPreviewChange?.(URL.createObjectURL(file));
     setStatus("uploading");
     setError(null);
 
@@ -48,7 +57,8 @@ export function FileUploadField({
       const res = await fetch("/api/uploads", { method: "POST", body });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
-      // Private folders (e.g. vendor-documents) return only a `key`, no `url`.
+      // Private folders (e.g. vendor-documents, ad-pending) return only a
+      // `key`, never a publicly-fetchable `url`.
       const uploadedUrl = data.url ?? data.key;
       setUrl(uploadedUrl);
       setStatus("done");
@@ -56,6 +66,7 @@ export function FileUploadField({
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Upload failed");
+      onPreviewChange?.(null);
     }
   }
 
@@ -95,6 +106,7 @@ export function FileUploadField({
               setUrl(null);
               setStatus("idle");
               onUrlChange?.(null);
+              onPreviewChange?.(null);
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
             aria-label="Remove file"

@@ -11,7 +11,9 @@ export const advertisementRequestSchema = z
       .trim()
       .url("Enter a valid link")
       .refine((url) => url.startsWith("http://") || url.startsWith("https://"), { message: "Link must start with http:// or https://" }),
-    bannerImageUrl: z.string().url("Upload an ad image"),
+    // A private-bucket storage key (see /api/uploads), not a public URL —
+    // nothing is publicly reachable until admin approval copies it out.
+    pendingBannerImageKey: z.string().min(1, "Upload an ad image"),
     placementCode: z.string().min(1, "Choose a placement"),
     startDate: z.string().min(1, "Choose a start date"),
     endDate: z.string().min(1, "Choose an end date"),

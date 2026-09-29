@@ -18,20 +18,22 @@ export default async function AdvertisePage() {
     code: p.code,
     name: p.name,
     dailyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "DAILY")?.price ?? 0),
+    weeklyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "WEEKLY")?.price ?? 0),
+    monthlyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "MONTHLY")?.price ?? 0),
   }));
 
   return (
     <Container className="py-10">
       <div className="mx-auto max-w-4xl">
         <h1 className="font-heading text-2xl font-bold text-brand-dark">Promote your business on Pick Up</h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="relative z-0 mb-2 mt-1 text-sm text-gray-600">
           Reach customers across Khagrachari Sadar with a featured ad card on our homepage or marketplace. Every ad is
           reviewed for content and requires payment before it goes live — submitting a request doesn&apos;t publish it
           automatically.
         </p>
 
         {placementOptions.length > 0 && (
-          <div className="mt-6 overflow-x-auto rounded-card border border-border-brand bg-white">
+          <div className="relative z-0 mt-8 overflow-x-auto rounded-card border border-border-brand bg-white">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border-brand bg-surface-muted text-xs uppercase tracking-wide text-gray-500">
                 <tr>

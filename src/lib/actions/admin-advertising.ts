@@ -2,16 +2,40 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import path from "node:path";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
 import { bdDateStringToUtcStart, bdDateStringToUtcEnd } from "@/lib/date/bd-time";
+import { getStorageAdapter } from "@/lib/storage/registry";
 import type { ActionState } from "./types";
+
+const EXT_BY_CONTENT_TYPE: Record<string, string> = { "image/png": ".png", "image/webp": ".webp", "image/jpeg": ".jpg" };
 
 export async function approveAdvertisementAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const advertisementId = String(formData.get("advertisementId") ?? "");
-  await db.advertisement.update({ where: { id: advertisementId }, data: { status: "APPROVED" } });
+  const ad = await db.advertisement.findUnique({ where: { id: advertisementId } });
+  if (!ad) return;
+
+  // Copy the image out of the private bucket into the public one now that
+  // it's been reviewed — it was never publicly reachable before this.
+  let bannerImageUrl = ad.bannerImageUrl;
+  if (ad.pendingBannerImageKey) {
+    const adapter = getStorageAdapter();
+    const object = await adapter.getObject(ad.pendingBannerImageKey, { private: true });
+    if (object) {
+      const ext = path.extname(ad.pendingBannerImageKey) || EXT_BY_CONTENT_TYPE[object.contentType] || ".jpg";
+      const result = await adapter.upload({ buffer: object.body, filename: `ad${ext}`, contentType: object.contentType }, "ads", { private: false });
+      bannerImageUrl = result.url;
+    }
+    await adapter.delete(ad.pendingBannerImageKey, { private: true });
+  }
+
+  await db.advertisement.update({
+    where: { id: advertisementId },
+    data: { status: "APPROVED", bannerImageUrl, pendingBannerImageKey: null },
+  });
   await recordAuditLog({ actorUserId: admin.id, action: "ADVERTISEMENT_APPROVED", entityType: "Advertisement", entityId: advertisementId });
   revalidatePath("/admin/advertising/requests");
 }
@@ -22,7 +46,15 @@ export async function rejectAdvertisementAction(_prev: ActionState, formData: Fo
   const reason = String(formData.get("reason") ?? "").trim();
   if (!reason) return { status: "error", message: "Provide a rejection reason." };
 
-  await db.advertisement.update({ where: { id: advertisementId }, data: { status: "REJECTED", rejectionReason: reason } });
+  const ad = await db.advertisement.findUnique({ where: { id: advertisementId } });
+  if (ad?.pendingBannerImageKey) {
+    await getStorageAdapter().delete(ad.pendingBannerImageKey, { private: true });
+  }
+
+  await db.advertisement.update({
+    where: { id: advertisementId },
+    data: { status: "REJECTED", rejectionReason: reason, pendingBannerImageKey: null },
+  });
   await recordAuditLog({ actorUserId: admin.id, action: "ADVERTISEMENT_REJECTED", entityType: "Advertisement", entityId: advertisementId, metadata: { reason } });
   revalidatePath("/admin/advertising/requests");
   return { status: "success", message: "Advertisement rejected." };
@@ -196,11 +228,12 @@ export async function updateAdPricingAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const pricingId = String(formData.get("pricingId") ?? "");
   const price = Number(formData.get("price"));
-  if (!pricingId || !Number.isFinite(price)) return;
+  if (!pricingId || !Number.isInteger(price) || price < 0) return;
 
   await db.adPricing.update({ where: { id: pricingId }, data: { price } });
   await recordAuditLog({ actorUserId: admin.id, action: "AD_PRICING_UPDATED", entityType: "AdPricing", entityId: pricingId, metadata: { price } });
   revalidatePath("/admin/advertising/placements");
+  revalidatePath("/advertise");
 }
 
 export async function toggleAdPlacementActiveAction(formData: FormData): Promise<void> {

@@ -6,19 +6,23 @@ import { matchesDeclaredType } from "@/lib/storage/magic-bytes";
 import { adUploadRateLimiter } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/request";
 
-const ALLOWED_FOLDERS = ["vendor-logos", "vendor-covers", "vendor-documents", "products", "menu-items", "ads", "hero"];
-const PRIVATE_FOLDERS = ["vendor-documents"];
+const ALLOWED_FOLDERS = ["vendor-logos", "vendor-covers", "vendor-documents", "products", "menu-items", "ad-pending", "hero"];
+// Ad images land in the private bucket under ad-pending/ — never publicly
+// reachable until an admin approves the request, at which point they're
+// copied into the public "ads" folder (see approveAdvertisementAction) and
+// the private copy is deleted.
+const PRIVATE_FOLDERS = ["vendor-documents", "ad-pending"];
 // /advertise doesn't require login (lower friction for a business inquiry),
 // so its image upload can't require it either — every other folder still
 // does. Rate-limited separately below since there's no account to gate it.
-const ANONYMOUS_ALLOWED_FOLDERS = ["ads"];
+const ANONYMOUS_ALLOWED_FOLDERS = ["ad-pending"];
 
 // Per-folder overrides on top of the general defaults above. Ad banners get
 // a tighter size cap, image-only types, and always-on magic-byte sniffing
 // (not just for private folders) — advertiser-supplied content is the
 // highest-risk upload path since it's shown to every site visitor.
 const FOLDER_RULES: Record<string, { maxBytes?: number; allowedTypes?: readonly string[]; alwaysCheckMagicBytes?: boolean }> = {
-  ads: { maxBytes: 5 * 1024 * 1024, allowedTypes: ["image/jpeg", "image/png", "image/webp"], alwaysCheckMagicBytes: true },
+  "ad-pending": { maxBytes: 5 * 1024 * 1024, allowedTypes: ["image/jpeg", "image/png", "image/webp"], alwaysCheckMagicBytes: true },
 };
 
 export async function POST(req: NextRequest) {

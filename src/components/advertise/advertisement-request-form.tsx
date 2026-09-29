@@ -9,9 +9,10 @@ import { FileUploadField } from "@/components/forms/file-upload-field";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { AdCard } from "@/components/ads/ad-card";
 import { bdDateRangeDays } from "@/lib/date/bd-time";
+import { cheapestAdPrice, formatAdPriceBreakdown } from "@/lib/ads/pricing";
 import { formatBDT } from "@/lib/utils";
 
-export type PlacementOption = { code: string; name: string; dailyPrice: number };
+export type PlacementOption = { code: string; name: string; dailyPrice: number; weeklyPrice: number; monthlyPrice: number };
 
 export function AdvertisementRequestForm({ defaults, placements }: { defaults: { phone: string }; placements: PlacementOption[] }) {
   const [state, formAction] = useActionState(submitAdvertisementRequestAction, initialActionState);
@@ -24,7 +25,13 @@ export function AdvertisementRequestForm({ defaults, placements }: { defaults: {
 
   const selectedPlacement = placements.find((p) => p.code === placementCode);
   const days = startDate && endDate && endDate > startDate ? bdDateRangeDays(startDate, endDate) : 0;
-  const estimate = useMemo(() => (selectedPlacement && days > 0 ? selectedPlacement.dailyPrice * days : 0), [selectedPlacement, days]);
+  const estimate = useMemo(
+    () =>
+      selectedPlacement && days > 0
+        ? cheapestAdPrice(days, { daily: selectedPlacement.dailyPrice, weekly: selectedPlacement.weeklyPrice, monthly: selectedPlacement.monthlyPrice })
+        : null,
+    [selectedPlacement, days],
+  );
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
@@ -61,14 +68,14 @@ export function AdvertisementRequestForm({ defaults, placements }: { defaults: {
         </div>
 
         <FileUploadField
-          name="bannerImageUrl"
+          name="pendingBannerImageKey"
           label="Ad image"
-          folder="ads"
+          folder="ad-pending"
           required
           hint="Recommended 1200×600px, 2:1 ratio · JPEG, PNG, or WebP · max 5MB"
-          onUrlChange={setBannerImageUrl}
+          onPreviewChange={setBannerImageUrl}
         />
-        <FieldError>{state.fieldErrors?.bannerImageUrl?.[0]}</FieldError>
+        <FieldError>{state.fieldErrors?.pendingBannerImageKey?.[0]}</FieldError>
 
         <div>
           <Label htmlFor="placementCode">Placement</Label>
@@ -114,9 +121,9 @@ export function AdvertisementRequestForm({ defaults, placements }: { defaults: {
         <div className="rounded-control bg-brand-bg px-4 py-3 text-sm">
           <span className="text-gray-600">Estimated total: </span>
           <span className="font-semibold text-brand-dark">
-            {days > 0 ? `${formatBDT(estimate)} (${days} day${days === 1 ? "" : "s"} × ${formatBDT(selectedPlacement?.dailyPrice ?? 0)}/day)` : "Choose your dates above"}
+            {estimate ? `${formatBDT(estimate.total)} (${formatAdPriceBreakdown(estimate)})` : "Choose your dates above"}
           </span>
-          <p className="mt-0.5 text-xs text-gray-500">Our team will confirm the final price when your ad is approved.</p>
+          <p className="mt-0.5 text-xs text-gray-500">Uses the cheapest combination of monthly, weekly, and daily rates. Our team will confirm the final price when your ad is approved.</p>
         </div>
 
         <label className="flex items-start gap-2 text-sm text-gray-700">

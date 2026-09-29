@@ -16,10 +16,17 @@ export default async function AdminAdvertisingRequestsPage() {
       include: { advertiser: true },
       orderBy: { createdAt: "desc" },
     }),
-    db.adPlacement.findMany({ include: { pricing: { where: { billingCycle: "DAILY" } } }, where: { isActive: true } }),
+    db.adPlacement.findMany({ include: { pricing: true }, where: { isActive: true } }),
   ]);
 
-  const placementOptions = placements.map((p) => ({ id: p.id, code: p.code, name: p.name, dailyPrice: Number(p.pricing[0]?.price ?? 0) }));
+  const placementOptions = placements.map((p) => ({
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    dailyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "DAILY")?.price ?? 0),
+    weeklyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "WEEKLY")?.price ?? 0),
+    monthlyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "MONTHLY")?.price ?? 0),
+  }));
 
   return (
     <div className="space-y-6">
@@ -33,9 +40,15 @@ export default async function AdminAdvertisingRequestsPage() {
             <div key={ad.id} className="rounded-card border border-border-brand bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex flex-wrap items-start gap-4">
-                  <div className="w-40 shrink-0">
-                    <AdCard ad={{ title: ad.title, imageUrl: ad.bannerImageUrl ?? "", advertiserName: ad.advertiser.businessName }} />
-                  </div>
+                  <a
+                    href={`/admin/advertising/photo/${ad.id}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="block w-40 shrink-0"
+                    title="Open full-size image"
+                  >
+                    <AdCard ad={{ title: ad.title, imageUrl: `/admin/advertising/photo/${ad.id}`, advertiserName: ad.advertiser.businessName }} />
+                  </a>
                   <div>
                     <p className="text-sm font-semibold text-brand-dark">{ad.title}</p>
                     <p className="text-xs text-gray-500">
