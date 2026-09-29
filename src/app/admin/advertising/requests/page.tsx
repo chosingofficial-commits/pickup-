@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
 import { RejectAdForm } from "@/components/admin/reject-ad-form";
 import { CreateCampaignForm } from "@/components/admin/create-campaign-form";
+import { AdCard } from "@/components/ads/ad-card";
 import { approveAdvertisementAction } from "@/lib/actions/admin-advertising";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
@@ -30,14 +31,22 @@ export default async function AdminAdvertisingRequestsPage() {
         <div className="space-y-3">
           {advertisements.map((ad) => (
             <div key={ad.id} className="rounded-card border border-border-brand bg-white p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-brand-dark">{ad.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {ad.advertiser.businessName} · {ad.advertiser.email} · {ad.preferredPlacementCode.replaceAll("_", " ")}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-600">{ad.description}</p>
-                  <p className="mt-1 text-xs text-gray-500">Budget: {formatBDT(ad.budget)} · Payment: {ad.paymentMethod}</p>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex flex-wrap items-start gap-4">
+                  <div className="w-40 shrink-0">
+                    <AdCard ad={{ title: ad.title, imageUrl: ad.bannerImageUrl ?? "", advertiserName: ad.advertiser.businessName }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-brand-dark">{ad.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {ad.advertiser.businessName} · {ad.advertiser.phone}
+                      {ad.advertiser.email ? ` · ${ad.advertiser.email}` : ""} · {ad.preferredPlacementCode.replaceAll("_", " ")}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-600">{ad.description}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Estimated: {formatBDT(ad.budget)} · Link: {ad.targetUrl}
+                    </p>
+                  </div>
                 </div>
                 <Badge variant={ad.status === "REJECTED" ? "danger" : "accent"}>{ad.status}</Badge>
               </div>

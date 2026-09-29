@@ -36,6 +36,13 @@ class InMemoryRateLimiter implements RateLimiter {
 export const loginRateLimiter: RateLimiter = new InMemoryRateLimiter(10, 5 * 60 * 1000);
 export const registrationRateLimiter: RateLimiter = new InMemoryRateLimiter(5, 15 * 60 * 1000);
 export const coverageRequestRateLimiter: RateLimiter = new InMemoryRateLimiter(5, 15 * 60 * 1000);
+// /advertise no longer requires login (lower friction for a business
+// inquiry), so it needs the same kind of per-IP spam protection as the
+// other unauthenticated forms above.
+export const advertiseRateLimiter: RateLimiter = new InMemoryRateLimiter(5, 15 * 60 * 1000);
+// Separate, slightly looser limit for the anonymous ad-image upload itself
+// (a real advertiser may re-upload a couple of times while composing).
+export const adUploadRateLimiter: RateLimiter = new InMemoryRateLimiter(10, 15 * 60 * 1000);
 export const supportTicketRateLimiter: RateLimiter = new InMemoryRateLimiter(5, 15 * 60 * 1000);
 // Rider registration is unauthenticated and accepts a file upload (higher
 // abuse cost per attempt than plain signup), so it gets its own, longer window

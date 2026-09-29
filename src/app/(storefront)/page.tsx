@@ -12,7 +12,7 @@ import { ReviewsSection } from "@/components/home/reviews-section";
 import { CoverageSection } from "@/components/home/coverage-section";
 import { NewsletterSection } from "@/components/home/newsletter-section";
 import { RestaurantCard } from "@/components/restaurant/restaurant-card";
-import { AdSlot } from "@/components/ads/ad-slot";
+import { AdCarouselSection } from "@/components/ads/ad-carousel-section";
 import { Section } from "@/components/ui/container";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getDictionary, t } from "@/lib/i18n/get-dictionary";
@@ -108,13 +108,11 @@ export default async function HomePage() {
         imageUrl={settings[SITE_SETTING_KEYS.heroImageUrl]}
       />
 
-      <AdSlot code="HERO_BANNER" className="mx-4 -mt-4 sm:mx-6 lg:mx-8" aspect="aspect-[3/1] lg:aspect-[5/1]" />
+      <AdCarouselSection placementCode="HOMEPAGE_CAROUSEL" className="-mt-4" />
 
       <Section title={dict.home.categoriesTitle}>
         <CategoryGrid categories={categories} />
       </Section>
-
-      <AdSlot code="BELOW_CATEGORIES_BANNER" className="mx-4 sm:mx-6 lg:mx-8" />
 
       <Section
         title={dict.home.popularProductsTitle}
@@ -133,10 +131,6 @@ export default async function HomePage() {
         </Section>
       )}
 
-      <div className="md:hidden">
-        <AdSlot code="MOBILE_PROMO_CARD" className="mx-4" aspect="aspect-[2/1]" />
-      </div>
-
       {flashDeals.length > 0 && (
         <Section
           title={
@@ -150,8 +144,6 @@ export default async function HomePage() {
         </Section>
       )}
 
-      <AdSlot code="BETWEEN_SECTIONS_BANNER" className="mx-4 sm:mx-6 lg:mx-8" />
-
       {restaurants.length > 0 && (
         <Section
           title={dict.home.popularRestaurantsTitle}
@@ -161,9 +153,7 @@ export default async function HomePage() {
             </Link>
           }
         >
-          <AdSlot code="RESTAURANT_PROMO_BANNER" className="mb-4" aspect="aspect-[4/1]" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <AdSlot code="SPONSORED_RESTAURANT" variant="card" aspect="aspect-[16/9]" />
             {restaurants.map((vendor) => (
               <RestaurantCard key={vendor.id} vendor={vendor} isFavorited={favoritedVendorIds.has(vendor.id)} />
             ))}
@@ -172,15 +162,7 @@ export default async function HomePage() {
       )}
 
       <Section title={dict.home.specialOffersTitle}>
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <AdSlot code="SPONSORED_VENDOR" variant="card" aspect="aspect-[16/9]" />
-            <VendorPromo title={dict.home.vendorPromoTitle} body={dict.home.vendorPromoBody} cta={dict.home.vendorPromoCta} />
-          </div>
-          <div className="hidden lg:block">
-            <AdSlot code="SIDEBAR_BANNER" aspect="aspect-[1/2]" className="h-full" />
-          </div>
-        </div>
+        <VendorPromo title={dict.home.vendorPromoTitle} body={dict.home.vendorPromoBody} cta={dict.home.vendorPromoCta} />
       </Section>
 
       <Section title={dict.home.howItWorksTitle}>

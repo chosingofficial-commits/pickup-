@@ -139,6 +139,11 @@ enum AdPlacementCode {
   MOBILE_PROMO_CARD
   SPONSORED_VENDOR
   SPONSORED_RESTAURANT
+  /// The redesigned carousel placements (see PLAN-redesign-ads) — the 8
+  /// above are deprecated (deactivated, not deleted, so existing
+  /// campaigns/payments keep their history) in favor of these two.
+  HOMEPAGE_CAROUSEL
+  MARKETPLACE_TOP
 }
 
 enum AdBillingCycle {
@@ -155,6 +160,7 @@ enum AdStatus {
   APPROVED
   SCHEDULED
   ACTIVE
+  PAUSED
   EXPIRED
   REJECTED
   CANCELLED
@@ -1204,7 +1210,8 @@ model Advertiser {
   advertiserName String
   businessName String
   phone        String
-  email        String
+  /// Optional — the redesigned /advertise form only collects a phone number.
+  email        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
+import { bdDateStringToUtcStart, bdDateStringToUtcEnd } from "@/lib/date/bd-time";
 import type { ActionState } from "./types";
 
 export async function approveAdvertisementAction(formData: FormData): Promise<void> {
@@ -54,8 +55,8 @@ export async function createAdCampaignAction(_prev: ActionState, formData: FormD
       data: {
         advertisementId: parsed.data.advertisementId,
         placementId: parsed.data.placementId,
-        startDate: new Date(parsed.data.startDate),
-        endDate: new Date(parsed.data.endDate),
+        startDate: bdDateStringToUtcStart(parsed.data.startDate),
+        endDate: bdDateStringToUtcEnd(parsed.data.endDate),
         status: "SCHEDULED",
       },
     });
@@ -77,23 +78,45 @@ export async function createAdCampaignAction(_prev: ActionState, formData: FormD
   return { status: "success", message: "Campaign created — awaiting payment confirmation." };
 }
 
+/** ACTIVE if `now` falls within the campaign's window, otherwise SCHEDULED (future) or EXPIRED (past) — shared by mark-paid and the date-edit action so a campaign's status always matches its actual window. */
+function computeWindowStatus(startDate: Date, endDate: Date, now = new Date()): "ACTIVE" | "SCHEDULED" | "EXPIRED" {
+  if (now < startDate) return "SCHEDULED";
+  if (now > endDate) return "EXPIRED";
+  return "ACTIVE";
+}
+
+const AD_PAYMENT_METHODS = ["BKASH", "NAGAD", "ROCKET", "SSLCOMMERZ", "CARD", "COD"] as const;
+
 export async function markAdPaymentPaidAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const paymentId = String(formData.get("paymentId") ?? "");
+  const method = String(formData.get("method") ?? "");
+  const reference = String(formData.get("reference") ?? "").trim();
+  if (!AD_PAYMENT_METHODS.includes(method as (typeof AD_PAYMENT_METHODS)[number])) return;
 
   const payment = await db.adPayment.findUnique({ where: { id: paymentId }, include: { campaign: { include: { advertisement: true } } } });
   if (!payment) return;
 
   const now = new Date();
-  const nextCampaignStatus = now >= payment.campaign.startDate && now <= payment.campaign.endDate ? "ACTIVE" : "SCHEDULED";
+  const nextStatus = computeWindowStatus(payment.campaign.startDate, payment.campaign.endDate, now);
+  const nextCampaignStatus = nextStatus === "EXPIRED" ? "EXPIRED" : nextStatus;
 
   await db.$transaction([
-    db.adPayment.update({ where: { id: paymentId }, data: { status: "PAID", paidAt: now } }),
+    db.adPayment.update({
+      where: { id: paymentId },
+      data: { status: "PAID", paidAt: now, provider: method as (typeof AD_PAYMENT_METHODS)[number], providerRef: reference || null },
+    }),
     db.adCampaign.update({ where: { id: payment.campaignId }, data: { status: nextCampaignStatus } }),
     db.advertisement.update({ where: { id: payment.campaign.advertisementId }, data: { status: nextCampaignStatus } }),
   ]);
 
-  await recordAuditLog({ actorUserId: admin.id, action: "AD_PAYMENT_MARKED_PAID", entityType: "AdPayment", entityId: paymentId });
+  await recordAuditLog({
+    actorUserId: admin.id,
+    action: "AD_PAYMENT_MARKED_PAID",
+    entityType: "AdPayment",
+    entityId: paymentId,
+    metadata: { method, reference: reference || undefined },
+  });
   revalidatePath("/admin/advertising/requests");
   revalidatePath("/admin/advertising/campaigns");
 }
@@ -110,6 +133,62 @@ export async function cancelAdCampaignAction(formData: FormData): Promise<void> 
   ]);
   await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_CANCELLED", entityType: "AdCampaign", entityId: campaignId });
   revalidatePath("/admin/advertising/requests");
+  revalidatePath("/admin/advertising/campaigns");
+}
+
+/** Pause a running/scheduled campaign — hides it from the live carousel without cancelling it; resumable anytime. */
+export async function pauseAdCampaignAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const campaignId = String(formData.get("campaignId") ?? "");
+  const campaign = await db.adCampaign.findUnique({ where: { id: campaignId } });
+  if (!campaign || campaign.status === "CANCELLED" || campaign.status === "EXPIRED") return;
+
+  await db.adCampaign.update({ where: { id: campaignId }, data: { status: "PAUSED" } });
+  await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_PAUSED", entityType: "AdCampaign", entityId: campaignId });
+  revalidatePath("/admin/advertising/campaigns");
+}
+
+/** Resumes a paused campaign, recomputing ACTIVE/SCHEDULED/EXPIRED from its (possibly since-edited) date window. */
+export async function resumeAdCampaignAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const campaignId = String(formData.get("campaignId") ?? "");
+  const campaign = await db.adCampaign.findUnique({ where: { id: campaignId } });
+  if (!campaign || campaign.status !== "PAUSED") return;
+
+  const nextStatus = computeWindowStatus(campaign.startDate, campaign.endDate);
+  await db.adCampaign.update({ where: { id: campaignId }, data: { status: nextStatus } });
+  await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_RESUMED", entityType: "AdCampaign", entityId: campaignId });
+  revalidatePath("/admin/advertising/campaigns");
+}
+
+const updateDatesSchema = z
+  .object({
+    campaignId: z.string().min(1),
+    startDate: z.string().min(1),
+    endDate: z.string().min(1),
+  })
+  .refine((d) => d.endDate > d.startDate, { message: "End date must be after start date" });
+
+export async function updateAdCampaignDatesAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const parsed = updateDatesSchema.safeParse({
+    campaignId: formData.get("campaignId"),
+    startDate: formData.get("startDate"),
+    endDate: formData.get("endDate"),
+  });
+  if (!parsed.success) return;
+
+  const campaign = await db.adCampaign.findUnique({ where: { id: parsed.data.campaignId } });
+  if (!campaign || campaign.status === "CANCELLED") return;
+
+  const startDate = bdDateStringToUtcStart(parsed.data.startDate);
+  const endDate = bdDateStringToUtcEnd(parsed.data.endDate);
+  // Only recompute the live status for a campaign that isn't deliberately
+  // paused — editing dates on a paused campaign shouldn't silently resume it.
+  const nextStatus = campaign.status === "PAUSED" ? "PAUSED" : computeWindowStatus(startDate, endDate);
+
+  await db.adCampaign.update({ where: { id: campaign.id }, data: { startDate, endDate, status: nextStatus } });
+  await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_DATES_UPDATED", entityType: "AdCampaign", entityId: campaign.id, metadata: { startDate, endDate } });
   revalidatePath("/admin/advertising/campaigns");
 }
 

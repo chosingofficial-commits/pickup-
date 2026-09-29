@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Section } from "@/components/ui/container";
+import { Section, Container } from "@/components/ui/container";
 import { ProductCard } from "@/components/product/product-card";
 import { MarketplaceFiltersForm } from "@/components/product/marketplace-filters";
 import { Pagination } from "@/components/ui/pagination";
+import { AdCarouselSection } from "@/components/ads/ad-carousel-section";
 import { getMarketplaceProducts, getAllShoppableCategories } from "@/lib/catalog/queries";
 import type { MarketplaceFilters } from "@/lib/catalog/queries";
 import { isTobaccoModuleEnabled, matchesTobaccoSearchQuery } from "@/lib/tobacco/queries";
@@ -57,10 +58,14 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   const activeCategory = categories.find((c) => c.slug === filters.categorySlug);
 
   return (
-    <Section
-      title={activeCategory ? activeCategory.name : filters.q ? `Search results for "${filters.q}"` : "Marketplace"}
-      subtitle={`${result.total} product${result.total === 1 ? "" : "s"} available`}
-    >
+    <>
+      <Container className="pt-6">
+        <AdCarouselSection placementCode="MARKETPLACE_TOP" className="mx-0" />
+      </Container>
+      <Section
+        title={activeCategory ? activeCategory.name : filters.q ? `Search results for "${filters.q}"` : "Marketplace"}
+        subtitle={`${result.total} product${result.total === 1 ? "" : "s"} available`}
+      >
       <div className="mb-6">
         <MarketplaceFiltersForm categories={categories} filters={filters} />
       </div>
@@ -82,6 +87,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           <Pagination page={result.page} totalPages={result.totalPages} buildHref={(p) => buildHref(filters, p)} />
         </>
       )}
-    </Section>
+      </Section>
+    </>
   );
 }

@@ -1,10 +1,22 @@
 import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
-import { markAdPaymentPaidAction, cancelAdCampaignAction } from "@/lib/actions/admin-advertising";
+import { cancelAdCampaignAction } from "@/lib/actions/admin-advertising";
+import { MarkAdPaymentPaidForm, PauseResumeCampaignForm, EditCampaignDatesForm } from "@/components/admin/ad-campaign-actions";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Ad campaigns" };
+
+function toBdDateInput(d: Date): string {
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Dhaka" }); // en-CA gives YYYY-MM-DD
+}
+
+const BADGE_VARIANT: Record<string, "brand" | "outline" | "danger" | "accent"> = {
+  ACTIVE: "brand",
+  PAUSED: "accent",
+  CANCELLED: "danger",
+  EXPIRED: "outline",
+};
 
 export default async function AdminAdvertisingCampaignsPage() {
   const advertisements = await db.advertisement.findMany({
@@ -27,7 +39,8 @@ export default async function AdminAdvertisingCampaignsPage() {
                 <div>
                   <p className="text-sm font-semibold text-brand-dark">{ad.title}</p>
                   <p className="text-xs text-gray-500">
-                    {ad.advertiser.businessName} · {ad.advertiser.email} · {ad.preferredPlacementCode.replaceAll("_", " ")}
+                    {ad.advertiser.businessName} · {ad.advertiser.phone}
+                    {ad.advertiser.email ? ` · ${ad.advertiser.email}` : ""} · {ad.preferredPlacementCode.replaceAll("_", " ")}
                   </p>
                 </div>
                 <Badge variant={ad.status === "ACTIVE" ? "brand" : ad.status === "REJECTED" ? "danger" : "accent"}>{ad.status}</Badge>
@@ -39,21 +52,30 @@ export default async function AdminAdvertisingCampaignsPage() {
                   const impressions = campaign.impressions.length;
                   const clicks = campaign.clicks.length;
                   const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(1) : "0.0";
+                  const isPaused = campaign.status === "PAUSED";
+                  const canPauseResume = campaign.status === "ACTIVE" || campaign.status === "SCHEDULED" || isPaused;
+                  const canEditDates = campaign.status !== "CANCELLED" && campaign.status !== "EXPIRED";
+
                   return (
-                    <div key={campaign.id} className="flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted p-2.5 text-xs">
-                      <span>
-                        {campaign.placement.name} · {campaign.startDate.toLocaleDateString("en-BD")} – {campaign.endDate.toLocaleDateString("en-BD")} ·{" "}
-                        {impressions} impressions · {clicks} clicks · {ctr}% CTR
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={campaign.status === "ACTIVE" ? "brand" : "outline"}>{campaign.status}</Badge>
-                        {payment && payment.status !== "PAID" && (
-                          <form action={markAdPaymentPaidAction}>
-                            <input type="hidden" name="paymentId" value={payment.id} />
-                            <button type="submit" className="rounded-control bg-brand-dark px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90">
-                              Mark paid ({formatBDT(payment.amount)})
-                            </button>
-                          </form>
+                    <div key={campaign.id} className="rounded-control bg-surface-muted p-2.5 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                          {campaign.placement.name} · {toBdDateInput(campaign.startDate)} – {toBdDateInput(campaign.endDate)} (BD time) ·{" "}
+                          {impressions} views · {clicks} clicks · {ctr}% CTR
+                        </span>
+                        <Badge variant={BADGE_VARIANT[campaign.status] ?? "outline"}>{campaign.status}</Badge>
+                      </div>
+                      {payment && (
+                        <p className="mt-1 text-gray-500">
+                          Payment: {payment.status}
+                          {payment.status === "PAID" && payment.providerRef ? ` · ${payment.provider} · Ref: ${payment.providerRef}` : payment.status === "PAID" ? ` · ${payment.provider}` : ""}
+                        </p>
+                      )}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        {payment && payment.status !== "PAID" && <MarkAdPaymentPaidForm paymentId={payment.id} amountLabel={formatBDT(payment.amount)} />}
+                        {canPauseResume && <PauseResumeCampaignForm campaignId={campaign.id} isPaused={isPaused} />}
+                        {canEditDates && (
+                          <EditCampaignDatesForm campaignId={campaign.id} startDate={toBdDateInput(campaign.startDate)} endDate={toBdDateInput(campaign.endDate)} />
                         )}
                         {campaign.status !== "CANCELLED" && campaign.status !== "EXPIRED" && (
                           <form action={cancelAdCampaignAction}>

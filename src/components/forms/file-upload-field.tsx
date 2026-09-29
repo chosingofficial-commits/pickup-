@@ -13,6 +13,7 @@ export function FileUploadField({
   hint,
   defaultUrl,
   fieldId,
+  onUrlChange,
 }: {
   name: string;
   label: string;
@@ -23,6 +24,8 @@ export function FileUploadField({
   defaultUrl?: string | null;
   /** Override the DOM id when several fields share the same `name` (e.g. multiple photo slots posted via FormData.getAll). */
   fieldId?: string;
+  /** For a parent that wants to mirror the uploaded URL into its own state (e.g. a live preview). */
+  onUrlChange?: (url: string | null) => void;
 }) {
   const inputId = `upload-${fieldId ?? name}`;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,8 +49,10 @@ export function FileUploadField({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       // Private folders (e.g. vendor-documents) return only a `key`, no `url`.
-      setUrl(data.url ?? data.key);
+      const uploadedUrl = data.url ?? data.key;
+      setUrl(uploadedUrl);
       setStatus("done");
+      onUrlChange?.(uploadedUrl);
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -89,6 +94,7 @@ export function FileUploadField({
             onClick={() => {
               setUrl(null);
               setStatus("idle");
+              onUrlChange?.(null);
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
             aria-label="Remove file"

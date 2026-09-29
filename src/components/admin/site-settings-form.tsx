@@ -81,6 +81,17 @@ export function SiteSettingsForm({ defaults }: { defaults: Record<string, string
         hint="Replaces the default scooter graphic on the homepage. JPEG, PNG, or WebP."
       />
 
+      <div>
+        <Label htmlFor="adPaymentInstructions">Ad payment instructions</Label>
+        <Textarea
+          id="adPaymentInstructions"
+          name="adPaymentInstructions"
+          rows={2}
+          defaultValue={defaults.ad_payment_instructions}
+        />
+        <p className="mt-1 text-xs text-gray-500">Shown to advertisers right after they submit a request — how to actually pay (bKash/Nagad number, cash arrangement, etc.).</p>
+      </div>
+
       <div className="space-y-3 rounded-control border border-border-brand p-4">
         <h3 className="font-heading text-sm font-bold text-brand-dark">First-order free delivery offer</h3>
 

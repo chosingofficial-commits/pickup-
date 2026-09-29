@@ -31,7 +31,22 @@ const nextConfig: NextConfig = {
     // so the hostname isn't known at build time — allow any https origin
     // rather than disabling optimization outright, which would also skip
     // resizing/format conversion for the app's own local /public assets.
-    remotePatterns: [{ protocol: "https", hostname: "**" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "**" },
+      // The local filesystem fallback storage adapter (no object storage
+      // configured) returns an http://localhost URL — harmless to allow in
+      // production too, since nothing there is ever reachable at localhost.
+      { protocol: "http", hostname: "localhost" },
+    ],
+    // Next's image optimizer independently refuses to fetch from any
+    // hostname that resolves to a private/loopback IP (an SSRF guard,
+    // separate from remotePatterns above) — localhost always resolves to
+    // one, so the pattern alone isn't enough for local dev/testing to ever
+    // render the fallback-storage URL. Gated behind an explicit env var
+    // (never set in the real deploy) so production keeps the SSRF
+    // protection; `next build` always forces NODE_ENV=production even for
+    // local test builds, so that alone can't be the gate.
+    dangerouslyAllowLocalIP: process.env.ALLOW_LOCAL_IMAGE_HOSTS === "1",
   },
 };
 

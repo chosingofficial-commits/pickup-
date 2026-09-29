@@ -29,6 +29,10 @@ export const SITE_SETTING_KEYS = {
   vatRatePct: "vat_rate_pct",
   defaultRiderCommissionRatePct: "default_rider_commission_rate_pct",
   heroImageUrl: "hero_image_url",
+  // Shown on /advertise/submitted — how to actually pay (bKash/Nagad number,
+  // "pay cash when our team calls", etc.) is a business decision, not
+  // something to hardcode.
+  adPaymentInstructions: "ad_payment_instructions",
 } as const;
 
 const DEFAULTS: Record<string, string> = {
@@ -48,6 +52,8 @@ const DEFAULTS: Record<string, string> = {
   [SITE_SETTING_KEYS.vatRatePct]: "0",
   [SITE_SETTING_KEYS.defaultRiderCommissionRatePct]: "25",
   [SITE_SETTING_KEYS.heroImageUrl]: "",
+  [SITE_SETTING_KEYS.adPaymentInstructions]:
+    "We'll contact you on the phone number you provided with payment instructions (bKash/Nagad number or cash arrangement). Your ad goes live once payment is confirmed.",
 };
 
 async function fetchSiteSettings(): Promise<Record<string, string>> {
