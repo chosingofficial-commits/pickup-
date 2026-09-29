@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
-import { AdPricingInput } from "@/components/admin/ad-pricing-input";
+import { AdPricingInput, AdMaxConcurrentInput } from "@/components/admin/ad-pricing-input";
 import { toggleAdPlacementActiveAction } from "@/lib/actions/admin-advertising";
 import { db } from "@/lib/db";
 
@@ -32,13 +32,16 @@ export default async function AdminAdPlacementsPage() {
                 </form>
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-4">
+            <div className="mt-3 flex flex-wrap items-center gap-4">
               {placement.pricing.map((p) => (
                 <div key={p.id} className="flex items-center gap-1.5 text-xs text-gray-600">
                   <span className="w-14">{p.billingCycle}</span>
                   <AdPricingInput pricingId={p.id} price={Number(p.price)} />
                 </div>
               ))}
+              <div className="border-l border-border-brand pl-4">
+                <AdMaxConcurrentInput placementId={placement.id} maxConcurrentAds={placement.maxConcurrentAds} />
+              </div>
             </div>
           </div>
         ))}

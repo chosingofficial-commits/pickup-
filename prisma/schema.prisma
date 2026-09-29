@@ -1228,6 +1228,10 @@ model AdPlacement {
   mobileWidth   Int
   mobileHeight  Int
   isActive      Boolean         @default(true)
+  /// Max campaigns allowed to overlap on any given day in this placement —
+  /// enforced when a campaign is created/its dates edited/it's resumed, so
+  /// an already-approved-and-paid campaign is never later hidden by this.
+  maxConcurrentAds Int          @default(6)
 
   pricing   AdPricing[]
   campaigns AdCampaign[]

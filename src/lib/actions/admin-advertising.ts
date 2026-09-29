@@ -7,10 +7,47 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
 import { bdDateStringToUtcStart, bdDateStringToUtcEnd } from "@/lib/date/bd-time";
+import { formatShortBdDate } from "@/lib/ads/availability";
 import { getStorageAdapter } from "@/lib/storage/registry";
 import type { ActionState } from "./types";
 
 const EXT_BY_CONTENT_TYPE: Record<string, string> = { "image/png": ".png", "image/webp": ".webp", "image/jpeg": ".jpg" };
+
+// Statuses that still occupy a paid/committed slot — CANCELLED and EXPIRED
+// free it up, everything else (including PAUSED, which is reversible) does
+// not.
+const SLOT_OCCUPYING_STATUSES = ["SCHEDULED", "ACTIVE", "PAUSED"] as const;
+
+/**
+ * The capacity gate: never lets a NEW or EDITED campaign push a placement's
+ * overlapping-campaign count past its admin-set maximum. Never touches
+ * campaigns that already exist and aren't being changed — an approved, paid
+ * campaign is never hidden or blocked retroactively by this.
+ */
+async function checkPlacementCapacity(
+  placementId: string,
+  startDate: Date,
+  endDate: Date,
+  excludeCampaignId?: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const placement = await db.adPlacement.findUnique({ where: { id: placementId } });
+  if (!placement) return { ok: false, message: "Placement not found." };
+
+  const overlapping = await db.adCampaign.count({
+    where: {
+      placementId,
+      status: { in: [...SLOT_OCCUPYING_STATUSES] },
+      startDate: { lte: endDate },
+      endDate: { gte: startDate },
+      ...(excludeCampaignId ? { id: { not: excludeCampaignId } } : {}),
+    },
+  });
+
+  if (overlapping >= placement.maxConcurrentAds) {
+    return { ok: false, message: `${placement.name} is full from ${formatShortBdDate(startDate)} to ${formatShortBdDate(endDate)}.` };
+  }
+  return { ok: true };
+}
 
 export async function approveAdvertisementAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
@@ -82,13 +119,18 @@ export async function createAdCampaignAction(_prev: ActionState, formData: FormD
   const advertisement = await db.advertisement.findUnique({ where: { id: parsed.data.advertisementId } });
   if (!advertisement || advertisement.status !== "APPROVED") return { status: "error", message: "Approve the advertisement first." };
 
+  const campaignStartDate = bdDateStringToUtcStart(parsed.data.startDate);
+  const campaignEndDate = bdDateStringToUtcEnd(parsed.data.endDate);
+  const capacity = await checkPlacementCapacity(parsed.data.placementId, campaignStartDate, campaignEndDate);
+  if (!capacity.ok) return { status: "error", message: capacity.message };
+
   await db.$transaction(async (tx) => {
     const campaign = await tx.adCampaign.create({
       data: {
         advertisementId: parsed.data.advertisementId,
         placementId: parsed.data.placementId,
-        startDate: bdDateStringToUtcStart(parsed.data.startDate),
-        endDate: bdDateStringToUtcEnd(parsed.data.endDate),
+        startDate: campaignStartDate,
+        endDate: campaignEndDate,
         status: "SCHEDULED",
       },
     });
@@ -180,12 +222,22 @@ export async function pauseAdCampaignAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/advertising/campaigns");
 }
 
-/** Resumes a paused campaign, recomputing ACTIVE/SCHEDULED/EXPIRED from its (possibly since-edited) date window. */
+/**
+ * Resumes a paused campaign, recomputing ACTIVE/SCHEDULED/EXPIRED from its
+ * (possibly since-edited) date window. Silently stays paused if resuming
+ * would exceed the placement's capacity (other campaigns may have filled
+ * the gap while this one was paused) — this action has no error-message UI,
+ * matching pause/cancel/toggle's existing silent-reject convention; the
+ * admin can just try Edit dates instead, which does surface a message.
+ */
 export async function resumeAdCampaignAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const campaignId = String(formData.get("campaignId") ?? "");
   const campaign = await db.adCampaign.findUnique({ where: { id: campaignId } });
   if (!campaign || campaign.status !== "PAUSED") return;
+
+  const capacity = await checkPlacementCapacity(campaign.placementId, campaign.startDate, campaign.endDate, campaign.id);
+  if (!capacity.ok) return;
 
   const nextStatus = computeWindowStatus(campaign.startDate, campaign.endDate);
   await db.adCampaign.update({ where: { id: campaignId }, data: { status: nextStatus } });
@@ -201,20 +253,24 @@ const updateDatesSchema = z
   })
   .refine((d) => d.endDate > d.startDate, { message: "End date must be after start date" });
 
-export async function updateAdCampaignDatesAction(formData: FormData): Promise<void> {
+export async function updateAdCampaignDatesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const parsed = updateDatesSchema.safeParse({
     campaignId: formData.get("campaignId"),
     startDate: formData.get("startDate"),
     endDate: formData.get("endDate"),
   });
-  if (!parsed.success) return;
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Fill in both dates." };
 
   const campaign = await db.adCampaign.findUnique({ where: { id: parsed.data.campaignId } });
-  if (!campaign || campaign.status === "CANCELLED") return;
+  if (!campaign || campaign.status === "CANCELLED") return { status: "error", message: "Campaign not found or cancelled." };
 
   const startDate = bdDateStringToUtcStart(parsed.data.startDate);
   const endDate = bdDateStringToUtcEnd(parsed.data.endDate);
+
+  const capacity = await checkPlacementCapacity(campaign.placementId, startDate, endDate, campaign.id);
+  if (!capacity.ok) return { status: "error", message: capacity.message };
+
   // Only recompute the live status for a campaign that isn't deliberately
   // paused — editing dates on a paused campaign shouldn't silently resume it.
   const nextStatus = campaign.status === "PAUSED" ? "PAUSED" : computeWindowStatus(startDate, endDate);
@@ -222,6 +278,7 @@ export async function updateAdCampaignDatesAction(formData: FormData): Promise<v
   await db.adCampaign.update({ where: { id: campaign.id }, data: { startDate, endDate, status: nextStatus } });
   await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_DATES_UPDATED", entityType: "AdCampaign", entityId: campaign.id, metadata: { startDate, endDate } });
   revalidatePath("/admin/advertising/campaigns");
+  return { status: "success", message: "Dates updated." };
 }
 
 export async function updateAdPricingAction(formData: FormData): Promise<void> {
@@ -232,6 +289,18 @@ export async function updateAdPricingAction(formData: FormData): Promise<void> {
 
   await db.adPricing.update({ where: { id: pricingId }, data: { price } });
   await recordAuditLog({ actorUserId: admin.id, action: "AD_PRICING_UPDATED", entityType: "AdPricing", entityId: pricingId, metadata: { price } });
+  revalidatePath("/admin/advertising/placements");
+  revalidatePath("/advertise");
+}
+
+export async function updateAdPlacementMaxAdsAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const placementId = String(formData.get("placementId") ?? "");
+  const maxConcurrentAds = Number(formData.get("maxConcurrentAds"));
+  if (!placementId || !Number.isInteger(maxConcurrentAds) || maxConcurrentAds < 1) return;
+
+  await db.adPlacement.update({ where: { id: placementId }, data: { maxConcurrentAds } });
+  await recordAuditLog({ actorUserId: admin.id, action: "AD_PLACEMENT_MAX_ADS_UPDATED", entityType: "AdPlacement", entityId: placementId, metadata: { maxConcurrentAds } });
   revalidatePath("/admin/advertising/placements");
   revalidatePath("/advertise");
 }

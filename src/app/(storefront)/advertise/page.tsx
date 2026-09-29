@@ -11,7 +11,17 @@ export const metadata: Metadata = { title: "Advertise on Pick Up" };
 export default async function AdvertisePage() {
   const [user, placements] = await Promise.all([
     getCurrentUser(),
-    db.adPlacement.findMany({ where: { isActive: true }, include: { pricing: true }, orderBy: { name: "asc" } }),
+    db.adPlacement.findMany({
+      where: { isActive: true },
+      include: {
+        pricing: true,
+        // SCHEDULED/ACTIVE/PAUSED campaigns still occupy a paid slot —
+        // CANCELLED/EXPIRED don't (see checkPlacementCapacity, the same
+        // set admin's capacity gate uses).
+        campaigns: { where: { status: { in: ["SCHEDULED", "ACTIVE", "PAUSED"] } }, select: { startDate: true, endDate: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const placementOptions = placements.map((p) => ({
@@ -20,6 +30,8 @@ export default async function AdvertisePage() {
     dailyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "DAILY")?.price ?? 0),
     weeklyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "WEEKLY")?.price ?? 0),
     monthlyPrice: Number(p.pricing.find((pr) => pr.billingCycle === "MONTHLY")?.price ?? 0),
+    maxConcurrentAds: p.maxConcurrentAds,
+    bookedRanges: p.campaigns.map((c) => ({ start: c.startDate.toISOString(), end: c.endDate.toISOString() })),
   }));
 
   return (

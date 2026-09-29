@@ -10,9 +10,18 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { AdCard } from "@/components/ads/ad-card";
 import { bdDateRangeDays } from "@/lib/date/bd-time";
 import { cheapestAdPrice, formatAdPriceBreakdown } from "@/lib/ads/pricing";
+import { countOverlapping } from "@/lib/ads/availability";
 import { formatBDT } from "@/lib/utils";
 
-export type PlacementOption = { code: string; name: string; dailyPrice: number; weeklyPrice: number; monthlyPrice: number };
+export type PlacementOption = {
+  code: string;
+  name: string;
+  dailyPrice: number;
+  weeklyPrice: number;
+  monthlyPrice: number;
+  maxConcurrentAds: number;
+  bookedRanges: { start: string; end: string }[];
+};
 
 export function AdvertisementRequestForm({ defaults, placements }: { defaults: { phone: string }; placements: PlacementOption[] }) {
   const [state, formAction] = useActionState(submitAdvertisementRequestAction, initialActionState);
@@ -32,6 +41,15 @@ export function AdvertisementRequestForm({ defaults, placements }: { defaults: {
         : null,
     [selectedPlacement, days],
   );
+
+  // Advisory only — the real capacity gate is enforced admin-side when the
+  // campaign is actually created, since more requests could come in between
+  // now and then. This just avoids surprising a business that's about to pay.
+  const isFull =
+    !!selectedPlacement &&
+    days > 0 &&
+    countOverlapping(selectedPlacement.bookedRanges, startDate, endDate) >= selectedPlacement.maxConcurrentAds;
+  const alternativePlacementNames = placements.filter((p) => p.code !== placementCode).map((p) => p.name);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
@@ -117,6 +135,15 @@ export function AdvertisementRequestForm({ defaults, placements }: { defaults: {
             <FieldError>{state.fieldErrors?.endDate?.[0]}</FieldError>
           </div>
         </div>
+
+        {isFull && (
+          <p role="alert" className="rounded-control bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
+            These dates are fully booked for {selectedPlacement!.name}.{" "}
+            {alternativePlacementNames.length > 0
+              ? `Try other dates or ${alternativePlacementNames.join(" or ")}.`
+              : "Try other dates."}
+          </p>
+        )}
 
         <div className="rounded-control bg-brand-bg px-4 py-3 text-sm">
           <span className="text-gray-600">Estimated total: </span>

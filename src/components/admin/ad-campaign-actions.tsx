@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   markAdPaymentPaidAction,
   pauseAdCampaignAction,
   resumeAdCampaignAction,
   updateAdCampaignDatesAction,
 } from "@/lib/actions/admin-advertising";
+import { initialActionState } from "@/lib/actions/types";
 
 const AD_PAYMENT_METHODS = ["BKASH", "NAGAD", "ROCKET", "SSLCOMMERZ", "CARD", "COD"];
 
@@ -75,20 +76,44 @@ export function EditCampaignDatesForm({ campaignId, startDate, endDate }: { camp
   }
 
   return (
-    <form
-      action={updateAdCampaignDatesAction}
-      onSubmit={() => setShow(false)}
-      className="flex flex-wrap items-center gap-1.5"
-    >
+    <EditCampaignDatesFields campaignId={campaignId} startDate={startDate} endDate={endDate} onCancel={() => setShow(false)} onSuccess={() => setShow(false)} />
+  );
+}
+
+function EditCampaignDatesFields({
+  campaignId,
+  startDate,
+  endDate,
+  onCancel,
+  onSuccess,
+}: {
+  campaignId: string;
+  startDate: string;
+  endDate: string;
+  onCancel: () => void;
+  onSuccess: () => void;
+}) {
+  const [state, formAction] = useActionState(updateAdCampaignDatesAction, initialActionState);
+
+  // Close the form on a successful save; stay open (showing the message) on
+  // an error like "placement is full", so the admin can adjust the dates.
+  useEffect(() => {
+    if (state.status === "success") onSuccess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.status]);
+
+  return (
+    <form action={formAction} className="flex flex-wrap items-center gap-1.5">
       <input type="hidden" name="campaignId" value={campaignId} />
       <input name="startDate" type="date" defaultValue={startDate} required className="h-8 rounded-control border border-border-brand px-2 text-xs" />
       <input name="endDate" type="date" defaultValue={endDate} required className="h-8 rounded-control border border-border-brand px-2 text-xs" />
       <button type="submit" className="rounded-control bg-brand-dark px-2.5 py-1 text-xs font-semibold text-white hover:opacity-90">
         Save
       </button>
-      <button type="button" onClick={() => setShow(false)} className="text-xs text-gray-500 hover:underline">
+      <button type="button" onClick={onCancel} className="text-xs text-gray-500 hover:underline">
         Cancel
       </button>
+      {state.status === "error" && <p className="w-full text-xs text-red-600">{state.message}</p>}
     </form>
   );
 }

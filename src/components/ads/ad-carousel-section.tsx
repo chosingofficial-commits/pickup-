@@ -1,4 +1,4 @@
-import { getActiveCampaignsForPlacement, recordAdImpression } from "@/lib/ads/queries";
+import { getActiveCampaignsForPlacement, recordAdImpressions } from "@/lib/ads/queries";
 import { AdCarousel } from "./ad-carousel";
 import type { AdPlacementCode } from "@/generated/prisma/client";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ export async function AdCarouselSection({ placementCode, className }: { placemen
   const campaigns = await getActiveCampaignsForPlacement(placementCode);
   if (campaigns.length === 0) return null;
 
-  await Promise.all(campaigns.map((c) => recordAdImpression(c.id)));
+  await recordAdImpressions(campaigns.map((c) => c.id));
 
   const items = campaigns
     .filter((c) => c.advertisement.bannerImageUrl)

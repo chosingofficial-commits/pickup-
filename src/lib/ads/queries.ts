@@ -1,11 +1,18 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { rotateByHour } from "./availability";
 import type { AdPlacementCode } from "@/generated/prisma/client";
 
-/** All currently-active campaigns for a placement, for the carousel — oldest first, so a longer-running campaign doesn't jump around as newer ones are approved. */
+/**
+ * All currently-active campaigns for a placement, for the carousel —
+ * fetched oldest-first (a stable base order), then rotated so every
+ * campaign gets an equal share of the first slot over time instead of
+ * whichever was created earliest always leading. Same result feeds both
+ * the mobile and desktop carousel, so they're always in sync.
+ */
 export async function getActiveCampaignsForPlacement(code: AdPlacementCode) {
   const now = new Date();
-  return db.adCampaign.findMany({
+  const campaigns = await db.adCampaign.findMany({
     where: {
       status: "ACTIVE",
       startDate: { lte: now },
@@ -15,10 +22,13 @@ export async function getActiveCampaignsForPlacement(code: AdPlacementCode) {
     include: { advertisement: { include: { advertiser: true } }, placement: true },
     orderBy: { createdAt: "asc" },
   });
+  return rotateByHour(campaigns, now);
 }
 
-export async function recordAdImpression(campaignId: string) {
-  await db.adImpression.create({ data: { campaignId } });
+/** One INSERT for every campaign shown in a single page render, instead of one per campaign. */
+export async function recordAdImpressions(campaignIds: string[]) {
+  if (campaignIds.length === 0) return;
+  await db.adImpression.createMany({ data: campaignIds.map((campaignId) => ({ campaignId })) });
 }
 
 export async function recordAdClick(campaignId: string) {
