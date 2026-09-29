@@ -98,36 +98,87 @@ export async function toggleServiceAreaActiveAction(formData: FormData): Promise
   revalidateTag("locations", "minutes");
 }
 
-const neighbourhoodSchema = z.object({
-  name: z.string().trim().min(2, "Enter a neighbourhood name"),
-  townId: z.string().min(1),
-  centerLat: z.coerce.number().optional(),
-  centerLng: z.coerce.number().optional(),
-  deliveryFee: z.coerce.number().min(0, "Enter a delivery fee"),
-  estimatedMinutesMin: z.coerce.number().int().min(1),
-  estimatedMinutesMax: z.coerce.number().int().min(1),
-});
-
-export async function createNeighbourhoodWithZoneAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function renameServiceAreaAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
-  const parsed = neighbourhoodSchema.safeParse({
+  const serviceAreaId = String(formData.get("serviceAreaId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  if (!serviceAreaId || name.length < 2) return;
+
+  await db.serviceArea.update({ where: { id: serviceAreaId }, data: { name } });
+  await recordAuditLog({ actorUserId: admin.id, action: "SERVICE_AREA_RENAMED", entityType: "ServiceArea", entityId: serviceAreaId, metadata: { name } });
+  revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
+}
+
+export async function renameTownAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const townId = String(formData.get("townId") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  if (!townId || name.length < 2) return;
+
+  await db.town.update({ where: { id: townId }, data: { name } });
+  await recordAuditLog({ actorUserId: admin.id, action: "TOWN_RENAMED", entityType: "Town", entityId: townId, metadata: { name } });
+  revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
+}
+
+const zoneSchema = z
+  .object({
+    name: z.string().trim().min(2, "Enter a zone name"),
+    nameBn: z.string().trim().optional(),
+    serviceAreaId: z.string().min(1),
+    centerLat: z.coerce.number().optional(),
+    centerLng: z.coerce.number().optional(),
+    deliveryFee: z.coerce.number().min(0, "Enter a delivery fee of 0 or more"),
+    estimatedMinutesMin: z.coerce.number().int().min(1),
+    estimatedMinutesMax: z.coerce.number().int().min(1),
+    activateNow: z.coerce.boolean().default(false),
+  })
+  .refine((d) => d.estimatedMinutesMin <= d.estimatedMinutesMax, {
+    message: "Min delivery time can't be greater than the max.",
+    path: ["estimatedMinutesMax"],
+  });
+
+/**
+ * Creates a zone (a Neighbourhood + its paired DeliveryZone, kept in sync)
+ * scoped to a single service area card — the customer-facing name lives on
+ * the Neighbourhood, the pricing on the DeliveryZone, mirroring every
+ * existing zone in this dataset.
+ */
+export async function createZoneAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const parsed = zoneSchema.safeParse({
     name: formData.get("name"),
-    townId: formData.get("townId"),
+    nameBn: formData.get("nameBn") || undefined,
+    serviceAreaId: formData.get("serviceAreaId"),
     centerLat: formData.get("centerLat") || undefined,
     centerLng: formData.get("centerLng") || undefined,
     deliveryFee: formData.get("deliveryFee"),
     estimatedMinutesMin: formData.get("estimatedMinutesMin"),
     estimatedMinutesMax: formData.get("estimatedMinutesMax"),
+    activateNow: formData.get("activateNow") === "1",
   });
   if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid input." };
 
-  const serviceArea = await db.serviceArea.findFirst({ where: { townId: parsed.data.townId } });
-  if (!serviceArea) return { status: "error", message: "This town has no service area yet." };
+  const serviceArea = await db.serviceArea.findUnique({ where: { id: parsed.data.serviceAreaId } });
+  if (!serviceArea) return { status: "error", message: "Service area not found." };
 
-  const slug = await uniqueSlug((s) => db.neighbourhood.findFirst({ where: { townId: parsed.data.townId, slug: s } }).then(Boolean), parsed.data.name);
+  const duplicate = await db.deliveryZone.findFirst({
+    where: { serviceAreaId: serviceArea.id, name: { equals: parsed.data.name, mode: "insensitive" } },
+  });
+  if (duplicate) return { status: "error", message: `A zone named "${parsed.data.name}" already exists in this service area.` };
+
+  const slug = await uniqueSlug((s) => db.neighbourhood.findFirst({ where: { townId: serviceArea.townId, slug: s } }).then(Boolean), parsed.data.name);
 
   const neighbourhood = await db.neighbourhood.create({
-    data: { name: parsed.data.name, slug, townId: parsed.data.townId, centerLat: parsed.data.centerLat, centerLng: parsed.data.centerLng },
+    data: {
+      name: parsed.data.name,
+      nameBn: parsed.data.nameBn || null,
+      slug,
+      townId: serviceArea.townId,
+      centerLat: parsed.data.centerLat,
+      centerLng: parsed.data.centerLng,
+    },
   });
 
   await db.deliveryZone.create({
@@ -135,17 +186,27 @@ export async function createNeighbourhoodWithZoneAction(_prev: ActionState, form
       serviceAreaId: serviceArea.id,
       neighbourhoodId: neighbourhood.id,
       name: parsed.data.name,
-      isActive: true,
+      nameBn: parsed.data.nameBn || null,
+      isActive: parsed.data.activateNow,
       deliveryFee: parsed.data.deliveryFee,
       estimatedMinutesMin: parsed.data.estimatedMinutesMin,
       estimatedMinutesMax: parsed.data.estimatedMinutesMax,
     },
   });
 
-  await recordAuditLog({ actorUserId: admin.id, action: "NEIGHBOURHOOD_CREATED", entityType: "Neighbourhood", entityId: neighbourhood.id });
+  await recordAuditLog({
+    actorUserId: admin.id,
+    action: "ZONE_CREATED",
+    entityType: "Neighbourhood",
+    entityId: neighbourhood.id,
+    metadata: { name: parsed.data.name, serviceAreaId: serviceArea.id, activateNow: parsed.data.activateNow },
+  });
   revalidatePath("/admin/locations");
   revalidateTag("locations", "minutes");
-  return { status: "success", message: `${parsed.data.name} added with its delivery zone.` };
+  return {
+    status: "success",
+    message: `${parsed.data.name} added${parsed.data.activateNow ? " and is live now." : " — enable it to make it orderable."}`,
+  };
 }
 
 const deliveryZoneByRadiusSchema = z.object({
@@ -208,16 +269,56 @@ export async function createDeliveryZoneByRadiusAction(_prev: ActionState, formD
   return { status: "success", message: `${parsed.data.name} added — ${parsed.data.radiusMeters}m radius zone is live.` };
 }
 
+const updateZoneSchema = z
+  .object({
+    zoneId: z.string().min(1),
+    name: z.string().trim().min(2),
+    nameBn: z.string().trim().optional(),
+    deliveryFee: z.coerce.number().min(0),
+    estimatedMinutesMin: z.coerce.number().int().min(1),
+    estimatedMinutesMax: z.coerce.number().int().min(1),
+  })
+  .refine((d) => d.estimatedMinutesMin <= d.estimatedMinutesMax);
+
+/**
+ * Also renames the zone's paired Neighbourhood (if any) to match, since
+ * that's the name customers actually see in the location picker — leaving
+ * it out of sync would make a rename invisible to customers.
+ */
 export async function updateDeliveryZoneAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
-  const zoneId = String(formData.get("zoneId") ?? "");
-  const deliveryFee = Number(formData.get("deliveryFee"));
-  const estimatedMinutesMin = Number(formData.get("estimatedMinutesMin"));
-  const estimatedMinutesMax = Number(formData.get("estimatedMinutesMax"));
-  if (!zoneId || !Number.isFinite(deliveryFee)) return;
+  const parsed = updateZoneSchema.safeParse({
+    zoneId: formData.get("zoneId"),
+    name: formData.get("name"),
+    nameBn: formData.get("nameBn") || undefined,
+    deliveryFee: formData.get("deliveryFee"),
+    estimatedMinutesMin: formData.get("estimatedMinutesMin"),
+    estimatedMinutesMax: formData.get("estimatedMinutesMax"),
+  });
+  if (!parsed.success) return;
 
-  await db.deliveryZone.update({ where: { id: zoneId }, data: { deliveryFee, estimatedMinutesMin, estimatedMinutesMax } });
-  await recordAuditLog({ actorUserId: admin.id, action: "DELIVERY_ZONE_UPDATED", entityType: "DeliveryZone", entityId: zoneId });
+  const zone = await db.deliveryZone.findUnique({ where: { id: parsed.data.zoneId } });
+  if (!zone) return;
+
+  const duplicate = await db.deliveryZone.findFirst({
+    where: { serviceAreaId: zone.serviceAreaId, name: { equals: parsed.data.name, mode: "insensitive" }, id: { not: zone.id } },
+  });
+  if (duplicate) return;
+
+  await db.deliveryZone.update({
+    where: { id: zone.id },
+    data: {
+      name: parsed.data.name,
+      nameBn: parsed.data.nameBn || null,
+      deliveryFee: parsed.data.deliveryFee,
+      estimatedMinutesMin: parsed.data.estimatedMinutesMin,
+      estimatedMinutesMax: parsed.data.estimatedMinutesMax,
+    },
+  });
+  if (zone.neighbourhoodId) {
+    await db.neighbourhood.update({ where: { id: zone.neighbourhoodId }, data: { name: parsed.data.name, nameBn: parsed.data.nameBn || null } });
+  }
+  await recordAuditLog({ actorUserId: admin.id, action: "DELIVERY_ZONE_UPDATED", entityType: "DeliveryZone", entityId: zone.id });
   revalidatePath("/admin/locations");
   revalidateTag("locations", "minutes");
 }

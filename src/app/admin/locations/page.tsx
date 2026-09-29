@@ -7,9 +7,10 @@ import {
   AddDistrictForm,
   AddUpazilaForm,
   AddTownForm,
-  AddNeighbourhoodForm,
+  AddZoneForm,
   AddDeliveryZoneByRadiusForm,
   AddExclusionZoneForm,
+  InlineRenameField,
 } from "@/components/admin/location-forms";
 import { DeliveryZoneRow } from "@/components/admin/delivery-zone-row";
 import { toggleServiceAreaActiveAction, toggleExclusionZoneActiveAction } from "@/lib/actions/admin-locations";
@@ -64,7 +65,12 @@ export default async function AdminLocationsPage() {
             <div key={area.id} className="rounded-control border border-border-brand p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-brand-dark">{area.name}</p>
+                  <p className="text-sm font-semibold text-brand-dark">
+                    <InlineRenameField kind="serviceArea" id={area.id} defaultValue={area.name} />
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                    Town: <InlineRenameField kind="town" id={area.town.id} defaultValue={area.town.name} />
+                  </p>
                   <p className="text-xs text-gray-500">
                     {area.town.upazila.name}, {area.town.upazila.district.name}, {area.town.upazila.district.division.name}
                   </p>
@@ -86,6 +92,7 @@ export default async function AdminLocationsPage() {
                       key={zone.id}
                       zoneId={zone.id}
                       name={zone.name}
+                      nameBn={zone.nameBn}
                       deliveryFee={Number(zone.deliveryFee)}
                       estimatedMinutesMin={zone.estimatedMinutesMin}
                       estimatedMinutesMax={zone.estimatedMinutesMax}
@@ -94,6 +101,7 @@ export default async function AdminLocationsPage() {
                   ))}
                 </div>
               )}
+              <AddZoneForm serviceAreaId={area.id} />
             </div>
           ))}
         </CardContent>
@@ -101,14 +109,7 @@ export default async function AdminLocationsPage() {
 
       <Card>
         <CardContent className="space-y-4 pt-5">
-          <CardTitle>3. Add neighbourhoods & delivery zones</CardTitle>
-          <AddNeighbourhoodForm towns={towns.map((t) => ({ id: t.id, name: t.name }))} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-4 pt-5">
-          <CardTitle>3b. Add a delivery zone by radius</CardTitle>
+          <CardTitle>3. Add a delivery zone by radius</CardTitle>
           <p className="text-sm text-gray-600">
             For coverage areas defined by a simple radius around a point rather than a named neighbourhood — the
             circle is saved as the zone&apos;s boundary polygon.

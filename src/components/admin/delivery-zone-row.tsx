@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 export function DeliveryZoneRow({
   zoneId,
   name,
+  nameBn,
   deliveryFee,
   estimatedMinutesMin,
   estimatedMinutesMax,
@@ -14,6 +15,7 @@ export function DeliveryZoneRow({
 }: {
   zoneId: string;
   name: string;
+  nameBn?: string | null;
   deliveryFee: number;
   estimatedMinutesMin: number;
   estimatedMinutesMax: number;
@@ -23,9 +25,25 @@ export function DeliveryZoneRow({
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-control border border-border-brand p-3">
-      <span className="min-w-[120px] text-sm font-medium text-brand-dark">{name}</span>
-      <form ref={formRef} action={updateDeliveryZoneAction} className="flex items-center gap-2">
+      <form ref={formRef} action={updateDeliveryZoneAction} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="zoneId" value={zoneId} />
+        <input
+          type="text"
+          name="name"
+          defaultValue={name}
+          onBlur={() => formRef.current?.requestSubmit()}
+          className="h-8 w-32 rounded-control border border-border-brand px-2 text-xs font-medium text-brand-dark"
+          aria-label="Zone name (English)"
+        />
+        <input
+          type="text"
+          name="nameBn"
+          defaultValue={nameBn ?? ""}
+          placeholder="বাংলা নাম"
+          onBlur={() => formRef.current?.requestSubmit()}
+          className="h-8 w-28 rounded-control border border-border-brand px-2 text-xs text-brand-dark"
+          aria-label="Zone name (Bengali)"
+        />
         <label className="flex items-center gap-1 text-xs text-gray-500">
           Tk
           <input

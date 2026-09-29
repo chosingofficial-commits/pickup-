@@ -1,14 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import {
   createDivisionAction,
   createDistrictAction,
   createUpazilaAction,
   createTownAction,
-  createNeighbourhoodWithZoneAction,
+  createZoneAction,
   createDeliveryZoneByRadiusAction,
   createExclusionZoneAction,
+  renameServiceAreaAction,
+  renameTownAction,
 } from "@/lib/actions/admin-locations";
 import { initialActionState } from "@/lib/actions/types";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -122,53 +124,64 @@ export function AddTownForm({ upazilas }: { upazilas: Option[] }) {
   );
 }
 
-export function AddNeighbourhoodForm({ towns }: { towns: Option[] }) {
-  const [state, formAction] = useActionState(createNeighbourhoodWithZoneAction, initialActionState);
+/** Renders inside a single service area card — the zone it creates is scoped there, no town/service-area picker needed. */
+export function AddZoneForm({ serviceAreaId }: { serviceAreaId: string }) {
+  const [state, formAction] = useActionState(createZoneAction, initialActionState);
+  const fieldId = (base: string) => `zone-${serviceAreaId}-${base}`;
   return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-3">
+    <form action={formAction} className="grid gap-3 border-t border-border-brand pt-3 sm:grid-cols-3">
+      <input type="hidden" name="serviceAreaId" value={serviceAreaId} />
       <div>
-        <Label htmlFor="nb-town">Town</Label>
-        <Select id="nb-town" name="townId" defaultValue="" required>
-          <option value="" disabled>
-            Select town
-          </option>
-          {towns.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </Select>
+        <Label htmlFor={fieldId("name")}>Zone name (English)</Label>
+        <Input id={fieldId("name")} name="name" required />
       </div>
       <div>
-        <Label htmlFor="nb-name">Neighbourhood name</Label>
-        <Input id="nb-name" name="name" required />
+        <Label htmlFor={fieldId("nameBn")}>Zone name (Bengali, optional)</Label>
+        <Input id={fieldId("nameBn")} name="nameBn" />
       </div>
       <div>
-        <Label htmlFor="nb-fee">Delivery fee (Tk)</Label>
-        <Input id="nb-fee" name="deliveryFee" type="number" min="0" step="1" required />
+        <Label htmlFor={fieldId("fee")}>Delivery fee (Tk)</Label>
+        <Input id={fieldId("fee")} name="deliveryFee" type="number" min="0" step="1" required />
       </div>
       <div>
-        <Label htmlFor="nb-min">Min ETA (minutes)</Label>
-        <Input id="nb-min" name="estimatedMinutesMin" type="number" min="1" defaultValue={20} required />
+        <Label htmlFor={fieldId("min")}>Min delivery time (minutes)</Label>
+        <Input id={fieldId("min")} name="estimatedMinutesMin" type="number" min="1" defaultValue={20} required />
       </div>
       <div>
-        <Label htmlFor="nb-max">Max ETA (minutes)</Label>
-        <Input id="nb-max" name="estimatedMinutesMax" type="number" min="1" defaultValue={35} required />
+        <Label htmlFor={fieldId("max")}>Max delivery time (minutes)</Label>
+        <Input id={fieldId("max")} name="estimatedMinutesMax" type="number" min="1" defaultValue={35} required />
       </div>
-      <div>
-        <Label htmlFor="nb-lat">Centre latitude (optional)</Label>
-        <Input id="nb-lat" name="centerLat" type="number" step="0.000001" />
-      </div>
-      <div>
-        <Label htmlFor="nb-lng">Centre longitude (optional)</Label>
-        <Input id="nb-lng" name="centerLng" type="number" step="0.000001" />
-      </div>
+      <label className="flex items-center gap-2 pb-2.5 text-sm text-gray-700">
+        <input type="checkbox" name="activateNow" value="1" />
+        Activate immediately
+      </label>
       <div className="flex items-end">
-        <SubmitButton className="w-auto px-5">Add neighbourhood & zone</SubmitButton>
+        <SubmitButton className="w-auto px-5">Add zone</SubmitButton>
       </div>
       <div className="sm:col-span-3">
         <Result state={state} />
       </div>
+    </form>
+  );
+}
+
+/** Small onBlur-to-save inline text field for fixing capitalization/typos in a service area or town name. */
+export function InlineRenameField({ kind, id, defaultValue }: { kind: "serviceArea" | "town"; id: string; defaultValue: string }) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const action = kind === "serviceArea" ? renameServiceAreaAction : renameTownAction;
+  const idField = kind === "serviceArea" ? "serviceAreaId" : "townId";
+  return (
+    <form ref={formRef} action={action} className="inline-flex">
+      <input type="hidden" name={idField} value={id} />
+      <input
+        type="text"
+        name="name"
+        defaultValue={defaultValue}
+        onBlur={(e) => {
+          if (e.target.value.trim() && e.target.value !== defaultValue) formRef.current?.requestSubmit();
+        }}
+        className="h-8 rounded-control border border-transparent bg-transparent px-1.5 text-sm hover:border-border-brand focus-visible:border-border-brand focus-visible:outline-none"
+      />
     </form>
   );
 }
