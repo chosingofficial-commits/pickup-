@@ -10,9 +10,10 @@ import {
   AddDeliveryZoneByRadiusForm,
   AddExclusionZoneForm,
   InlineRenameField,
+  DeleteServiceAreaForm,
 } from "@/components/admin/location-forms";
 import { DeliveryZoneRow } from "@/components/admin/delivery-zone-row";
-import { toggleServiceAreaActiveAction, toggleExclusionZoneActiveAction } from "@/lib/actions/admin-locations";
+import { toggleServiceAreaActiveAction, toggleExclusionZoneActiveAction, isServiceAreaDeletable } from "@/lib/actions/admin-locations";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Locations & delivery zones" };
@@ -31,6 +32,10 @@ export default async function AdminLocationsPage() {
     }),
     db.geographicExclusionZone.findMany({ orderBy: { createdAt: "desc" } }),
   ]);
+
+  const deletability = new Map(
+    await Promise.all(serviceAreas.map(async (area) => [area.id, await isServiceAreaDeletable(area.id)] as const)),
+  );
 
   return (
     <div className="space-y-8">
@@ -77,6 +82,7 @@ export default async function AdminLocationsPage() {
                       {area.isActive ? "Deactivate" : "Activate"}
                     </button>
                   </form>
+                  {deletability.get(area.id) && <DeleteServiceAreaForm serviceAreaId={area.id} areaName={area.name} />}
                 </div>
               </div>
               {area.deliveryZones.length > 0 && (

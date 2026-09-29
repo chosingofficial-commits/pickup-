@@ -115,6 +115,59 @@ export async function renameTownAction(formData: FormData): Promise<void> {
   revalidateTag("locations", "minutes");
 }
 
+/**
+ * A service area (and its town) can only be permanently deleted when
+ * nothing depends on it — no zones, no neighbourhoods under its town, no
+ * sibling service areas sharing that town, and no addresses or orders
+ * still pointing at any of that. Address/Order FKs to Neighbourhood and
+ * DeliveryZone are ON DELETE SET NULL / RESTRICT respectively (see
+ * prisma/migrations/00000000000000_init), so without this check a delete
+ * could either silently null out a customer's saved address or hit a raw
+ * DB constraint error instead of a clear message. Used both to decide
+ * whether the page shows the Delete button and to re-validate inside the
+ * action itself (never trust the client).
+ */
+export async function isServiceAreaDeletable(serviceAreaId: string): Promise<boolean> {
+  const area = await db.serviceArea.findUnique({ where: { id: serviceAreaId } });
+  if (!area) return false;
+
+  const [zoneCount, neighbourhoodCount, otherServiceAreaCount, addressCount, orderCount] = await Promise.all([
+    db.deliveryZone.count({ where: { serviceAreaId } }),
+    db.neighbourhood.count({ where: { townId: area.townId } }),
+    db.serviceArea.count({ where: { townId: area.townId, id: { not: serviceAreaId } } }),
+    db.address.count({ where: { OR: [{ neighbourhood: { townId: area.townId } }, { deliveryZone: { serviceAreaId } }] } }),
+    db.order.count({ where: { deliveryZone: { serviceAreaId } } }),
+  ]);
+
+  return zoneCount === 0 && neighbourhoodCount === 0 && otherServiceAreaCount === 0 && addressCount === 0 && orderCount === 0;
+}
+
+export async function deleteServiceAreaAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const serviceAreaId = String(formData.get("serviceAreaId") ?? "");
+  const area = await db.serviceArea.findUnique({ where: { id: serviceAreaId } });
+  if (!area) return { status: "error", message: "Service area not found." };
+
+  if (!(await isServiceAreaDeletable(serviceAreaId))) {
+    return { status: "error", message: "This service area still has linked zones, addresses, or orders — use Deactivate instead." };
+  }
+
+  // Deleting the town cascades to the now-empty ServiceArea (and would
+  // cascade to its Neighbourhoods/DeliveryZones too, but isServiceAreaDeletable
+  // already confirmed there are none).
+  await db.town.delete({ where: { id: area.townId } });
+  await recordAuditLog({
+    actorUserId: admin.id,
+    action: "SERVICE_AREA_DELETED",
+    entityType: "ServiceArea",
+    entityId: serviceAreaId,
+    metadata: { name: area.name, townId: area.townId },
+  });
+  revalidatePath("/admin/locations");
+  revalidateTag("locations", "minutes");
+  return { status: "success", message: `${area.name} and its town were deleted.` };
+}
+
 const zoneSchema = z
   .object({
     name: z.string().trim().min(2, "Enter a zone name"),

@@ -10,6 +10,7 @@ import {
   createExclusionZoneAction,
   renameServiceAreaAction,
   renameTownAction,
+  deleteServiceAreaAction,
 } from "@/lib/actions/admin-locations";
 import { initialActionState } from "@/lib/actions/types";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -154,6 +155,31 @@ export function InlineRenameField({ kind, id, defaultValue }: { kind: "serviceAr
         }}
         className="h-8 rounded-control border border-transparent bg-transparent px-1.5 text-sm hover:border-border-brand focus-visible:border-border-brand focus-visible:outline-none"
       />
+    </form>
+  );
+}
+
+/** Only rendered by the page when isServiceAreaDeletable() is true — the action re-checks anyway, this is just what makes the button appear. */
+export function DeleteServiceAreaForm({ serviceAreaId, areaName }: { serviceAreaId: string; areaName: string }) {
+  const [state, formAction] = useActionState(deleteServiceAreaAction, initialActionState);
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (
+      !window.confirm(
+        `Delete "${areaName}" and its town permanently? This can't be undone. (Only offered because it has no zones, neighbourhoods, addresses, or orders.)`,
+      )
+    ) {
+      e.preventDefault();
+    }
+  }
+
+  return (
+    <form action={formAction} onSubmit={onSubmit} className="flex flex-col items-end gap-1">
+      <input type="hidden" name="serviceAreaId" value={serviceAreaId} />
+      <button type="submit" className="rounded-control border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
+        Delete
+      </button>
+      {state.status === "error" && <p className="text-xs text-red-600">{state.message}</p>}
     </form>
   );
 }
