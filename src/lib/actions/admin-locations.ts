@@ -41,37 +41,30 @@ export async function createDistrictAction(_prev: ActionState, formData: FormDat
   return { status: "success", message: "District added." };
 }
 
-export async function createUpazilaAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdmin();
-  const name = String(formData.get("name") ?? "").trim();
-  const districtId = String(formData.get("districtId") ?? "");
-  if (!name || !districtId) return { status: "error", message: "Choose a district and enter an upazila name." };
-
-  const slug = await uniqueSlug((s) => db.upazila.findFirst({ where: { districtId, slug: s } }).then(Boolean), name);
-  await db.upazila.create({ data: { name, slug, districtId } });
-  await recordAuditLog({ actorUserId: admin.id, action: "UPAZILA_CREATED", entityType: "Upazila", metadata: { name } });
-  revalidatePath("/admin/locations");
-  return { status: "success", message: "Upazila added." };
-}
-
 const townSchema = z.object({
   name: z.string().trim().min(2, "Enter a town name"),
-  upazilaId: z.string().min(1, "Choose an upazila"),
+  districtId: z.string().min(1, "Choose a zila"),
   activateNow: z.coerce.boolean().default(false),
 });
 
+/**
+ * Towns link straight to a District (zila) — the business only ever
+ * operates by zila and town, never upazila (see PLAN-remove-upazila).
+ * `Town.upazilaId` is left null for new rows; it's a deprecated column
+ * being phased out in a later, separate migration.
+ */
 export async function createTownAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const parsed = townSchema.safeParse({
     name: formData.get("name"),
-    upazilaId: formData.get("upazilaId"),
+    districtId: formData.get("districtId"),
     activateNow: formData.get("activateNow") === "1",
   });
   if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid input." };
 
-  const slug = await uniqueSlug((s) => db.town.findFirst({ where: { upazilaId: parsed.data.upazilaId, slug: s } }).then(Boolean), parsed.data.name);
+  const slug = await uniqueSlug((s) => db.town.findFirst({ where: { districtId: parsed.data.districtId, slug: s } }).then(Boolean), parsed.data.name);
 
-  const town = await db.town.create({ data: { name: parsed.data.name, slug, upazilaId: parsed.data.upazilaId } });
+  const town = await db.town.create({ data: { name: parsed.data.name, slug, districtId: parsed.data.districtId } });
   const serviceArea = await db.serviceArea.create({
     data: { townId: town.id, name: parsed.data.name, isActive: parsed.data.activateNow, launchedAt: parsed.data.activateNow ? new Date() : null },
   });

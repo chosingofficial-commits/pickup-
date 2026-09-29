@@ -68,7 +68,7 @@ export default async function CheckoutAddressPage() {
 
         <div className="mt-6 rounded-card border border-border-brand bg-white p-5">
           <h2 className="mb-4 font-heading text-sm font-bold text-brand-dark">Add a new address</h2>
-          <AddressForm neighbourhoods={neighbourhoodOptions} />
+          <AddressForm neighbourhoods={neighbourhoodOptions} checkoutRedirect />
         </div>
       </div>
     </Container>

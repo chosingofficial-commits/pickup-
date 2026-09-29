@@ -13,7 +13,6 @@ export const getActiveServiceAreas = unstable_cache(
   async () => {
     return db.serviceArea.findMany({
       where: { isActive: true },
-      include: { town: { include: { upazila: { include: { district: { include: { division: true } } } } } } },
       orderBy: { launchedAt: "asc" },
     });
   },
@@ -48,8 +47,4 @@ export const listDivisions = cache(async () => {
 
 export const listDistrictsByDivision = cache(async (divisionId: string) => {
   return db.district.findMany({ where: { divisionId }, orderBy: { name: "asc" } });
-});
-
-export const listUpazilasByDistrict = cache(async (districtId: string) => {
-  return db.upazila.findMany({ where: { districtId }, orderBy: { name: "asc" } });
 });

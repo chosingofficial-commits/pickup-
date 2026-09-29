@@ -4,7 +4,6 @@ import { useActionState, useRef } from "react";
 import {
   createDivisionAction,
   createDistrictAction,
-  createUpazilaAction,
   createTownAction,
   createZoneAction,
   createDeliveryZoneByRadiusAction,
@@ -66,46 +65,19 @@ export function AddDistrictForm({ divisions }: { divisions: Option[] }) {
   );
 }
 
-export function AddUpazilaForm({ districts }: { districts: Option[] }) {
-  const [state, formAction] = useActionState(createUpazilaAction, initialActionState);
-  return (
-    <form action={formAction} className="flex flex-wrap items-end gap-2">
-      <div>
-        <Label htmlFor="upazila-district">District</Label>
-        <Select id="upazila-district" name="districtId" defaultValue="" required>
-          <option value="" disabled>
-            Select district
-          </option>
-          {districts.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </Select>
-      </div>
-      <div>
-        <Label htmlFor="upazila-name">New upazila</Label>
-        <Input id="upazila-name" name="name" placeholder="E.g. Khagrachari Sadar" required />
-      </div>
-      <SubmitButton className="w-auto px-4">Add</SubmitButton>
-      <Result state={state} />
-    </form>
-  );
-}
-
-export function AddTownForm({ upazilas }: { upazilas: Option[] }) {
+export function AddTownForm({ districts }: { districts: Option[] }) {
   const [state, formAction] = useActionState(createTownAction, initialActionState);
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-2">
       <div>
-        <Label htmlFor="town-upazila">Upazila</Label>
-        <Select id="town-upazila" name="upazilaId" defaultValue="" required>
+        <Label htmlFor="town-district">Zila (district)</Label>
+        <Select id="town-district" name="districtId" defaultValue="" required>
           <option value="" disabled>
-            Select upazila
+            Select zila
           </option>
-          {upazilas.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
+          {districts.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
             </option>
           ))}
         </Select>

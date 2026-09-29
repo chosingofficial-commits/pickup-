@@ -307,10 +307,16 @@ model District {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   upazilas   Upazila[]
+  towns      Town[]
 
   @@unique([divisionId, slug])
 }
 
+/// Deprecated — the business only ever operates by zila (district) and town,
+/// never upazila. `Town.upazilaId` is being phased out in favor of
+/// `Town.districtId` (see PLAN-remove-upazila); this model and its FK on
+/// Town stay only until a follow-up migration drops them, to keep the
+/// deploy an additive expand/contract instead of one breaking cutover.
 model Upazila {
   id         String    @id @default(cuid())
   districtId String
@@ -327,8 +333,11 @@ model Upazila {
 
 model Town {
   id            String          @id @default(cuid())
-  upazilaId     String
-  upazila       Upazila         @relation(fields: [upazilaId], references: [id], onDelete: Cascade)
+  /// Deprecated, nullable so new towns can omit it — see Upazila's doc comment.
+  upazilaId     String?
+  upazila       Upazila?        @relation(fields: [upazilaId], references: [id], onDelete: Cascade)
+  districtId    String
+  district      District        @relation(fields: [districtId], references: [id], onDelete: Cascade)
   name          String
   nameBn        String?
   slug          String
@@ -338,6 +347,7 @@ model Town {
   serviceAreas  ServiceArea[]
 
   @@unique([upazilaId, slug])
+  @@unique([districtId, slug])
 }
 
 model Neighbourhood {

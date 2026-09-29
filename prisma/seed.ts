@@ -32,7 +32,9 @@ async function main() {
   console.log("Seeding Pick Up demo data...");
 
   // ---------------------------------------------------------------------
-  // Locations — Division -> District -> Upazila -> Town -> Neighbourhood
+  // Locations — Division -> District (zila) -> Town -> Neighbourhood
+  // (no Upazila — the business only ever operates by zila and town; see
+  // PLAN-remove-upazila for why that level was dropped)
   // ---------------------------------------------------------------------
   const division = await db.division.upsert({
     where: { slug: "chattogram" },
@@ -46,15 +48,9 @@ async function main() {
     update: {},
   });
 
-  const upazila = await db.upazila.upsert({
-    where: { districtId_slug: { districtId: district.id, slug: "khagrachari-sadar" } },
-    create: { districtId: district.id, name: "Khagrachari Sadar", nameBn: "খাগড়াছড়ি সদর", slug: "khagrachari-sadar" },
-    update: {},
-  });
-
   const town = await db.town.upsert({
-    where: { upazilaId_slug: { upazilaId: upazila.id, slug: "khagrachari-sadar-town" } },
-    create: { upazilaId: upazila.id, name: "Khagrachari Sadar", nameBn: "খাগড়াছড়ি সদর", slug: "khagrachari-sadar-town" },
+    where: { districtId_slug: { districtId: district.id, slug: "khagrachari-sadar-town" } },
+    create: { districtId: district.id, name: "Khagrachari Sadar", nameBn: "খাগড়াছড়ি সদর", slug: "khagrachari-sadar-town" },
     update: {},
   });
 

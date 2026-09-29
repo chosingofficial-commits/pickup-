@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   AddDivisionForm,
   AddDistrictForm,
-  AddUpazilaForm,
   AddTownForm,
   AddZoneForm,
   AddDeliveryZoneByRadiusForm,
@@ -19,14 +18,13 @@ import { db } from "@/lib/db";
 export const metadata: Metadata = { title: "Locations & delivery zones" };
 
 export default async function AdminLocationsPage() {
-  const [divisions, districts, upazilas, towns, serviceAreas, exclusionZones] = await Promise.all([
+  const [divisions, districts, towns, serviceAreas, exclusionZones] = await Promise.all([
     db.division.findMany({ orderBy: { name: "asc" } }),
     db.district.findMany({ include: { division: true }, orderBy: { name: "asc" } }),
-    db.upazila.findMany({ include: { district: true }, orderBy: { name: "asc" } }),
-    db.town.findMany({ include: { upazila: { include: { district: { include: { division: true } } } } }, orderBy: { name: "asc" } }),
+    db.town.findMany({ orderBy: { name: "asc" } }),
     db.serviceArea.findMany({
       include: {
-        town: { include: { upazila: { include: { district: { include: { division: true } } } } } },
+        town: { include: { district: true } },
         deliveryZones: { include: { neighbourhood: true }, orderBy: { name: "asc" } },
       },
       orderBy: { createdAt: "asc" },
@@ -53,8 +51,7 @@ export default async function AdminLocationsPage() {
           <CardTitle>1. Build the place hierarchy</CardTitle>
           <AddDivisionForm />
           <AddDistrictForm divisions={divisions} />
-          <AddUpazilaForm districts={districts.map((d) => ({ id: d.id, name: `${d.name} (${d.division.name})` }))} />
-          <AddTownForm upazilas={upazilas.map((u) => ({ id: u.id, name: `${u.name} (${u.district.name})` }))} />
+          <AddTownForm districts={districts.map((d) => ({ id: d.id, name: `${d.name} (${d.division.name})` }))} />
         </CardContent>
       </Card>
 
@@ -69,10 +66,7 @@ export default async function AdminLocationsPage() {
                     <InlineRenameField kind="serviceArea" id={area.id} defaultValue={area.name} />
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
-                    Town: <InlineRenameField kind="town" id={area.town.id} defaultValue={area.town.name} />
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {area.town.upazila.name}, {area.town.upazila.district.name}, {area.town.upazila.district.division.name}
+                    Town: <InlineRenameField kind="town" id={area.town.id} defaultValue={area.town.name} />, {area.town.district.name}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

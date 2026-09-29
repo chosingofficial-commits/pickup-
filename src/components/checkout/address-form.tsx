@@ -7,11 +7,19 @@ import { Input, Label, FieldError, Select, Textarea } from "@/components/ui/inpu
 import { SubmitButton } from "@/components/forms/submit-button";
 import type { NeighbourhoodOption } from "@/components/location/location-selector";
 
-export function AddressForm({ neighbourhoods }: { neighbourhoods: NeighbourhoodOption[] }) {
+export function AddressForm({
+  neighbourhoods,
+  checkoutRedirect = false,
+}: {
+  neighbourhoods: NeighbourhoodOption[];
+  /** True when rendered inside checkout — saving then continues to the next checkout step with this address selected. */
+  checkoutRedirect?: boolean;
+}) {
   const [state, formAction] = useActionState(addAddressAction, initialActionState);
 
   return (
     <form action={formAction} className="space-y-4" noValidate>
+      {checkoutRedirect && <input type="hidden" name="checkoutRedirect" value="1" />}
       {state.status === "error" && state.message && (
         <p role="alert" className="rounded-control bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
           {state.message}

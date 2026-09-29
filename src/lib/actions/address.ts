@@ -57,6 +57,11 @@ export async function addAddressAction(_prev: ActionState, formData: FormData): 
   await updateCheckoutState({ addressId: address.id });
   revalidatePath("/checkout");
   revalidatePath("/account/addresses");
+
+  // Only redirect onward when this form was rendered inside checkout (see
+  // AddressForm's `checkoutRedirect` prop) — the same form/action is reused
+  // on /account/addresses, where saving should just leave the customer there.
+  if (formData.get("checkoutRedirect") === "1") redirect("/checkout/schedule");
   return { status: "success", message: "Address saved." };
 }
 
