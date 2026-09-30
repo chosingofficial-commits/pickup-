@@ -12,6 +12,7 @@ const NAV = [
   { href: "/rider", label: "Available" },
   { href: "/rider/deliveries", label: "My deliveries" },
   { href: "/rider/history", label: "History" },
+  { href: "/account/ads", label: "My ads" },
 ];
 
 export default async function RiderLayout({ children }: { children: React.ReactNode }) {

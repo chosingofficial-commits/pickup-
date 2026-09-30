@@ -13,6 +13,13 @@ import type { AdPlacementCode } from "@/generated/prisma/client";
 import type { ActionState } from "./types";
 
 export async function submitAdvertisementRequestAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  // The /advertise page only shows the form to a logged-in visitor, but this
+  // is a server action — enforce it here too, since it can be POSTed to
+  // directly. Every ad must be linked to an account so it can show up on
+  // "My ads".
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/advertise");
+
   const ip = await getClientIp();
   const allowed = await advertiseRateLimiter.consume(ip);
   if (!allowed) return { status: "error", message: "Too many requests. Please try again later." };
@@ -50,12 +57,15 @@ export async function submitAdvertisementRequestAction(_prev: ActionState, formD
   };
   const estimatedBudget = cheapestAdPrice(days, tiers).total;
 
-  const user = await getCurrentUser();
-
   const advertiserData = { advertiserName: parsed.data.businessName, businessName: parsed.data.businessName, phone: parsed.data.phone };
-  const advertiser = user
-    ? await db.advertiser.upsert({ where: { userId: user.id }, create: { userId: user.id, ...advertiserData }, update: advertiserData })
-    : await db.advertiser.create({ data: advertiserData });
+  const advertiser = await db.advertiser.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id, ...advertiserData },
+    update: advertiserData,
+  });
+
+  const requestedStartDate = bdDateStringToUtcStart(parsed.data.startDate);
+  const requestedEndDate = bdDateStringToUtcEnd(parsed.data.endDate);
 
   const advertisement = await db.advertisement.create({
     data: {
@@ -65,6 +75,8 @@ export async function submitAdvertisementRequestAction(_prev: ActionState, formD
       targetUrl: parsed.data.targetUrl,
       pendingBannerImageKey: parsed.data.pendingBannerImageKey,
       preferredPlacementCode: parsed.data.placementCode as AdPlacementCode,
+      requestedStartDate,
+      requestedEndDate,
       budget: estimatedBudget,
       paymentMethod: "COD", // Actual method is arranged after approval — see the admin-configured payment instructions on /advertise/submitted.
       agreementAccepted: true,
@@ -72,17 +84,14 @@ export async function submitAdvertisementRequestAction(_prev: ActionState, formD
     },
   });
 
-  // Stash the requested window as an audit metadata note — the real
-  // AdCampaign (with its actual dates) is only created once an admin
-  // approves and sets it up, but we keep the advertiser's request on record.
   await recordAuditLog({
-    actorUserId: user?.id,
+    actorUserId: user.id,
     action: "ADVERTISEMENT_SUBMITTED",
     entityType: "Advertisement",
     entityId: advertisement.id,
     metadata: {
-      requestedStartDate: bdDateStringToUtcStart(parsed.data.startDate).toISOString(),
-      requestedEndDate: bdDateStringToUtcEnd(parsed.data.endDate).toISOString(),
+      requestedStartDate: requestedStartDate.toISOString(),
+      requestedEndDate: requestedEndDate.toISOString(),
       requestedDays: days,
       estimatedBudget,
     },

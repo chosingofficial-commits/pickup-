@@ -19,9 +19,14 @@ export default async function AdvertiseSubmittedPage() {
       <div className="mt-4 max-w-md rounded-control bg-brand-bg px-4 py-3 text-sm text-brand-dark">
         {settings[SITE_SETTING_KEYS.adPaymentInstructions]}
       </div>
-      <Link href="/" className="mt-6 rounded-control bg-brand-primary px-6 py-3 text-sm font-semibold text-white hover:bg-brand-primary-hover">
-        Back to Pick Up
-      </Link>
+      <div className="mt-6 flex gap-3">
+        <Link href="/account/ads" className="rounded-control bg-brand-primary px-6 py-3 text-sm font-semibold text-white hover:bg-brand-primary-hover">
+          View my ads
+        </Link>
+        <Link href="/" className="rounded-control border border-border-brand px-6 py-3 text-sm font-semibold text-brand-dark hover:bg-brand-bg">
+          Back to Pick Up
+        </Link>
+      </div>
     </Container>
   );
 }

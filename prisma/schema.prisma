@@ -1264,6 +1264,11 @@ model Advertisement {
   /// once the advertisement is approved or rejected.
   pendingBannerImageKey String?
   preferredPlacementCode AdPlacementCode
+  /// The dates the advertiser originally asked for on /advertise — shown on
+  /// "My ads" before an admin creates the real AdCampaign (whose startDate/
+  /// endDate become authoritative, and may differ, once one exists).
+  requestedStartDate DateTime?
+  requestedEndDate   DateTime?
   budget          Decimal    @db.Decimal(10, 2)
   paymentMethod   PaymentProvider
   agreementAccepted Boolean  @default(false)

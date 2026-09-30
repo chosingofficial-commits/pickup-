@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type BadgeVariant = "brand" | "accent" | "dark" | "outline" | "success" | "warning" | "danger";
+export type BadgeVariant = "brand" | "accent" | "dark" | "outline" | "success" | "warning" | "danger";
 
 const variantClasses: Record<BadgeVariant, string> = {
   brand: "bg-brand-primary text-white",

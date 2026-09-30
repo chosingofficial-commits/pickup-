@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { roleHome } from "@/lib/auth/role-home";
+import { safeNextPath } from "@/lib/auth/safe-redirect";
 import { loginSchema, registerSchema } from "@/lib/validation/auth";
 import { loginRateLimiter, registrationRateLimiter } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/request";
@@ -47,7 +48,7 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   await createSession({ sub: user.id, role: user.role, name: user.name });
   await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-  redirect(roleHome(user.role));
+  redirect(safeNextPath(String(formData.get("next") ?? "")) ?? roleHome(user.role));
 }
 
 export async function registerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -94,7 +95,7 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
 
   await recordAuditLog({ actorUserId: user.id, action: "USER_REGISTERED", entityType: "User", entityId: user.id });
   await createSession({ sub: user.id, role: user.role, name: user.name });
-  redirect(roleHome(user.role));
+  redirect(safeNextPath(String(formData.get("next") ?? "")) ?? roleHome(user.role));
 }
 
 export async function logoutAction() {

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import { Card, CardContent } from "@/components/ui/card";
 import { AdvertisementRequestForm } from "@/components/advertise/advertisement-request-form";
+import { AdCard } from "@/components/ads/ad-card";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatBDT } from "@/lib/utils";
@@ -78,8 +80,28 @@ export default async function AdvertisePage() {
           <CardContent className="pt-5">
             {placementOptions.length === 0 ? (
               <p className="text-sm text-gray-600">Advertising isn&apos;t open right now — please check back soon.</p>
+            ) : !user ? (
+              <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+                <div className="flex flex-col items-start gap-3">
+                  <p className="text-sm text-gray-700">
+                    Log in or create a free account to submit an ad — this links your request to your account so you can
+                    track its status, payment, and performance under &ldquo;My ads&rdquo;.
+                  </p>
+                  <Link
+                    href="/login?next=/advertise"
+                    className="rounded-control bg-brand-primary px-6 py-3 text-sm font-semibold text-white hover:bg-brand-primary-hover"
+                  >
+                    Log in or sign up to place an ad
+                  </Link>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Live preview</p>
+                  <AdCard ad={{ title: "Your business", imageUrl: "", advertiserName: "Your business name" }} />
+                  <p className="mt-2 text-xs text-gray-500">This is how your ad will appear to customers.</p>
+                </div>
+              </div>
             ) : (
-              <AdvertisementRequestForm defaults={{ phone: user?.phone ?? "" }} placements={placementOptions} />
+              <AdvertisementRequestForm defaults={{ phone: user.phone ?? "" }} placements={placementOptions} />
             )}
           </CardContent>
         </Card>

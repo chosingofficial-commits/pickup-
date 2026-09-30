@@ -28,11 +28,16 @@ export function AdCard({ ad, className }: { ad: Pick<AdCardData, "title" | "imag
           // Skip Next's image optimizer for: (1) http:// URLs from the local
           // filesystem fallback storage, which it refuses to proxy outright
           // (production always uses a real https object store, so this
-          // never applies there); (2) the admin-only photo route, whose
-          // internal optimizer fetch doesn't carry the admin's session
-          // cookie and so 401s — the browser's own request to the <img> tag
-          // does carry it, so rendering it unoptimized (a plain <img>) works.
-          unoptimized={ad.imageUrl.startsWith("http://") || ad.imageUrl.startsWith("/admin/advertising/photo/")}
+          // never applies there); (2) the admin- and owner-only photo
+          // routes, whose internal optimizer fetch doesn't carry the
+          // caller's session cookie and so 401s — the browser's own request
+          // to the <img> tag does carry it, so rendering it unoptimized (a
+          // plain <img>) works.
+          unoptimized={
+            ad.imageUrl.startsWith("http://") ||
+            ad.imageUrl.startsWith("/admin/advertising/photo/") ||
+            ad.imageUrl.startsWith("/account/ads/photo/")
+          }
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-surface-muted text-4xl">📣</div>

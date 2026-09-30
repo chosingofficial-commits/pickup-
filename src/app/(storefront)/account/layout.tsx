@@ -8,12 +8,17 @@ import { logoutAction } from "@/lib/actions/auth";
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/account");
-  if (user.role !== "CUSTOMER") redirect("/");
+  // Admins have their own dashboard at /admin. Customers, vendors, and
+  // riders all share this account section now — a vendor/rider still needs
+  // somewhere to see "My ads" (see AccountNav, which trims the tab list for
+  // non-customer roles so they aren't shown customer-only pages like Orders
+  // or Wishlist that don't apply to them).
+  if (user.role === "ADMIN") redirect("/admin");
 
   return (
     <Container className="py-8">
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-        <AccountNav />
+        <AccountNav role={user.role} />
         <div>{children}</div>
       </div>
 

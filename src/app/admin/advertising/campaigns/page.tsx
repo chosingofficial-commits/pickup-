@@ -5,6 +5,7 @@ import { MarkAdPaymentPaidForm, PauseResumeCampaignForm, EditCampaignDatesForm }
 import { AdCard } from "@/components/ads/ad-card";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
+import { syncAdCampaignLifecycle } from "@/lib/ads/lifecycle";
 
 export const metadata: Metadata = { title: "Ad campaigns" };
 
@@ -20,6 +21,7 @@ const BADGE_VARIANT: Record<string, "brand" | "outline" | "danger" | "accent"> =
 };
 
 export default async function AdminAdvertisingCampaignsPage() {
+  await syncAdCampaignLifecycle();
   const advertisements = await db.advertisement.findMany({
     where: { campaigns: { some: {} } },
     include: { advertiser: true, campaigns: { include: { placement: true, payments: true, impressions: true, clicks: true } } },

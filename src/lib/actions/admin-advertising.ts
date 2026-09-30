@@ -52,7 +52,7 @@ async function checkPlacementCapacity(
 export async function approveAdvertisementAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const advertisementId = String(formData.get("advertisementId") ?? "");
-  const ad = await db.advertisement.findUnique({ where: { id: advertisementId } });
+  const ad = await db.advertisement.findUnique({ where: { id: advertisementId }, include: { advertiser: true } });
   if (!ad) return;
 
   // Copy the image out of the private bucket into the public one now that
@@ -73,6 +73,17 @@ export async function approveAdvertisementAction(formData: FormData): Promise<vo
     where: { id: advertisementId },
     data: { status: "APPROVED", bannerImageUrl, pendingBannerImageKey: null },
   });
+  if (ad.advertiser.userId) {
+    await db.notification.create({
+      data: {
+        userId: ad.advertiser.userId,
+        type: "ACCOUNT",
+        title: "Your ad was approved",
+        body: `"${ad.title}" was approved. We'll set up your campaign and confirm the price next.`,
+        linkUrl: "/account/ads",
+      },
+    });
+  }
   await recordAuditLog({ actorUserId: admin.id, action: "ADVERTISEMENT_APPROVED", entityType: "Advertisement", entityId: advertisementId });
   revalidatePath("/admin/advertising/requests");
 }
@@ -83,8 +94,9 @@ export async function rejectAdvertisementAction(_prev: ActionState, formData: Fo
   const reason = String(formData.get("reason") ?? "").trim();
   if (!reason) return { status: "error", message: "Provide a rejection reason." };
 
-  const ad = await db.advertisement.findUnique({ where: { id: advertisementId } });
-  if (ad?.pendingBannerImageKey) {
+  const ad = await db.advertisement.findUnique({ where: { id: advertisementId }, include: { advertiser: true } });
+  if (!ad) return { status: "error", message: "Advertisement not found." };
+  if (ad.pendingBannerImageKey) {
     await getStorageAdapter().delete(ad.pendingBannerImageKey, { private: true });
   }
 
@@ -92,6 +104,17 @@ export async function rejectAdvertisementAction(_prev: ActionState, formData: Fo
     where: { id: advertisementId },
     data: { status: "REJECTED", rejectionReason: reason, pendingBannerImageKey: null },
   });
+  if (ad.advertiser.userId) {
+    await db.notification.create({
+      data: {
+        userId: ad.advertiser.userId,
+        type: "ACCOUNT",
+        title: "Your ad was not approved",
+        body: `"${ad.title}" was not approved: ${reason}`,
+        linkUrl: "/account/ads",
+      },
+    });
+  }
   await recordAuditLog({ actorUserId: admin.id, action: "ADVERTISEMENT_REJECTED", entityType: "Advertisement", entityId: advertisementId, metadata: { reason } });
   revalidatePath("/admin/advertising/requests");
   return { status: "success", message: "Advertisement rejected." };
@@ -168,7 +191,10 @@ export async function markAdPaymentPaidAction(formData: FormData): Promise<void>
   const reference = String(formData.get("reference") ?? "").trim();
   if (!AD_PAYMENT_METHODS.includes(method as (typeof AD_PAYMENT_METHODS)[number])) return;
 
-  const payment = await db.adPayment.findUnique({ where: { id: paymentId }, include: { campaign: { include: { advertisement: true } } } });
+  const payment = await db.adPayment.findUnique({
+    where: { id: paymentId },
+    include: { campaign: { include: { advertisement: { include: { advertiser: true } } } } },
+  });
   if (!payment) return;
 
   const now = new Date();
@@ -184,6 +210,19 @@ export async function markAdPaymentPaidAction(formData: FormData): Promise<void>
     db.advertisement.update({ where: { id: payment.campaign.advertisementId }, data: { status: nextCampaignStatus } }),
   ]);
 
+  const advertiserUserId = payment.campaign.advertisement.advertiser.userId;
+  if (advertiserUserId) {
+    await db.notification.create({
+      data: {
+        userId: advertiserUserId,
+        type: "PAYMENT",
+        title: "Payment received for your ad",
+        body: `We've recorded your payment for "${payment.campaign.advertisement.title}". Your campaign is ${nextCampaignStatus === "ACTIVE" ? "now running" : "scheduled"}.`,
+        linkUrl: "/account/ads",
+      },
+    });
+  }
+
   await recordAuditLog({
     actorUserId: admin.id,
     action: "AD_PAYMENT_MARKED_PAID",
@@ -198,13 +237,25 @@ export async function markAdPaymentPaidAction(formData: FormData): Promise<void>
 export async function cancelAdCampaignAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const campaignId = String(formData.get("campaignId") ?? "");
-  const campaign = await db.adCampaign.findUnique({ where: { id: campaignId } });
+  const campaign = await db.adCampaign.findUnique({ where: { id: campaignId }, include: { advertisement: { include: { advertiser: true } } } });
   if (!campaign) return;
 
   await db.$transaction([
     db.adCampaign.update({ where: { id: campaignId }, data: { status: "CANCELLED" } }),
     db.advertisement.update({ where: { id: campaign.advertisementId }, data: { status: "CANCELLED" } }),
   ]);
+  const advertiserUserId = campaign.advertisement.advertiser.userId;
+  if (advertiserUserId) {
+    await db.notification.create({
+      data: {
+        userId: advertiserUserId,
+        type: "PROMOTION",
+        title: "Your ad has ended",
+        body: `"${campaign.advertisement.title}" was ended and is no longer showing to customers.`,
+        linkUrl: "/account/ads",
+      },
+    });
+  }
   await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_CANCELLED", entityType: "AdCampaign", entityId: campaignId });
   revalidatePath("/admin/advertising/requests");
   revalidatePath("/admin/advertising/campaigns");
@@ -214,10 +265,22 @@ export async function cancelAdCampaignAction(formData: FormData): Promise<void> 
 export async function pauseAdCampaignAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const campaignId = String(formData.get("campaignId") ?? "");
-  const campaign = await db.adCampaign.findUnique({ where: { id: campaignId } });
+  const campaign = await db.adCampaign.findUnique({ where: { id: campaignId }, include: { advertisement: { include: { advertiser: true } } } });
   if (!campaign || campaign.status === "CANCELLED" || campaign.status === "EXPIRED") return;
 
   await db.adCampaign.update({ where: { id: campaignId }, data: { status: "PAUSED" } });
+  const advertiserUserId = campaign.advertisement.advertiser.userId;
+  if (advertiserUserId) {
+    await db.notification.create({
+      data: {
+        userId: advertiserUserId,
+        type: "PROMOTION",
+        title: "Your ad was paused",
+        body: `"${campaign.advertisement.title}" is temporarily paused and isn't showing to customers right now.`,
+        linkUrl: "/account/ads",
+      },
+    });
+  }
   await recordAuditLog({ actorUserId: admin.id, action: "AD_CAMPAIGN_PAUSED", entityType: "AdCampaign", entityId: campaignId });
   revalidatePath("/admin/advertising/campaigns");
 }
