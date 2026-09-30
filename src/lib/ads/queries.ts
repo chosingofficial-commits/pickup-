@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { rotateByHour } from "./availability";
-import { syncAdCampaignLifecycle } from "./lifecycle";
+import { syncAdCampaignLifecycleThrottled } from "./lifecycle";
 import type { AdPlacementCode } from "@/generated/prisma/client";
 
 /**
@@ -16,7 +16,9 @@ export async function getActiveCampaignsForPlacement(code: AdPlacementCode) {
   // A SCHEDULED campaign whose start date just arrived needs to flip to
   // ACTIVE before this query below (which only selects ACTIVE) will ever
   // pick it up — there's no cron in this deployment, so this is the catch-up.
-  await syncAdCampaignLifecycle(now);
+  // Throttled to once a minute since this runs on every homepage/marketplace
+  // render — a minute of lag before a scheduled ad appears is unnoticeable.
+  await syncAdCampaignLifecycleThrottled(now);
   const campaigns = await db.adCampaign.findMany({
     where: {
       status: "ACTIVE",

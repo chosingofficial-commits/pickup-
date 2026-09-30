@@ -64,3 +64,22 @@ export async function syncAdCampaignLifecycle(now: Date = new Date()): Promise<v
   });
   if (notifications.length > 0) await db.notification.createMany({ data: notifications });
 }
+
+let lastThrottledSyncAt = 0;
+
+/**
+ * Same sync, but skipped if it last ran within `minIntervalMs` — for the
+ * homepage/marketplace carousel query, which renders far more often than
+ * campaign status actually needs to catch up. Backed by a module-level
+ * timestamp, so it's per server process (each instance throttles
+ * independently; fine, since this is just an opportunistic catch-up, not a
+ * correctness guarantee). The admin campaigns page and the advertiser's "My
+ * ads" page call the unthrottled `syncAdCampaignLifecycle` directly instead,
+ * since those are read specifically to check current status and should
+ * never show something stale.
+ */
+export async function syncAdCampaignLifecycleThrottled(now: Date = new Date(), minIntervalMs = 60_000): Promise<void> {
+  if (now.getTime() - lastThrottledSyncAt < minIntervalMs) return;
+  lastThrottledSyncAt = now.getTime();
+  await syncAdCampaignLifecycle(now);
+}
