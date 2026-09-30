@@ -4,7 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { productSchema } from "@/lib/validation/product";
+import { productSchema, MAX_PRODUCT_PHOTOS } from "@/lib/validation/product";
 import { slugify } from "@/lib/utils";
 import { isTobaccoModuleEnabled } from "@/lib/tobacco/queries";
 import type { ActionState } from "./types";
@@ -32,11 +32,14 @@ async function requireGroceryVendor() {
   return { user, vendorId: user.vendorProfile.id };
 }
 
+// The form only ever renders MAX_PRODUCT_PHOTOS upload slots, but this is a
+// server action — cap it here too in case of a tampered/direct POST.
 function getImageUrls(formData: FormData): string[] {
   return formData
     .getAll("imageUrls")
     .map((v) => String(v).trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, MAX_PRODUCT_PHOTOS);
 }
 
 export async function createProductAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

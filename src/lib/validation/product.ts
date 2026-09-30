@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const MAX_PRODUCT_PHOTOS = 6;
+
 export const productSchema = z.object({
   name: z.string().trim().min(2, "Enter a product name").max(150),
   categoryId: z.string().min(1, "Choose a category"),

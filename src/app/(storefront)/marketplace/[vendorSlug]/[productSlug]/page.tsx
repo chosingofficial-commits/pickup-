@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Star, Truck, Store } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
-import { ProductImage } from "@/components/product/product-image";
+import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductCard } from "@/components/product/product-card";
 import { PurchasePanel } from "@/components/product/purchase-panel";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -90,19 +90,11 @@ export default async function ProductDetailPage({
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        <div className="space-y-3">
-          <ProductImage
-            src={product.images[0]?.url}
-            alt={product.name}
-            categorySlug={product.category.slug}
-            className="aspect-square w-full rounded-card"
-          />
-          {product.images.length > 1 && (
-            <div className="grid grid-cols-5 gap-2">
-              {product.images.slice(0, 5).map((img) => (
-                <ProductImage key={img.id} src={img.url} alt={product.name} className="aspect-square rounded-control" />
-              ))}
-            </div>
+        <div>
+          {product.images.length > 0 ? (
+            <ProductGallery images={product.images} productName={product.name} />
+          ) : (
+            <div className="aspect-square w-full rounded-card bg-surface-muted" />
           )}
         </div>
 

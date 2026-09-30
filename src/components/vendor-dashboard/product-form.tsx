@@ -6,6 +6,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { Input, Label, FieldError, Select, Textarea } from "@/components/ui/input";
 import { FileUploadField } from "@/components/forms/file-upload-field";
 import { SubmitButton } from "@/components/forms/submit-button";
+import { MAX_PRODUCT_PHOTOS } from "@/lib/validation/product";
 
 export type ProductFormDefaults = {
   id?: string;
@@ -20,8 +21,6 @@ export type ProductFormDefaults = {
   images?: string[];
   isWeeklyGrocery?: boolean;
 };
-
-const MAX_PRODUCT_PHOTOS = 4;
 
 export function ProductForm({
   categories,
