@@ -16,7 +16,9 @@ export async function requestRefundAction(_prev: ActionState, formData: FormData
   if (!reason) return { status: "error", message: "Tell us what went wrong." };
 
   const order = await db.order.findUnique({ where: { id: orderId }, include: { orderGroup: { include: { payment: true } } } });
-  if (!order || order.customerId !== user.id) return { status: "error", message: "Order not found." };
+  // An admin can start a refund on behalf of any order, not just their own —
+  // used by the admin order-detail page's "Start a refund" action.
+  if (!order || (order.customerId !== user.id && user.role !== "ADMIN")) return { status: "error", message: "Order not found." };
   if (!order.orderGroup.payment) return { status: "error", message: "No payment found for this order." };
   if (order.status !== "DELIVERED" && order.status !== "CANCELLED" && order.status !== "FAILED_DELIVERY") {
     return { status: "error", message: "Refunds can only be requested for delivered, cancelled, or failed orders." };
@@ -35,6 +37,8 @@ export async function requestRefundAction(_prev: ActionState, formData: FormData
   });
 
   revalidatePath(`/account/orders/${orderId}`);
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/refunds");
   return { status: "success", message: "Refund requested. Our team will review it shortly." };
 }
 

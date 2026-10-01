@@ -42,15 +42,23 @@ export type FreeDeliveryOffers = {
 };
 
 /**
- * True when ANY active free-delivery offer waives delivery for this order —
- * the single source of truth used by the homepage banner (so it never
- * advertises something checkout won't honor) and by cart/checkout/place-order
- * (so the number a customer sees never drifts from what they're charged).
+ * Which active free-delivery offer (if any) waives delivery for this order —
+ * null when none applies. The single source of truth used by the homepage
+ * banner (so it never advertises something checkout won't honor), by
+ * cart/checkout/place-order (so the number a customer sees never drifts from
+ * what they're charged), and by place-order's Order.freeDeliveryReason
+ * snapshot (so admin/order-detail can label a Tk 0 fee honestly later,
+ * without re-guessing from settings that may have since changed).
  */
+export function getFreeDeliveryReason(orderSubtotal: number, isFirstOrder: boolean, offers: FreeDeliveryOffers): string | null {
+  if (offers.firstOrder.enabled && isFirstOrder && orderSubtotal >= offers.firstOrder.minOrderAmount) return "First order free delivery offer";
+  if (offers.allOrders.enabled && orderSubtotal >= offers.allOrders.minOrderAmount) return "Free delivery on all orders";
+  return null;
+}
+
+/** True when ANY active free-delivery offer waives delivery for this order. */
 export function freeDeliveryApplies(orderSubtotal: number, isFirstOrder: boolean, offers: FreeDeliveryOffers): boolean {
-  const firstOrderApplies = offers.firstOrder.enabled && isFirstOrder && orderSubtotal >= offers.firstOrder.minOrderAmount;
-  const allOrdersApplies = offers.allOrders.enabled && orderSubtotal >= offers.allOrders.minOrderAmount;
-  return firstOrderApplies || allOrdersApplies;
+  return getFreeDeliveryReason(orderSubtotal, isFirstOrder, offers) !== null;
 }
 
 export function computeVatAmount(subtotal: number, vatRatePct: number): number {

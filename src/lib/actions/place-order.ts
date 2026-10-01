@@ -7,7 +7,7 @@ import { getFullCart } from "@/lib/cart/queries";
 import { getCheckoutState, clearCheckoutState } from "@/lib/checkout/cookie";
 import { getSelectedCouponCode, setSelectedCouponCode } from "@/lib/cart/coupon-cookie";
 import { validateCoupon } from "@/lib/cart/coupon";
-import { groupSubtotal, computeCouponDiscount, freeDeliveryApplies, round2 } from "@/lib/cart/totals";
+import { groupSubtotal, computeCouponDiscount, getFreeDeliveryReason, round2 } from "@/lib/cart/totals";
 import { getFreeDeliveryPromoSettingsUncached, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
 import { toPoisha } from "@/lib/rider/ledger";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
@@ -85,7 +85,8 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
   // Uncached read — this is the actual charge, so it must never lag behind
   // the very latest admin-saved offer settings, even momentarily.
   const [freeDeliveryPromo, isFirstOrder] = await Promise.all([getFreeDeliveryPromoSettingsUncached(), isFirstOrderCustomer(user.id)]);
-  const deliveryIsFree = freeDeliveryApplies(subtotal, isFirstOrder, freeDeliveryPromo);
+  const freeDeliveryReason = getFreeDeliveryReason(subtotal, isFirstOrder, freeDeliveryPromo);
+  const deliveryIsFree = freeDeliveryReason !== null;
 
   const zone = address.deliveryZone;
   const paymentMethod = checkoutState.paymentMethod as PaymentProvider;
@@ -166,6 +167,7 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
             // and never recomputed from a possibly-since-changed zone rate.
             standardDeliveryFeePoisha: toPoisha(Number(zone.deliveryFee)),
             scheduledFor,
+            freeDeliveryReason: item.deliveryFee === 0 ? freeDeliveryReason : null,
           },
         });
 

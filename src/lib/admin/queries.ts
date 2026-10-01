@@ -39,6 +39,15 @@ export async function getAdminOverviewStats() {
   };
 }
 
+/** For the admin order-detail "Assign/change rider" picker — approved riders only. */
+export async function getApprovedRiders() {
+  return db.riderProfile.findMany({
+    where: { isApproved: true },
+    include: { user: { select: { name: true, phone: true } } },
+    orderBy: { user: { name: "asc" } },
+  });
+}
+
 export async function getRecentAuditLogs(limit = 15) {
   return db.auditLog.findMany({
     include: { actorUser: { select: { name: true, role: true } } },

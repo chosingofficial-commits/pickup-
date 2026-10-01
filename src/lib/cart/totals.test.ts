@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lineTotal, groupSubtotal, computeCouponDiscount, freeDeliveryApplies, computeVatAmount, round2 } from "./totals";
+import { lineTotal, groupSubtotal, computeCouponDiscount, freeDeliveryApplies, getFreeDeliveryReason, computeVatAmount, round2 } from "./totals";
 
 describe("lineTotal", () => {
   it("multiplies (unit price + add-ons) by quantity", () => {
@@ -81,6 +81,30 @@ describe("freeDeliveryApplies", () => {
     expect(freeDeliveryApplies(500, false, { firstOrder, allOrders })).toBe(true);
     // Below both amounts:
     expect(freeDeliveryApplies(200, true, { firstOrder, allOrders })).toBe(false);
+  });
+});
+
+describe("getFreeDeliveryReason", () => {
+  const off = { enabled: false, minOrderAmount: 300 };
+  const on300 = { enabled: true, minOrderAmount: 300 };
+
+  it("returns null when no offer applies", () => {
+    expect(getFreeDeliveryReason(10000, true, { firstOrder: off, allOrders: off })).toBeNull();
+  });
+
+  it("names the first-order offer when that's the one that applies", () => {
+    expect(getFreeDeliveryReason(300, true, { firstOrder: on300, allOrders: off })).toBe("First order free delivery offer");
+  });
+
+  it("names the all-orders offer when that's the one that applies", () => {
+    expect(getFreeDeliveryReason(300, false, { firstOrder: off, allOrders: on300 })).toBe("Free delivery on all orders");
+  });
+
+  it("freeDeliveryApplies agrees with getFreeDeliveryReason on every case (one derives from the other)", () => {
+    const firstOrder = { enabled: true, minOrderAmount: 1000 };
+    const allOrders = { enabled: true, minOrderAmount: 300 };
+    expect(freeDeliveryApplies(500, true, { firstOrder, allOrders })).toBe(getFreeDeliveryReason(500, true, { firstOrder, allOrders }) !== null);
+    expect(freeDeliveryApplies(200, true, { firstOrder, allOrders })).toBe(getFreeDeliveryReason(200, true, { firstOrder, allOrders }) !== null);
   });
 });
 
