@@ -13,6 +13,8 @@ import { groupSubtotal, computeCouponDiscount, freeDeliveryApplies, round2 } fro
 import { getFreeDeliveryPromoSettingsUncached, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/get-dictionary";
+import { formatVariantLabel } from "@/lib/catalog/variant-label";
 
 export const metadata: Metadata = { title: "Checkout — Review order" };
 
@@ -24,10 +26,11 @@ export default async function CheckoutReviewPage() {
   if (!state.addressId) redirect("/checkout");
   if (!state.paymentMethod) redirect("/checkout/payment");
 
-  const [{ groups }, address, couponCode] = await Promise.all([
+  const [{ groups }, address, couponCode, locale] = await Promise.all([
     getFullCart(user.id),
     db.address.findUnique({ where: { id: state.addressId }, include: { neighbourhood: { include: { town: true } }, deliveryZone: true } }),
     getSelectedCouponCode(),
+    getLocale(),
   ]);
 
   if (groups.length === 0) redirect("/cart");
@@ -100,6 +103,7 @@ export default async function CheckoutReviewPage() {
                 <div key={line.id} className="flex justify-between py-1 text-sm">
                   <span className="text-gray-700">
                     {line.quantity}× {line.name}
+                    {line.variant && <span className="text-gray-500"> — {formatVariantLabel(line.variant, locale)}</span>}
                   </span>
                   <span className="text-brand-dark">{formatBDT((line.unitPrice + line.addOnsTotal) * line.quantity)}</span>
                 </div>

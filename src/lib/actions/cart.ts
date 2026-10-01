@@ -17,9 +17,31 @@ async function requireCartId(nextPath: string): Promise<string> {
   return cart.id;
 }
 
+/**
+ * Resolves and validates which variant an add-to-cart/buy-now should use —
+ * the one explicitly picked (must belong to this product and be in stock),
+ * or the product's default variant when none was picked (every product has
+ * one since the variants backfill, so this never falls through to "no
+ * variant" for a product created after that point).
+ */
+async function resolveVariant(productId: string, variantId: string | null): Promise<{ id: string } | { error: string }> {
+  if (variantId) {
+    const variant = await db.productVariant.findUnique({ where: { id: variantId } });
+    if (!variant || variant.productId !== productId) return { error: "That option is no longer available." };
+    if (!variant.isActive || variant.stockQty <= 0) return { error: "That option is sold out." };
+    return { id: variant.id };
+  }
+  const defaultVariant = await db.productVariant.findFirst({
+    where: { productId, isActive: true },
+    orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
+  });
+  if (!defaultVariant) return { error: "This product is currently out of stock." };
+  return { id: defaultVariant.id };
+}
+
 export async function addProductToCartAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const productId = String(formData.get("productId") ?? "");
-  const variantId = formData.get("variantId") ? String(formData.get("variantId")) : null;
+  const requestedVariantId = formData.get("variantId") ? String(formData.get("variantId")) : null;
   const quantity = Math.max(1, Number(formData.get("quantity") ?? 1));
   const redirectPath = String(formData.get("redirectPath") ?? "/marketplace");
 
@@ -30,6 +52,10 @@ export async function addProductToCartAction(_prev: ActionState, formData: FormD
   if (product.availability !== "AVAILABLE") {
     return { status: "error", message: "This product is currently out of stock." };
   }
+
+  const resolved = await resolveVariant(productId, requestedVariantId);
+  if ("error" in resolved) return { status: "error", message: resolved.error };
+  const variantId = resolved.id;
 
   const cartId = await requireCartId(redirectPath);
 
@@ -47,6 +73,7 @@ export async function addProductToCartAction(_prev: ActionState, formData: FormD
 
 export async function buyNowAction(formData: FormData): Promise<void> {
   const productId = String(formData.get("productId") ?? "");
+  const requestedVariantId = formData.get("variantId") ? String(formData.get("variantId")) : null;
   const quantity = Math.max(1, Number(formData.get("quantity") ?? 1));
 
   const product = await db.product.findUnique({ where: { id: productId } });
@@ -54,12 +81,16 @@ export async function buyNowAction(formData: FormData): Promise<void> {
     redirect(`/marketplace`);
   }
 
+  const resolved = await resolveVariant(productId, requestedVariantId);
+  if ("error" in resolved) redirect(`/marketplace`);
+  const variantId = resolved.id;
+
   const cartId = await requireCartId("/checkout");
-  const existing = await db.cartItem.findFirst({ where: { cartId, productId, variantId: null } });
+  const existing = await db.cartItem.findFirst({ where: { cartId, productId, variantId } });
   if (existing) {
     await db.cartItem.update({ where: { id: existing.id }, data: { quantity: existing.quantity + quantity } });
   } else {
-    await db.cartItem.create({ data: { cartId, productId, quantity } });
+    await db.cartItem.create({ data: { cartId, productId, variantId, quantity } });
   }
 
   redirect("/checkout");

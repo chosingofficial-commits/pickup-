@@ -673,8 +673,26 @@ model ProductImage {
   url       String
   altText   String?
   sortOrder Int     @default(0)
+
+  variants ProductVariant[]
 }
 
+enum VariantUnit {
+  ML
+  L
+  G
+  KG
+  PCS
+  PACK
+  DOZEN
+}
+
+/// A purchasable size/pack option of a product (e.g. "1 L", "2 x 300 ml").
+/// Every product has at least one (see the backfill migration) — there is no
+/// "product without variants" code path to special-case anywhere downstream.
+/// `name` and `priceDelta` predate this — a partial scaffold that was never
+/// wired up — and are kept only so the pre-existing NOT NULL/default
+/// constraints don't need touching; nothing reads them anymore.
 model ProductVariant {
   id         String   @id @default(cuid())
   productId  String
@@ -684,8 +702,28 @@ model ProductVariant {
   stockQty   Int      @default(0)
   isDefault  Boolean  @default(false)
 
+  /// The base size, e.g. 300 for "300 ml" or "2 x 300 ml".
+  quantityValue Decimal     @db.Decimal(10, 3)
+  unit          VariantUnit
+  /// How many of `quantityValue`/`unit` are bundled in this option — 1 for a
+  /// plain size ("300 ml"), >1 for a multipack ("2 x 300 ml"). Independent of
+  /// `quantityValue`/`unit`, which stay the same across a product's packs —
+  /// see AVAILABLE_PACK_COUNTS and the vendor form's "+ N pack" buttons.
+  packCount      Int      @default(1)
+  price          Decimal  @db.Decimal(10, 2)
+  compareAtPrice Decimal? @db.Decimal(10, 2)
+  sku            String?
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  imageId        String?
+  image          ProductImage? @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
   cartItems  CartItem[]
   orderItems OrderItem[]
+
+  @@index([productId, isActive])
 }
 
 model Inventory {

@@ -6,12 +6,16 @@ import { updateCartItemQuantityAction, removeCartItemAction } from "@/lib/action
 import { initialActionState } from "@/lib/actions/types";
 import { ProductImage } from "@/components/product/product-image";
 import { formatBDT } from "@/lib/utils";
+import { formatVariantLabel } from "@/lib/catalog/variant-label";
+import { useLocale } from "@/components/providers/locale-provider";
 import type { NormalizedCartLine } from "@/lib/cart/queries";
 
 export function CartLineRow({ line }: { line: NormalizedCartLine }) {
+  const { locale } = useLocale();
   const [, updateAction] = useActionState(updateCartItemQuantityAction, initialActionState);
   const [, removeAction] = useActionState(removeCartItemAction, initialActionState);
   const [isPending, startTransition] = useTransition();
+  const sizeLabel = line.variant ? formatVariantLabel(line.variant, locale) : line.unit;
 
   function setQuantity(next: number) {
     const form = new FormData();
@@ -29,7 +33,7 @@ export function CartLineRow({ line }: { line: NormalizedCartLine }) {
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-sm font-semibold text-brand-dark">{line.name}</p>
-            {line.unit && <p className="text-xs text-gray-500">{line.unit}</p>}
+            {sizeLabel && <p className="text-xs text-gray-500">{sizeLabel}</p>}
             {line.selectedAddOns.length > 0 && (
               <p className="text-xs text-gray-500">{line.selectedAddOns.map((a) => a.name).join(", ")}</p>
             )}

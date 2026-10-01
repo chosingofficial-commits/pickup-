@@ -14,6 +14,8 @@ import { getRestaurantStatus } from "@/lib/restaurant/status";
 import { recordAuditLog } from "@/lib/audit";
 import { getPaymentAdapter } from "@/lib/payments/registry";
 import { publicEnv } from "@/lib/env/public";
+import { getLocale } from "@/lib/i18n/get-dictionary";
+import { formatVariantLabel } from "@/lib/catalog/variant-label";
 import type { ActionState } from "./types";
 import type { PaymentProvider } from "@/generated/prisma/client";
 
@@ -85,6 +87,7 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
   const zone = address.deliveryZone;
   const paymentMethod = checkoutState.paymentMethod as PaymentProvider;
   const scheduledFor = checkoutState.scheduledFor ? new Date(checkoutState.scheduledFor) : null;
+  const locale = await getLocale();
 
   try {
     const { orderGroup, payment, grandTotal } = await db.$transaction(async (tx) => {
@@ -155,13 +158,14 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
         });
 
         for (const line of item.group.lines) {
+          const nameSnapshot = line.variant ? `${line.name} — ${formatVariantLabel(line.variant, locale)}` : line.name;
           await tx.orderItem.create({
             data: {
               orderId: order.id,
               productId: line.productId,
               variantId: line.variantId,
               menuItemId: line.menuItemId,
-              nameSnapshot: line.name,
+              nameSnapshot,
               unitPriceSnapshot: line.unitPrice,
               quantity: line.quantity,
               selectedAddOns: line.selectedAddOns.length > 0 ? line.selectedAddOns : undefined,
@@ -170,7 +174,32 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
             },
           });
 
-          if (line.productId) {
+          if (line.variantId) {
+            // Guarded decrement — if two checkouts race for the last units of
+            // this variant, whichever commits second finds insufficient
+            // stock here and the whole order rolls back (thrown below).
+            const decremented = await tx.productVariant.updateMany({
+              where: { id: line.variantId, stockQty: { gte: line.quantity } },
+              data: { stockQty: { decrement: line.quantity } },
+            });
+            if (decremented.count === 0) throw new Error(`INSUFFICIENT_STOCK:${line.name}`);
+
+            // Inventory.quantityInStock is kept only as a maintained cache
+            // (sum of active variant stock) for pre-existing admin/vendor
+            // displays — the variant's own stockQty above is authoritative.
+            if (line.productId) {
+              const agg = await tx.productVariant.aggregate({
+                where: { productId: line.productId, isActive: true },
+                _sum: { stockQty: true },
+              });
+              await tx.inventory.updateMany({
+                where: { productId: line.productId },
+                data: { quantityInStock: agg._sum.stockQty ?? 0 },
+              });
+            }
+          } else if (line.productId) {
+            // Defensive fallback — shouldn't happen once every product has a
+            // variant (see the backfill migration), but keeps working if it did.
             await tx.inventory.updateMany({
               where: { productId: line.productId },
               data: { quantityInStock: { decrement: line.quantity } },
@@ -241,6 +270,10 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
     redirect(initiation.redirectUrl);
   } catch (err) {
     if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) throw err;
+    if (err instanceof Error && err.message.startsWith("INSUFFICIENT_STOCK:")) {
+      const name = err.message.slice("INSUFFICIENT_STOCK:".length);
+      return { status: "error", message: `"${name}" just sold out. Please update your cart and try again.` };
+    }
     console.error("placeOrderAction failed:", err);
     return { status: "error", message: "We couldn't place your order. Please try again." };
   }

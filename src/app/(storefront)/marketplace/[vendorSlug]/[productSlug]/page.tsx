@@ -53,6 +53,23 @@ export default async function ProductDetailPage({
     ? Math.round((1 - Number(product.price) / Number(product.compareAtPrice)) * 100)
     : null;
 
+  // A product counts as out of stock only when every one of its active
+  // options is at 0 — the vendor's own availability toggle can also force
+  // it regardless of stock.
+  const allVariantsSoldOut = product.variants.length > 0 && product.variants.every((v) => v.stockQty <= 0);
+  const isOutOfStock = product.availability === "OUT_OF_STOCK" || allVariantsSoldOut;
+  const purchaseVariants = product.variants.map((v) => ({
+    id: v.id,
+    quantityValue: v.quantityValue.toString(),
+    unit: v.unit,
+    packCount: v.packCount,
+    price: Number(v.price),
+    compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : null,
+    stockQty: v.stockQty,
+    isActive: v.isActive,
+    isDefault: v.isDefault,
+  }));
+
   return (
     <Container className="py-8">
       <JsonLd
@@ -105,9 +122,9 @@ export default async function ProductDetailPage({
               Next-day delivery
             </Badge>
           )}
-          {product.availability !== "AVAILABLE" && (
+          {(isOutOfStock || product.availability === "TEMPORARILY_UNAVAILABLE") && (
             <Badge variant="dark" className="ml-2">
-              {product.availability === "OUT_OF_STOCK" ? "Out of stock" : "Temporarily unavailable"}
+              {isOutOfStock ? "Out of stock" : "Temporarily unavailable"}
             </Badge>
           )}
 
@@ -117,7 +134,6 @@ export default async function ProductDetailPage({
               This is a weekly grocery pick — orders containing it must be scheduled at least 24 hours ahead.
             </p>
           )}
-          <p className="mt-1 text-sm text-gray-500">{product.unit}</p>
 
           {product.ratingCount > 0 && (
             <div className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
@@ -127,21 +143,13 @@ export default async function ProductDetailPage({
             </div>
           )}
 
-          <div className="mt-4 flex items-baseline gap-3">
-            <span className="font-heading text-3xl font-bold text-brand-dark">{formatBDT(product.price)}</span>
-            {product.compareAtPrice && (
-              <span className="text-lg text-gray-400 line-through">{formatBDT(product.compareAtPrice)}</span>
-            )}
-          </div>
-
-          {product.availability === "AVAILABLE" && product.inventory && (
-            <p className="mt-1 text-sm text-gray-600">
-              {product.inventory.quantityInStock > 50 ? "50+ in stock" : `${product.inventory.quantityInStock} in stock`}
-            </p>
-          )}
-
-          <div className="mt-6">
-            <PurchasePanel productId={product.id} productName={product.name} isSaved={isSaved} />
+          <div className="mt-4">
+            <PurchasePanel
+              productId={product.id}
+              productName={product.name}
+              variants={purchaseVariants}
+              isSaved={isSaved}
+            />
           </div>
 
           <div className="mt-6 space-y-2 rounded-card border border-border-brand bg-surface-muted p-4 text-sm">

@@ -12,7 +12,11 @@ export function ProductCard({ product, isSaved }: { product: ProductListItem; is
   const discountPct = product.compareAtPrice
     ? Math.round((1 - Number(product.price) / Number(product.compareAtPrice)) * 100)
     : null;
-  const outOfStock = product.availability !== "AVAILABLE";
+  // Inventory is a maintained cache of the sum of active variants' stock —
+  // a product counts as out of stock once that hits 0, even if the vendor's
+  // own availability toggle still says AVAILABLE.
+  const outOfStock = product.availability !== "AVAILABLE" || (product.inventory?.quantityInStock ?? 0) <= 0;
+  const hasMultipleOptions = product._count.variants > 1;
   const href = `/marketplace/${product.vendor.slug}/${product.slug}`;
 
   return (
@@ -67,7 +71,10 @@ export function ProductCard({ product, isSaved }: { product: ProductListItem; is
 
         <div className="mt-auto flex items-end justify-between gap-2 pt-2">
           <div>
-            <p className="font-heading text-base font-bold text-brand-dark">{formatBDT(product.price)}</p>
+            <p className="font-heading text-base font-bold text-brand-dark">
+              {hasMultipleOptions && <span className="mr-1 text-xs font-normal text-gray-500">From</span>}
+              {formatBDT(product.price)}
+            </p>
             {product.compareAtPrice && (
               <p className="text-xs text-gray-400 line-through">{formatBDT(product.compareAtPrice)}</p>
             )}

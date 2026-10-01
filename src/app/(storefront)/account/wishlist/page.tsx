@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Heart } from "lucide-react";
 import { ProductCard } from "@/components/product/product-card";
 import { getCurrentUser } from "@/lib/auth/session";
+import { PRODUCT_CARD_INCLUDE } from "@/lib/catalog/queries";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Wishlist" };
@@ -14,7 +15,7 @@ export default async function AccountWishlistPage() {
     where: { userId: user.id },
     include: {
       items: {
-        include: { product: { include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } } } },
+        include: { product: { include: PRODUCT_CARD_INCLUDE } },
         orderBy: { createdAt: "desc" },
       },
     },

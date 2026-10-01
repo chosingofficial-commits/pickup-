@@ -14,7 +14,13 @@ export default async function EditProductPage({ params }: { params: Promise<{ pr
 
   const { productId } = await params;
   const [product, categories] = await Promise.all([
-    db.product.findUnique({ where: { id: productId }, include: { inventory: true, images: { orderBy: { sortOrder: "asc" } } } }),
+    db.product.findUnique({
+      where: { id: productId },
+      include: {
+        images: { orderBy: { sortOrder: "asc" } },
+        variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
+      },
+    }),
     getCategoriesForProductForm(),
   ]);
 
@@ -32,13 +38,19 @@ export default async function EditProductPage({ params }: { params: Promise<{ pr
               name: product.name,
               categoryId: product.categoryId,
               description: product.description ?? undefined,
-              price: Number(product.price),
-              compareAtPrice: product.compareAtPrice ? Number(product.compareAtPrice) : null,
-              unit: product.unit,
               sku: product.sku ?? undefined,
-              quantityInStock: product.inventory?.quantityInStock ?? 0,
               images: product.images.map((img) => img.url),
               isWeeklyGrocery: product.isWeeklyGrocery,
+              variants: product.variants.map((v) => ({
+                id: v.id,
+                quantityValue: v.quantityValue.toString(),
+                unit: v.unit,
+                packCount: v.packCount,
+                price: Number(v.price),
+                compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : null,
+                stock: v.stockQty,
+                isDefault: v.isDefault,
+              })),
             }}
           />
         </CardContent>

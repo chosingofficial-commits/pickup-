@@ -28,6 +28,7 @@ export type NormalizedCartLine = {
   quantity: number;
   name: string;
   unit: string | null;
+  variant: { quantityValue: string; unit: string; packCount: number } | null;
   imageUrl: string | null;
   unitPrice: number;
   addOnsTotal: number;
@@ -49,7 +50,7 @@ export async function getFullCart(userId: string) {
       items: {
         include: {
           product: { include: { vendor: true, category: true, images: { take: 1 } } },
-          variant: true,
+          variant: { include: { image: true } },
           menuItem: { include: { menu: { include: { vendor: true } } } },
         },
         orderBy: { createdAt: "asc" },
@@ -61,6 +62,7 @@ export async function getFullCart(userId: string) {
 
   for (const item of cart?.items ?? []) {
     if (item.product) {
+      const variantOk = !item.variant || (item.variant.isActive && item.variant.stockQty > 0);
       lines.push({
         id: item.id,
         productId: item.product.id,
@@ -69,12 +71,15 @@ export async function getFullCart(userId: string) {
         quantity: item.quantity,
         name: item.product.name,
         unit: item.product.unit,
-        imageUrl: item.product.images[0]?.url ?? null,
-        unitPrice: Number(item.variant ? Number(item.product.price) + Number(item.variant.priceDelta) : item.product.price),
+        variant: item.variant
+          ? { quantityValue: item.variant.quantityValue.toString(), unit: item.variant.unit, packCount: item.variant.packCount }
+          : null,
+        imageUrl: item.variant?.image?.url ?? item.product.images[0]?.url ?? null,
+        unitPrice: Number(item.variant ? item.variant.price : item.product.price),
         addOnsTotal: 0,
         selectedAddOns: [],
         specialInstructions: null,
-        isAvailable: item.product.isPublished && item.product.availability === "AVAILABLE",
+        isAvailable: item.product.isPublished && item.product.availability === "AVAILABLE" && variantOk,
         vendorId: item.product.vendorId,
         vendorSlug: item.product.vendor.slug,
         vendorBusinessName: item.product.vendor.businessName,
@@ -94,6 +99,7 @@ export async function getFullCart(userId: string) {
         quantity: item.quantity,
         name: item.menuItem.name,
         unit: null,
+        variant: null,
         imageUrl: item.menuItem.imageUrl,
         unitPrice: Number(item.menuItem.price),
         addOnsTotal: selectedAddOns.reduce((s, a) => s + Number(a.priceDelta), 0),

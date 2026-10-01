@@ -42,6 +42,20 @@ export const getAllShoppableCategories = cache(async () => {
 
 const activeVendorFilter = { isApproved: true, isSuspended: false, deletedAt: null } as const;
 
+// Shared shape for every product-card-style listing query — includes just
+// enough to know whether to show "From Tk X" (variantCount > 1) and whether
+// the product is actually purchasable (inventory is a maintained cache of
+// the sum of active variants' stock, kept in sync by syncProductFromVariants
+// and the checkout stock decrement, so cards never need to fetch every
+// variant just to check this).
+export const PRODUCT_CARD_INCLUDE = {
+  images: { take: 1 },
+  category: true,
+  vendor: { select: { businessName: true, slug: true } },
+  inventory: { select: { quantityInStock: true } },
+  _count: { select: { variants: { where: { isActive: true } } } },
+} as const;
+
 export const getPopularProducts = unstable_cache(
   async (limit = 10) => {
     return db.product.findMany({
@@ -54,7 +68,7 @@ export const getPopularProducts = unstable_cache(
       },
       orderBy: [{ ratingAvg: "desc" }, { createdAt: "desc" }],
       take: limit,
-      include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
+      include: PRODUCT_CARD_INCLUDE,
     });
   },
   ["popular-products"],
@@ -74,7 +88,7 @@ export const getWeeklyGroceryPicks = unstable_cache(
       },
       orderBy: { createdAt: "desc" },
       take: limit,
-      include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
+      include: PRODUCT_CARD_INCLUDE,
     });
   },
   ["weekly-grocery-picks"],
@@ -94,16 +108,14 @@ export const getFlashDeals = unstable_cache(
       },
       orderBy: { createdAt: "desc" },
       take: limit,
-      include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
+      include: PRODUCT_CARD_INCLUDE,
     });
   },
   ["flash-deals"],
   { revalidate: CATALOG_CACHE_SECONDS, tags: ["products"] },
 );
 
-export type ProductListItem = Prisma.ProductGetPayload<{
-  include: { images: { take: 1 }; category: true; vendor: { select: { businessName: true; slug: true } } };
-}>;
+export type ProductListItem = Prisma.ProductGetPayload<{ include: typeof PRODUCT_CARD_INCLUDE }>;
 
 export type MarketplaceFilters = {
   categorySlug?: string;
@@ -171,7 +183,7 @@ export async function getMarketplaceProducts(filters: MarketplaceFilters) {
       orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
+      include: PRODUCT_CARD_INCLUDE,
     }),
     db.product.count({ where }),
   ]);
@@ -188,7 +200,7 @@ export const getProductBySlug = cache(async (vendorSlug: string, productSlug: st
     },
     include: {
       images: true,
-      variants: true,
+      variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
       category: true,
       vendor: true,
       inventory: true,
@@ -207,7 +219,7 @@ export const getRelatedProducts = cache(async (categoryId: string, excludeProduc
       vendor: activeVendorFilter,
     },
     take: limit,
-    include: { images: { take: 1 }, category: true, vendor: { select: { businessName: true, slug: true } } },
+    include: PRODUCT_CARD_INCLUDE,
   });
 });
 

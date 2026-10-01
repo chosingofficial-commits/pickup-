@@ -4,7 +4,9 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { productSchema, MAX_PRODUCT_PHOTOS } from "@/lib/validation/product";
+import { productSchema, variantRowsSchema, MAX_PRODUCT_PHOTOS, type VariantRowInput } from "@/lib/validation/product";
+import { formatVariantLabel } from "@/lib/catalog/variant-label";
+import { syncProductFromVariants } from "@/lib/catalog/variant-sync";
 import { slugify } from "@/lib/utils";
 import { isTobaccoModuleEnabled } from "@/lib/tobacco/queries";
 import type { ActionState } from "./types";
@@ -42,6 +44,37 @@ function getImageUrls(formData: FormData): string[] {
     .slice(0, MAX_PRODUCT_PHOTOS);
 }
 
+// Variant rows arrive as parallel repeated fields (variantQuantityValue,
+// variantUnit, ...), the same convention this form already used for
+// imageUrls — paired positionally by array index.
+function getVariantRows(formData: FormData): unknown[] {
+  const ids = formData.getAll("variantId").map(String);
+  const quantityValues = formData.getAll("variantQuantityValue").map(String);
+  const units = formData.getAll("variantUnit").map(String);
+  const packCounts = formData.getAll("variantPackCount").map(String);
+  const prices = formData.getAll("variantPrice").map(String);
+  const compareAtPrices = formData.getAll("variantCompareAtPrice").map(String);
+  const stocks = formData.getAll("variantStock").map(String);
+
+  return quantityValues.map((quantityValue, i) => ({
+    id: ids[i] || undefined,
+    quantityValue,
+    unit: units[i],
+    packCount: packCounts[i] || "1",
+    price: prices[i],
+    compareAtPrice: compareAtPrices[i],
+    stock: stocks[i],
+  }));
+}
+
+function parseVariantRows(formData: FormData): { rows: VariantRowInput[]; defaultIndex: number } | { error: string } {
+  const parsed = variantRowsSchema.safeParse(getVariantRows(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the size/option rows." };
+  const rows = parsed.data;
+  const defaultIndex = Math.min(Math.max(0, Number(formData.get("variantDefaultIndex") ?? 0)), rows.length - 1);
+  return { rows, defaultIndex };
+}
+
 export async function createProductAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { vendorId } = await requireGroceryVendor();
 
@@ -49,11 +82,7 @@ export async function createProductAction(_prev: ActionState, formData: FormData
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
     description: formData.get("description"),
-    price: formData.get("price"),
-    compareAtPrice: formData.get("compareAtPrice"),
-    unit: formData.get("unit"),
     sku: formData.get("sku"),
-    quantityInStock: formData.get("quantityInStock"),
     isWeeklyGrocery: formData.get("isWeeklyGrocery") === "1",
   });
   if (!parsed.success) {
@@ -65,6 +94,10 @@ export async function createProductAction(_prev: ActionState, formData: FormData
   const restriction = await resolveCategoryRestriction(parsed.data.categoryId);
   if ("error" in restriction) return { status: "error", message: restriction.error };
 
+  const variantsResult = parseVariantRows(formData);
+  if ("error" in variantsResult) return { status: "error", message: variantsResult.error };
+  const { rows, defaultIndex } = variantsResult;
+
   const imageUrls = getImageUrls(formData);
   const baseSlug = slugify(parsed.data.name);
   let slug = baseSlug;
@@ -73,6 +106,8 @@ export async function createProductAction(_prev: ActionState, formData: FormData
     slug = `${baseSlug}-${++n}`;
   }
 
+  const cheapest = rows.reduce((min, r) => (r.price < min.price ? r : min));
+
   const product = await db.product.create({
     data: {
       vendorId,
@@ -80,15 +115,32 @@ export async function createProductAction(_prev: ActionState, formData: FormData
       name: parsed.data.name,
       slug,
       description: parsed.data.description || null,
-      price: parsed.data.price,
-      compareAtPrice: parsed.data.compareAtPrice,
-      unit: parsed.data.unit,
+      // Price/compare-at-price/unit are a maintained cache of the cheapest
+      // active variant — see syncProductFromVariants for why, and for how
+      // this stays in sync after edits.
+      price: cheapest.price,
+      compareAtPrice: cheapest.compareAtPrice ?? null,
+      unit: formatVariantLabel(cheapest, "en"),
       sku: parsed.data.sku || null,
       isAgeRestricted: restriction.isAgeRestricted,
       isWeeklyGrocery: parsed.data.isWeeklyGrocery,
       isPublished: true,
       images: imageUrls.length > 0 ? { create: imageUrls.map((url, sortOrder) => ({ url, sortOrder })) } : undefined,
-      inventory: { create: { quantityInStock: parsed.data.quantityInStock } },
+      inventory: { create: { quantityInStock: rows.reduce((sum, r) => sum + r.stock, 0) } },
+      variants: {
+        create: rows.map((r, i) => ({
+          name: formatVariantLabel(r, "en"),
+          quantityValue: r.quantityValue,
+          unit: r.unit,
+          packCount: r.packCount,
+          price: r.price,
+          compareAtPrice: r.compareAtPrice ?? null,
+          stockQty: r.stock,
+          isDefault: i === defaultIndex,
+          isActive: true,
+          sortOrder: i,
+        })),
+      },
     },
   });
 
@@ -108,11 +160,7 @@ export async function updateProductAction(_prev: ActionState, formData: FormData
     name: formData.get("name"),
     categoryId: formData.get("categoryId"),
     description: formData.get("description"),
-    price: formData.get("price"),
-    compareAtPrice: formData.get("compareAtPrice"),
-    unit: formData.get("unit"),
     sku: formData.get("sku"),
-    quantityInStock: formData.get("quantityInStock"),
     isWeeklyGrocery: formData.get("isWeeklyGrocery") === "1",
   });
   if (!parsed.success) {
@@ -124,35 +172,69 @@ export async function updateProductAction(_prev: ActionState, formData: FormData
   const restriction = await resolveCategoryRestriction(parsed.data.categoryId);
   if ("error" in restriction) return { status: "error", message: restriction.error };
 
+  const variantsResult = parseVariantRows(formData);
+  if ("error" in variantsResult) return { status: "error", message: variantsResult.error };
+  const { rows, defaultIndex } = variantsResult;
+
   const imageUrls = getImageUrls(formData);
 
-  await db.product.update({
-    where: { id: productId },
-    data: {
-      categoryId: parsed.data.categoryId,
-      name: parsed.data.name,
-      description: parsed.data.description || null,
-      price: parsed.data.price,
-      compareAtPrice: parsed.data.compareAtPrice ?? null,
-      unit: parsed.data.unit,
-      sku: parsed.data.sku || null,
-      isAgeRestricted: restriction.isAgeRestricted,
-      isWeeklyGrocery: parsed.data.isWeeklyGrocery,
-    },
-  });
+  await db.$transaction(async (tx) => {
+    await tx.product.update({
+      where: { id: productId },
+      data: {
+        categoryId: parsed.data.categoryId,
+        name: parsed.data.name,
+        description: parsed.data.description || null,
+        sku: parsed.data.sku || null,
+        isAgeRestricted: restriction.isAgeRestricted,
+        isWeeklyGrocery: parsed.data.isWeeklyGrocery,
+      },
+    });
 
-  // Slots are pre-filled with each image's current URL, so a plain resubmit
-  // round-trips the same set unchanged — safe to fully replace here rather
-  // than diff against what was there before.
-  await db.productImage.deleteMany({ where: { productId } });
-  if (imageUrls.length > 0) {
-    await db.productImage.createMany({ data: imageUrls.map((url, sortOrder) => ({ productId, url, sortOrder })) });
-  }
+    // Slots are pre-filled with each image's current URL, so a plain resubmit
+    // round-trips the same set unchanged — safe to fully replace here rather
+    // than diff against what was there before.
+    await tx.productImage.deleteMany({ where: { productId } });
+    if (imageUrls.length > 0) {
+      await tx.productImage.createMany({ data: imageUrls.map((url, sortOrder) => ({ productId, url, sortOrder })) });
+    }
 
-  await db.inventory.upsert({
-    where: { productId },
-    create: { productId, quantityInStock: parsed.data.quantityInStock },
-    update: { quantityInStock: parsed.data.quantityInStock },
+    const submittedIds = new Set(rows.map((r) => r.id).filter((id): id is string => !!id));
+    const existingVariants = await tx.productVariant.findMany({ where: { productId } });
+
+    // Deactivate rows the vendor removed — never hard-delete, since past
+    // cart/order rows may still reference them; isActive: false is enough
+    // to drop it from the customer-facing picker and stock/pricing math.
+    const toDeactivate = existingVariants.filter((v) => !submittedIds.has(v.id));
+    if (toDeactivate.length > 0) {
+      await tx.productVariant.updateMany({
+        where: { id: { in: toDeactivate.map((v) => v.id) } },
+        data: { isActive: false, isDefault: false },
+      });
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const data = {
+        name: formatVariantLabel(r, "en"),
+        quantityValue: r.quantityValue,
+        unit: r.unit,
+        packCount: r.packCount,
+        price: r.price,
+        compareAtPrice: r.compareAtPrice ?? null,
+        stockQty: r.stock,
+        isDefault: i === defaultIndex,
+        isActive: true,
+        sortOrder: i,
+      };
+      if (r.id) {
+        await tx.productVariant.update({ where: { id: r.id }, data });
+      } else {
+        await tx.productVariant.create({ data: { ...data, productId } });
+      }
+    }
+
+    await syncProductFromVariants(tx, productId);
   });
 
   revalidatePath("/vendor/products");

@@ -1,26 +1,73 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useActionState } from "react";
+import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { createProductAction, updateProductAction } from "@/lib/actions/vendor-products";
 import { initialActionState } from "@/lib/actions/types";
 import { Input, Label, FieldError, Select, Textarea } from "@/components/ui/input";
 import { FileUploadField } from "@/components/forms/file-upload-field";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { MAX_PRODUCT_PHOTOS } from "@/lib/validation/product";
+import { VARIANT_UNITS, VARIANT_UNIT_FORM_LABEL, QUICK_PACK_COUNTS, formatVariantLabel } from "@/lib/catalog/variant-label";
+
+export type VariantRowDefaults = {
+  id?: string;
+  quantityValue: string;
+  unit: string;
+  packCount: number;
+  price: number;
+  compareAtPrice: number | null;
+  stock: number;
+  isDefault?: boolean;
+};
 
 export type ProductFormDefaults = {
   id?: string;
   name?: string;
   categoryId?: string;
   description?: string;
-  price?: number;
-  compareAtPrice?: number | null;
-  unit?: string;
   sku?: string;
-  quantityInStock?: number;
   images?: string[];
   isWeeklyGrocery?: boolean;
+  variants?: VariantRowDefaults[];
 };
+
+type Row = {
+  key: string;
+  id?: string;
+  quantityValue: string;
+  unit: string;
+  packCount: number;
+  price: string;
+  compareAtPrice: string;
+  stock: string;
+};
+
+let rowKeySeq = 0;
+function nextKey() {
+  rowKeySeq += 1;
+  return `row-${rowKeySeq}`;
+}
+
+function blankRow(quantityValue = "", unit = "PCS", packCount = 1): Row {
+  return { key: nextKey(), quantityValue, unit, packCount, price: "", compareAtPrice: "", stock: "" };
+}
+
+function rowsFromDefaults(variants: VariantRowDefaults[] | undefined): { rows: Row[]; defaultIndex: number } {
+  if (!variants || variants.length === 0) return { rows: [blankRow()], defaultIndex: 0 };
+  const rows = variants.map((v) => ({
+    key: nextKey(),
+    id: v.id,
+    quantityValue: v.quantityValue,
+    unit: v.unit,
+    packCount: v.packCount,
+    price: String(v.price),
+    compareAtPrice: v.compareAtPrice != null ? String(v.compareAtPrice) : "",
+    stock: String(v.stock),
+  }));
+  const defaultIndex = Math.max(0, variants.findIndex((v) => v.isDefault));
+  return { rows, defaultIndex };
+}
 
 export function ProductForm({
   categories,
@@ -31,6 +78,39 @@ export function ProductForm({
 }) {
   const isEdit = !!defaults?.id;
   const [state, formAction] = useActionState(isEdit ? updateProductAction : createProductAction, initialActionState);
+
+  const initial = rowsFromDefaults(defaults?.variants);
+  const [rows, setRows] = useState<Row[]>(initial.rows);
+  const [defaultIndex, setDefaultIndex] = useState(initial.defaultIndex);
+
+  function updateRow(index: number, patch: Partial<Row>) {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+
+  function addBlankRow() {
+    setRows((prev) => [...prev, blankRow(prev[0]?.quantityValue, prev[0]?.unit)]);
+  }
+
+  function addPackRow(packCount: number) {
+    setRows((prev) => [...prev, blankRow(prev[0]?.quantityValue ?? "", prev[0]?.unit ?? "PCS", packCount)]);
+  }
+
+  function removeRow(index: number) {
+    if (rows.length <= 1) return;
+    setRows((prev) => prev.filter((_, i) => i !== index));
+    setDefaultIndex((d) => (d === index ? 0 : d > index ? d - 1 : d));
+  }
+
+  function moveRow(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= rows.length) return;
+    setRows((prev) => {
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+    setDefaultIndex((d) => (d === index ? target : d === target ? index : d));
+  }
 
   return (
     <form action={formAction} className="space-y-4" noValidate>
@@ -67,33 +147,9 @@ export function ProductForm({
         <Textarea id="description" name="description" rows={3} defaultValue={defaults?.description} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <Label htmlFor="price">Price (Tk)</Label>
-          <Input id="price" name="price" type="number" step="0.01" min="0" defaultValue={defaults?.price} required aria-invalid={!!state.fieldErrors?.price} />
-          <FieldError>{state.fieldErrors?.price?.[0]}</FieldError>
-        </div>
-        <div>
-          <Label htmlFor="compareAtPrice">Compare-at price (optional)</Label>
-          <Input id="compareAtPrice" name="compareAtPrice" type="number" step="0.01" min="0" defaultValue={defaults?.compareAtPrice ?? ""} />
-        </div>
-        <div>
-          <Label htmlFor="unit">Unit</Label>
-          <Input id="unit" name="unit" placeholder="1 kg, 500 ml, piece…" defaultValue={defaults?.unit} required aria-invalid={!!state.fieldErrors?.unit} />
-          <FieldError>{state.fieldErrors?.unit?.[0]}</FieldError>
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="sku">SKU (optional)</Label>
-          <Input id="sku" name="sku" defaultValue={defaults?.sku} />
-        </div>
-        <div>
-          <Label htmlFor="quantityInStock">Stock quantity</Label>
-          <Input id="quantityInStock" name="quantityInStock" type="number" min="0" defaultValue={defaults?.quantityInStock ?? 0} required aria-invalid={!!state.fieldErrors?.quantityInStock} />
-          <FieldError>{state.fieldErrors?.quantityInStock?.[0]}</FieldError>
-        </div>
+      <div>
+        <Label htmlFor="sku">SKU (optional)</Label>
+        <Input id="sku" name="sku" defaultValue={defaults?.sku} />
       </div>
 
       <label className="flex items-start gap-2 rounded-control border border-border-brand p-3 text-sm text-gray-700">
@@ -119,6 +175,189 @@ export function ProductForm({
               folder="products"
               defaultUrl={defaults?.images?.[i]}
             />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label>Sizes / options</Label>
+        <p className="mb-2 text-xs text-gray-500">
+          Add every size or pack you sell this as — customers pick one on the product page. Each has its own price, old
+          price, and stock.
+        </p>
+
+        <input type="hidden" name="variantDefaultIndex" value={defaultIndex} />
+
+        <div className="space-y-3">
+          {rows.map((row, index) => (
+            <div key={row.key} className="rounded-control border border-border-brand p-3">
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="w-20">
+                  <Label htmlFor={`variantPackCount-${row.key}`} className="text-xs">
+                    Pack
+                  </Label>
+                  <Input
+                    id={`variantPackCount-${row.key}`}
+                    name="variantPackCount"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={row.packCount}
+                    onChange={(e) => updateRow(index, { packCount: Math.max(1, Number(e.target.value) || 1) })}
+                    className="h-9"
+                  />
+                </div>
+                <div className="w-24">
+                  <Label htmlFor={`variantQuantityValue-${row.key}`} className="text-xs">
+                    Size
+                  </Label>
+                  <Input
+                    id={`variantQuantityValue-${row.key}`}
+                    name="variantQuantityValue"
+                    type="number"
+                    min={0}
+                    step="0.001"
+                    required
+                    value={row.quantityValue}
+                    onChange={(e) => updateRow(index, { quantityValue: e.target.value })}
+                    className="h-9"
+                  />
+                </div>
+                <div className="w-24">
+                  <Label htmlFor={`variantUnit-${row.key}`} className="text-xs">
+                    Unit
+                  </Label>
+                  <Select
+                    id={`variantUnit-${row.key}`}
+                    name="variantUnit"
+                    value={row.unit}
+                    onChange={(e) => updateRow(index, { unit: e.target.value })}
+                    className="h-9"
+                  >
+                    {VARIANT_UNITS.map((u) => (
+                      <option key={u} value={u}>
+                        {VARIANT_UNIT_FORM_LABEL[u]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="w-24">
+                  <Label htmlFor={`variantPrice-${row.key}`} className="text-xs">
+                    Price (Tk)
+                  </Label>
+                  <Input
+                    id={`variantPrice-${row.key}`}
+                    name="variantPrice"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    required
+                    value={row.price}
+                    onChange={(e) => updateRow(index, { price: e.target.value })}
+                    className="h-9"
+                  />
+                </div>
+                <div className="w-28">
+                  <Label htmlFor={`variantCompareAtPrice-${row.key}`} className="text-xs">
+                    Old price
+                  </Label>
+                  <Input
+                    id={`variantCompareAtPrice-${row.key}`}
+                    name="variantCompareAtPrice"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={row.compareAtPrice}
+                    onChange={(e) => updateRow(index, { compareAtPrice: e.target.value })}
+                    className="h-9"
+                  />
+                </div>
+                <div className="w-20">
+                  <Label htmlFor={`variantStock-${row.key}`} className="text-xs">
+                    Stock
+                  </Label>
+                  <Input
+                    id={`variantStock-${row.key}`}
+                    name="variantStock"
+                    type="number"
+                    min={0}
+                    step={1}
+                    required
+                    value={row.stock}
+                    onChange={(e) => updateRow(index, { stock: e.target.value })}
+                    className="h-9"
+                  />
+                </div>
+                {row.id && <input type="hidden" name="variantId" value={row.id} />}
+                {!row.id && <input type="hidden" name="variantId" value="" />}
+
+                <div className="ml-auto flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveRow(index, -1)}
+                    disabled={index === 0}
+                    aria-label="Move up"
+                    className="flex h-9 w-9 items-center justify-center rounded-control border border-border-brand text-brand-dark hover:bg-brand-bg disabled:opacity-30"
+                  >
+                    <ArrowUp className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveRow(index, 1)}
+                    disabled={index === rows.length - 1}
+                    aria-label="Move down"
+                    className="flex h-9 w-9 items-center justify-center rounded-control border border-border-brand text-brand-dark hover:bg-brand-bg disabled:opacity-30"
+                  >
+                    <ArrowDown className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeRow(index)}
+                    disabled={rows.length <= 1}
+                    aria-label="Remove this option"
+                    className="flex h-9 w-9 items-center justify-center rounded-control border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-30"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              </div>
+
+              <label className="mt-2 flex items-center gap-1.5 text-xs text-gray-600">
+                <input
+                  type="radio"
+                  name="_variantDefaultRadio"
+                  checked={defaultIndex === index}
+                  onChange={() => setDefaultIndex(index)}
+                />
+                Default option
+                {row.quantityValue && row.unit && (
+                  <span className="ml-1 font-medium text-brand-dark">
+                    ({formatVariantLabel({ quantityValue: row.quantityValue || "0", unit: row.unit, packCount: row.packCount }, "en")})
+                  </span>
+                )}
+              </label>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={addBlankRow}
+            className="flex items-center gap-1.5 rounded-control border border-border-brand px-3 py-1.5 text-xs font-semibold text-brand-dark hover:bg-brand-bg"
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            Add size/option
+          </button>
+          {QUICK_PACK_COUNTS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => addPackRow(n)}
+              className="flex items-center gap-1.5 rounded-control border border-border-brand px-3 py-1.5 text-xs font-semibold text-brand-dark hover:bg-brand-bg"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden />+ {n} pack
+            </button>
           ))}
         </div>
       </div>

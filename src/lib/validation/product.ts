@@ -1,18 +1,32 @@
 import { z } from "zod";
+import { VARIANT_UNITS } from "@/lib/catalog/variant-label";
 
 export const MAX_PRODUCT_PHOTOS = 6;
 
+// Price, compare-at-price, unit, and stock all moved to per-variant fields —
+// every product has at least one size/option row (see the variants
+// backfill), so there's no longer a separate "simple product" shape without
+// them; a product with just one option is just a variant list of length 1.
 export const productSchema = z.object({
   name: z.string().trim().min(2, "Enter a product name").max(150),
   categoryId: z.string().min(1, "Choose a category"),
   description: z.string().trim().max(2000).optional().or(z.literal("")),
-  price: z.coerce.number().positive("Enter a valid price"),
+  sku: z.string().trim().max(60).optional().or(z.literal("")),
+  isWeeklyGrocery: z.coerce.boolean().default(false),
+});
+
+export const variantRowSchema = z.object({
+  id: z.string().trim().optional(),
+  quantityValue: z.coerce.number().positive("Enter a size greater than 0"),
+  unit: z.enum(VARIANT_UNITS, { message: "Choose a unit" }),
+  packCount: z.coerce.number().int().min(1).default(1),
+  price: z.coerce.number().min(0, "Enter a price"),
   compareAtPrice: z.preprocess(
     (val) => (val === "" || val == null ? undefined : val),
     z.coerce.number().positive().optional(),
   ),
-  unit: z.string().trim().min(1, "Enter a unit, e.g. 1 kg").max(40),
-  sku: z.string().trim().max(60).optional().or(z.literal("")),
-  quantityInStock: z.coerce.number().int().min(0, "Stock cannot be negative"),
-  isWeeklyGrocery: z.coerce.boolean().default(false),
+  stock: z.coerce.number().int().min(0, "Stock cannot be negative"),
 });
+export type VariantRowInput = z.infer<typeof variantRowSchema>;
+
+export const variantRowsSchema = z.array(variantRowSchema).min(1, "Add at least one size/option");
