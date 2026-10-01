@@ -12,7 +12,11 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
 
   const orders = await db.order.findMany({
     where: status && status !== "ALL" ? { status: status as never } : {},
-    include: { vendor: { select: { businessName: true } }, customer: { select: { name: true } } },
+    include: {
+      vendor: { select: { businessName: true } },
+      customer: { select: { name: true } },
+      orderGroup: { select: { payment: { select: { provider: true, status: true, isSandbox: true } } } },
+    },
     orderBy: { createdAt: "desc" },
     take: 100,
   });
@@ -28,25 +32,35 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
               <th className="px-4 py-3">Vendor</th>
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Total</th>
+              <th className="px-4 py-3">Payment</th>
               <th className="px-4 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => (
-              <tr key={order.id} className="border-b border-border-brand last:border-0 hover:bg-brand-bg">
-                <td className="px-4 py-3">
-                  <Link href={`/admin/orders/${order.id}`} className="font-medium text-brand-dark hover:text-brand-primary">
-                    {order.orderNumber}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-gray-600">{order.vendor.businessName}</td>
-                <td className="px-4 py-3 text-gray-600">{order.customer.name}</td>
-                <td className="px-4 py-3 font-semibold text-brand-dark">{formatBDT(order.total)}</td>
-                <td className="px-4 py-3">
-                  <Badge variant={order.status === "DELIVERED" ? "brand" : "accent"}>{statusLabel(order.status)}</Badge>
-                </td>
-              </tr>
-            ))}
+            {orders.map((order) => {
+              const payment = order.orderGroup.payment;
+              return (
+                <tr key={order.id} className="border-b border-border-brand last:border-0 hover:bg-brand-bg">
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/orders/${order.id}`} className="font-medium text-brand-dark hover:text-brand-primary">
+                      {order.orderNumber}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{order.vendor.businessName}</td>
+                  <td className="px-4 py-3 text-gray-600">{order.customer.name}</td>
+                  <td className="px-4 py-3 font-semibold text-brand-dark">{formatBDT(order.total)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-600">
+                      <span>{payment?.provider === "COD" || !payment ? "COD" : payment.provider}</span>
+                      {payment?.isSandbox && <Badge variant="warning">Sandbox</Badge>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={order.status === "DELIVERED" ? "brand" : "accent"}>{statusLabel(order.status)}</Badge>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

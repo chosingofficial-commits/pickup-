@@ -23,7 +23,10 @@ export default async function AdminRefundsPage() {
               <p className="text-sm font-semibold text-brand-dark">
                 {formatBDT(r.amount)} · {r.payment.orderGroup.customer.name}
               </p>
-              <p className="text-xs text-gray-500">{r.reason}</p>
+              <p className="text-xs text-gray-500">
+                {r.reason} · {r.payment.provider}
+                {r.payment.isSandbox && " (sandbox)"}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={r.status === "PROCESSED" ? "brand" : r.status === "REJECTED" ? "danger" : "accent"}>{r.status}</Badge>

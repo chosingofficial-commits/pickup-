@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { setSiteSetting, SITE_SETTING_KEYS } from "@/lib/settings";
 import { recordAuditLog } from "@/lib/audit";
+import { PAYMENT_METHOD_PROVIDERS, paymentMethodSettingKey } from "@/lib/payments/method-settings";
+import { isGatewayLive } from "@/lib/payments/gateway-status";
 import type { ActionState } from "./types";
 
 const FREE_DELIVERY_MIN_AMOUNT_MAX = 100_000;
@@ -59,4 +61,26 @@ export async function updateSiteSettingsAction(_prev: ActionState, formData: For
   await recordAuditLog({ actorUserId: admin.id, action: "SITE_SETTINGS_UPDATED", entityType: "SiteSetting" });
   revalidatePath("/admin/settings");
   return { status: "success", message: "Settings saved." };
+}
+
+/**
+ * A method is only ever actually switched on when its gateway is really
+ * live+configured — re-checked here server-side regardless of what the form
+ * submitted, so a tampered request (or a stale page that still shows a
+ * method as toggleable after its credentials were removed) can never force
+ * a non-functional method on. COD has no gateway and is never blocked.
+ */
+export async function updatePaymentMethodSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  for (const provider of PAYMENT_METHOD_PROVIDERS) {
+    const requestedOn = formData.get(`enabled_${provider}`) === "1";
+    const value = requestedOn && isGatewayLive(provider) ? "1" : "0";
+    await setSiteSetting(paymentMethodSettingKey(provider), value);
+  }
+
+  await recordAuditLog({ actorUserId: admin.id, action: "PAYMENT_METHODS_UPDATED", entityType: "SiteSetting" });
+  revalidatePath("/admin/settings");
+  revalidatePath("/checkout/payment");
+  return { status: "success", message: "Payment methods saved." };
 }

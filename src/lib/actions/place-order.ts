@@ -13,6 +13,8 @@ import { toPoisha } from "@/lib/rider/ledger";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
 import { recordAuditLog } from "@/lib/audit";
 import { getPaymentAdapter } from "@/lib/payments/registry";
+import { isPaymentMethodEnabled } from "@/lib/payments/method-settings";
+import { getSiteSettingsUncached } from "@/lib/settings";
 import { publicEnv } from "@/lib/env/public";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { formatVariantLabel } from "@/lib/catalog/variant-label";
@@ -89,6 +91,15 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
   const paymentMethod = checkoutState.paymentMethod as PaymentProvider;
   const scheduledFor = checkoutState.scheduledFor ? new Date(checkoutState.scheduledFor) : null;
   const locale = await getLocale();
+
+  // Final, authoritative gate — selectPaymentMethodAction already checked
+  // this when the method was picked, but checkout can sit open for a while
+  // before review; re-check right before the real Payment row is created so
+  // a method an admin disabled in between can never actually be charged.
+  const paymentSettings = await getSiteSettingsUncached();
+  if (!isPaymentMethodEnabled(paymentMethod, paymentSettings)) {
+    return { status: "error", message: "Your selected payment method is no longer available. Please go back and choose another." };
+  }
 
   try {
     const { orderGroup, payment, grandTotal } = await db.$transaction(async (tx) => {

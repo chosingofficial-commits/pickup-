@@ -33,6 +33,16 @@ export const SITE_SETTING_KEYS = {
   // "pay cash when our team calls", etc.) is a business decision, not
   // something to hardcode.
   adPaymentInstructions: "ad_payment_instructions",
+
+  // Per-provider checkout toggles (see lib/payments/method-settings.ts). A
+  // provider is only ever truly usable when its flag here AND its gateway
+  // are both go — see isPaymentMethodEnabled for why the flag alone isn't enough.
+  paymentMethodEnabledCod: "payment_method_enabled_cod",
+  paymentMethodEnabledBkash: "payment_method_enabled_bkash",
+  paymentMethodEnabledNagad: "payment_method_enabled_nagad",
+  paymentMethodEnabledRocket: "payment_method_enabled_rocket",
+  paymentMethodEnabledSslcommerz: "payment_method_enabled_sslcommerz",
+  paymentMethodEnabledCard: "payment_method_enabled_card",
 } as const;
 
 const DEFAULTS: Record<string, string> = {
@@ -54,6 +64,14 @@ const DEFAULTS: Record<string, string> = {
   [SITE_SETTING_KEYS.heroImageUrl]: "",
   [SITE_SETTING_KEYS.adPaymentInstructions]:
     "We'll contact you on the phone number you provided with payment instructions (bKash/Nagad number or cash arrangement). Your ad goes live once payment is confirmed.",
+  // COD on by default (it needs no gateway); every online method off by
+  // default until a real merchant account is actually connected.
+  [SITE_SETTING_KEYS.paymentMethodEnabledCod]: "1",
+  [SITE_SETTING_KEYS.paymentMethodEnabledBkash]: "0",
+  [SITE_SETTING_KEYS.paymentMethodEnabledNagad]: "0",
+  [SITE_SETTING_KEYS.paymentMethodEnabledRocket]: "0",
+  [SITE_SETTING_KEYS.paymentMethodEnabledSslcommerz]: "0",
+  [SITE_SETTING_KEYS.paymentMethodEnabledCard]: "0",
 };
 
 async function fetchSiteSettings(): Promise<Record<string, string>> {

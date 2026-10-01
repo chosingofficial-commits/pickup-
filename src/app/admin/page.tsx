@@ -3,7 +3,10 @@ import Link from "next/link";
 import { DollarSign, ShoppingBag, Users, Store, FileClock, Bike, Percent, Undo2, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SalesChart } from "@/components/admin/sales-chart";
+import { MoneyOverview } from "@/components/admin/money-overview";
 import { getAdminOverviewStats, getRecentAuditLogs, getDailySalesSeries } from "@/lib/admin/queries";
+import { getAdminMoneyOverview } from "@/lib/admin/money";
+import { PERIOD_KEYS, type PeriodKey } from "@/lib/date/period";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Admin dashboard" };
@@ -26,8 +29,16 @@ function Stat({ icon: Icon, label, value, href }: { icon: React.ElementType; lab
   );
 }
 
-export default async function AdminOverviewPage() {
-  const [stats, logs, series] = await Promise.all([getAdminOverviewStats(), getRecentAuditLogs(), getDailySalesSeries()]);
+export default async function AdminOverviewPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+  const { period: periodRaw } = await searchParams;
+  const period: PeriodKey = (PERIOD_KEYS as string[]).includes(periodRaw ?? "") ? (periodRaw as PeriodKey) : "today";
+
+  const [stats, logs, series, moneyOverview] = await Promise.all([
+    getAdminOverviewStats(),
+    getRecentAuditLogs(),
+    getDailySalesSeries(),
+    getAdminMoneyOverview(period),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -44,6 +55,8 @@ export default async function AdminOverviewPage() {
         <Stat icon={Undo2} label="Pending refunds" value={String(stats.pendingRefunds)} href="/admin/refunds" />
         <Stat icon={Wallet} label="Pending payouts" value={String(stats.pendingPayouts)} href="/admin/payouts" />
       </div>
+
+      <MoneyOverview period={period} overview={moneyOverview} />
 
       <Card>
         <CardContent className="pt-5">

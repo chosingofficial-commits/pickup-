@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { DeliveryTimeline } from "@/components/orders/delivery-timeline";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { getAvailableNextStatuses } from "@/lib/orders/status-flow";
@@ -19,9 +20,13 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
       address: { include: { neighbourhood: { include: { town: true } } } },
       items: true,
       statusHistory: { orderBy: { createdAt: "asc" } },
+      orderGroup: { select: { payment: true, orders: { select: { id: true } } } },
     },
   });
   if (!order) notFound();
+
+  const payment = order.orderGroup.payment;
+  const isMultiVendorGroup = order.orderGroup.orders.length > 1;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -36,6 +41,26 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         <CardContent className="pt-5">
           <CardTitle className="mb-3">Admin actions</CardTitle>
           <OrderStatusActions orderId={order.id} nextOptions={getAvailableNextStatuses(order.status, order.vendor.businessType, "ADMIN")} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-5">
+          <CardTitle className="mb-3">Payment</CardTitle>
+          {payment ? (
+            <div className="space-y-1.5 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-brand-dark">{payment.provider}</span>
+                <Badge variant={payment.status === "PAID" ? "brand" : payment.status === "FAILED" || payment.status === "CANCELLED" ? "danger" : "accent"}>{payment.status}</Badge>
+                {payment.isSandbox && <Badge variant="warning">Sandbox — no real money moved</Badge>}
+              </div>
+              <p className="text-xs text-gray-500">Amount: {formatBDT(payment.amount)}{isMultiVendorGroup && " (covers the whole order group, not just this vendor's order)"}</p>
+              {payment.providerRef && <p className="font-mono text-xs text-gray-500">Transaction ID: {payment.providerRef}</p>}
+              {payment.paidAt && <p className="text-xs text-gray-500">Paid: {payment.paidAt.toLocaleString("en-BD", { dateStyle: "medium", timeStyle: "short" })}</p>}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No payment record found for this order.</p>
+          )}
         </CardContent>
       </Card>
 

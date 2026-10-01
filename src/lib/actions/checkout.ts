@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { updateCheckoutState, getCheckoutState } from "@/lib/checkout/cookie";
 import { cartRequiresAdvanceScheduling } from "@/lib/cart/queries";
+import { getSiteSettingsUncached } from "@/lib/settings";
+import { isPaymentMethodEnabled, PAYMENT_METHOD_PROVIDERS } from "@/lib/payments/method-settings";
+import type { PaymentProvider } from "@/generated/prisma/client";
 
 const WEEKLY_GROCERY_MIN_ADVANCE_MS = 24 * 60 * 60 * 1000;
 
@@ -33,6 +36,15 @@ export async function selectPaymentMethodAction(formData: FormData): Promise<voi
   const paymentMethod = String(formData.get("paymentMethod") ?? "");
   const agreementAccepted = formData.get("agreementAccepted");
   if (!agreementAccepted) redirect("/checkout/payment?error=agreement");
+
+  // Re-validated server-side regardless of what the payment page rendered —
+  // never trust a client-supplied method value, even one that used to be a
+  // valid radio option (an admin may have disabled it moments ago).
+  const settings = await getSiteSettingsUncached();
+  const isValidProvider = (PAYMENT_METHOD_PROVIDERS as string[]).includes(paymentMethod);
+  if (!isValidProvider || !isPaymentMethodEnabled(paymentMethod as PaymentProvider, settings)) {
+    redirect("/checkout/payment?error=method_unavailable");
+  }
 
   await updateCheckoutState({ paymentMethod });
   redirect("/checkout/review");
