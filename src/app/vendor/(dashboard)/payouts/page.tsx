@@ -27,6 +27,33 @@ export default async function VendorPayoutsPage() {
 
       <Card>
         <CardContent className="pt-5">
+          <CardTitle className="mb-4">Earnings breakdown</CardTitle>
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <dt className="text-xs text-gray-500">Your earnings</dt>
+              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(stats.earnings)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Platform commission</dt>
+              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(stats.commissionPaid)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Already paid out</dt>
+              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(Number(paidAgg._sum.amount ?? 0))}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Available to withdraw</dt>
+              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(Math.max(0, available))}</dd>
+            </div>
+          </dl>
+          <p className="mt-3 text-xs text-gray-500">
+            Your earnings = order subtotal minus platform commission, across all your orders. Available to withdraw = earnings minus pending and already-paid payout requests.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-5">
           <CardTitle className="mb-4">Request a payout</CardTitle>
           <PayoutRequestForm available={Math.max(0, available)} />
         </CardContent>

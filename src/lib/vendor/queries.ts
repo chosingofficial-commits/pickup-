@@ -1,6 +1,12 @@
 import "server-only";
+import type { OrderStatus, Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { isTobaccoModuleEnabled } from "@/lib/tobacco/queries";
+
+/** Mirrors the vendor-facing "Pending orders" definition — anything still waiting on the vendor before a rider takes over. */
+export const PENDING_ORDER_STATUSES: OrderStatus[] = ["ORDER_PLACED", "CONFIRMED", "PREPARING", "READY_FOR_PICKUP"];
+/** Orders excluded from "Total orders" — cancelled/failed ones were never fulfilled. */
+const EXCLUDED_FROM_TOTAL_STATUSES: OrderStatus[] = ["CANCELLED", "FAILED_DELIVERY"];
 
 export async function getVendorForUser(userId: string) {
   return db.vendor.findUnique({ where: { userId }, include: { restaurant: { include: { weeklyHours: true } } } });
@@ -23,7 +29,7 @@ export async function getCategoriesForProductForm() {
 
 export async function getVendorDashboardStats(vendorId: string) {
   const [orderCount, revenueAgg, commissionAgg, payoutAgg, pendingOrders] = await Promise.all([
-    db.order.count({ where: { vendorId, status: { notIn: ["CANCELLED", "FAILED_DELIVERY"] } } }),
+    db.order.count({ where: { vendorId, status: { notIn: EXCLUDED_FROM_TOTAL_STATUSES } } }),
     db.order.aggregate({ where: { vendorId, status: "DELIVERED" }, _sum: { total: true } }),
     // Only orders that actually reached DELIVERED count toward earnings —
     // CommissionEntry rows are written at order-placement time, well before
@@ -32,7 +38,7 @@ export async function getVendorDashboardStats(vendorId: string) {
     // platform hasn't (and may never) collect.
     db.commissionEntry.aggregate({ where: { vendorId, order: { status: "DELIVERED" } }, _sum: { commissionAmount: true, vendorEarnings: true } }),
     db.vendorPayout.aggregate({ where: { vendorId, status: "PENDING" }, _sum: { amount: true } }),
-    db.order.count({ where: { vendorId, status: { in: ["ORDER_PLACED", "CONFIRMED", "PREPARING", "READY_FOR_PICKUP"] } } }),
+    db.order.count({ where: { vendorId, status: { in: PENDING_ORDER_STATUSES } } }),
   ]);
 
   return {
@@ -54,8 +60,16 @@ export async function getVendorProducts(vendorId: string) {
 }
 
 export async function getVendorOrders(vendorId: string, statusFilter?: string) {
+  const where: Prisma.OrderWhereInput = { vendorId };
+  // "PENDING"/"ACTIVE" are synthetic multi-status groupings matching the
+  // dashboard's "Pending orders"/"Total orders" cards exactly, so clicking
+  // through always shows a list whose length equals the card's number.
+  if (statusFilter === "PENDING") where.status = { in: PENDING_ORDER_STATUSES };
+  else if (statusFilter === "ACTIVE") where.status = { notIn: EXCLUDED_FROM_TOTAL_STATUSES };
+  else if (statusFilter && statusFilter !== "ALL") where.status = statusFilter as OrderStatus;
+
   return db.order.findMany({
-    where: { vendorId, ...(statusFilter && statusFilter !== "ALL" ? { status: statusFilter as never } : {}) },
+    where,
     include: { items: true, customer: { select: { name: true, phone: true } }, address: { include: { neighbourhood: true } } },
     orderBy: { createdAt: "desc" },
     take: 100,

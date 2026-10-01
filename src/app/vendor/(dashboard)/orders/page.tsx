@@ -9,7 +9,19 @@ import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Orders" };
 
-const FILTERS = ["ALL", "ORDER_PLACED", "CONFIRMED", "PREPARING", "READY_FOR_PICKUP", "RIDER_ASSIGNED", "ON_THE_WAY", "DELIVERED", "CANCELLED"];
+const FILTERS: { key: string; label: string }[] = [
+  { key: "ALL", label: "All" },
+  { key: "ACTIVE", label: "Active" },
+  { key: "PENDING", label: "Pending" },
+  { key: "ORDER_PLACED", label: statusLabel("ORDER_PLACED") },
+  { key: "CONFIRMED", label: statusLabel("CONFIRMED") },
+  { key: "PREPARING", label: statusLabel("PREPARING") },
+  { key: "READY_FOR_PICKUP", label: statusLabel("READY_FOR_PICKUP") },
+  { key: "RIDER_ASSIGNED", label: statusLabel("RIDER_ASSIGNED") },
+  { key: "ON_THE_WAY", label: statusLabel("ON_THE_WAY") },
+  { key: "DELIVERED", label: statusLabel("DELIVERED") },
+  { key: "CANCELLED", label: statusLabel("CANCELLED") },
+];
 
 export default async function VendorOrdersPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const user = await getCurrentUser();
@@ -26,13 +38,13 @@ export default async function VendorOrdersPage({ searchParams }: { searchParams:
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <Link
-            key={f}
-            href={f === "ALL" ? "/vendor/orders" : `/vendor/orders?status=${f}`}
+            key={f.key}
+            href={f.key === "ALL" ? "/vendor/orders" : `/vendor/orders?status=${f.key}`}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-              (status ?? "ALL") === f ? "border-brand-primary bg-brand-primary text-white" : "border-border-brand text-brand-dark hover:bg-brand-bg"
+              (status ?? "ALL") === f.key ? "border-brand-primary bg-brand-primary text-white" : "border-border-brand text-brand-dark hover:bg-brand-bg"
             }`}
           >
-            {f === "ALL" ? "All" : statusLabel(f as never)}
+            {f.label}
           </Link>
         ))}
       </div>

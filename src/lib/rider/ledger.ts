@@ -49,11 +49,19 @@ export async function getRiderLedger(riderId: string, take = 200) {
   });
 }
 
+/** Shared by the aggregate total and the itemized list, so they can never disagree. */
+function todayCashCollectedWhere(riderId: string) {
+  return {
+    riderId,
+    type: "DELIVERY_EARNING" as const,
+    occurredAt: { gte: getPeriodStart("today") },
+    delivery: { isCod: true },
+  };
+}
+
 export async function getTodayCashCollected(riderId: string): Promise<number> {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
   const agg = await db.riderLedgerEntry.aggregate({
-    where: { riderId, type: "DELIVERY_EARNING", occurredAt: { gte: startOfToday }, delivery: { isCod: true } },
+    where: todayCashCollectedWhere(riderId),
     _sum: { amountPoisha: true },
   });
   // For a COD delivery, amountPoisha on the earning entry is the full order
@@ -61,10 +69,20 @@ export async function getTodayCashCollected(riderId: string): Promise<number> {
   return Number(agg._sum.amountPoisha ?? 0);
 }
 
+/** Per-order breakdown behind getTodayCashCollected's total — same where-clause, so the sum always matches. */
+export async function getTodayCashCollectedEntries(riderId: string) {
+  return db.riderLedgerEntry.findMany({
+    where: todayCashCollectedWhere(riderId),
+    include: {
+      delivery: { include: { order: { select: { orderNumber: true, vendor: { select: { businessName: true } }, customer: { select: { name: true } } } } } },
+    },
+    orderBy: { occurredAt: "desc" },
+  });
+}
+
 /** Every rider's current balance + today's cash collected, for the admin list screen. */
 export async function getAllRidersBalanceSummary(riderIds: string[]) {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = getPeriodStart("today")!;
   const collectedByRider = await db.riderLedgerEntry.groupBy({
     by: ["riderId"],
     where: { riderId: { in: riderIds }, type: "DELIVERY_EARNING", occurredAt: { gte: startOfToday }, delivery: { isCod: true } },

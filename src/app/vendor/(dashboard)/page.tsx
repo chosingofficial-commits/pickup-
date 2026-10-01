@@ -24,11 +24,11 @@ export default async function VendorDashboardPage() {
       <h1 className="font-heading text-2xl font-bold text-brand-dark">Welcome back, {user.name.split(" ")[0]}</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatCard icon={ShoppingBag} label="Total orders" value={String(stats.totalOrders)} href="/vendor/orders" />
+        <StatCard icon={ShoppingBag} label="Total orders" value={String(stats.totalOrders)} href="/vendor/orders?status=ACTIVE" />
         <StatCard icon={TrendingUp} label="Revenue (delivered)" value={formatBDT(stats.revenue)} href="/vendor/orders?status=DELIVERED" />
         <StatCard icon={Percent} label="Platform commission" value={formatBDT(stats.commissionPaid)} href="/vendor/payouts" />
         <StatCard icon={Wallet} label="Your earnings" value={formatBDT(stats.earnings)} href="/vendor/payouts" />
-        <StatCard icon={Clock} label="Pending orders" value={String(stats.pendingOrders)} href="/vendor/orders?status=ORDER_PLACED" />
+        <StatCard icon={Clock} label="Pending orders" value={String(stats.pendingOrders)} href="/vendor/orders?status=PENDING" />
       </div>
 
       <Card>

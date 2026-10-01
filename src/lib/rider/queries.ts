@@ -1,5 +1,7 @@
 import "server-only";
+import type { OrderStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { getPeriodStart } from "@/lib/rider/balance";
 
 export async function getAvailableAssignments() {
   return db.order.findMany({
@@ -35,9 +37,13 @@ export async function getRiderActiveDeliveries(riderId: string) {
   });
 }
 
-export async function getRiderHistory(riderId: string) {
+export async function getRiderHistory(riderId: string, options?: { since?: Date; statusIn?: OrderStatus[] }) {
   return db.order.findMany({
-    where: { delivery: { riderId }, status: { in: ["DELIVERED", "FAILED_DELIVERY"] } },
+    where: {
+      delivery: { riderId },
+      status: { in: options?.statusIn ?? ["DELIVERED", "FAILED_DELIVERY"] },
+      ...(options?.since ? { updatedAt: { gte: options.since } } : {}),
+    },
     include: { vendor: true, customer: { select: { name: true } }, delivery: true },
     orderBy: { updatedAt: "desc" },
     take: 100,
@@ -56,8 +62,7 @@ export async function getDuplicateNationalIdNumbers(): Promise<Set<string>> {
 }
 
 export async function getRiderDeliveryStats(riderId: string) {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = getPeriodStart("today")!;
 
   const [deliveredToday, deliveredTotal] = await Promise.all([
     db.order.count({ where: { delivery: { riderId }, status: "DELIVERED", updatedAt: { gte: startOfToday } } }),

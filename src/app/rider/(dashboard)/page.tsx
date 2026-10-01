@@ -40,11 +40,11 @@ export default async function RiderAvailablePage() {
       <h1 className="font-heading text-2xl font-bold text-brand-dark">Welcome back, {user.name.split(" ")[0]}</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatCard icon={Package} label="Total deliveries" value={String(stats.deliveredTotal)} />
-        <StatCard icon={CheckCircle2} label="Delivered today" value={String(stats.deliveredToday)} />
-        <StatCard icon={Wallet} label="Cash collected today" value={formatBDT(fromPoisha(todayCollectedPoisha))} />
-        <StatCard icon={Wallet} label="Balance" value={formatBalance(balancePoisha)} />
-        <StatCard icon={Star} label="Rating" value={rating} />
+        <StatCard icon={Package} label="Total deliveries" value={String(stats.deliveredTotal)} href="/rider/history" />
+        <StatCard icon={CheckCircle2} label="Delivered today" value={String(stats.deliveredToday)} href="/rider/history?period=today" />
+        <StatCard icon={Wallet} label="Cash collected today" value={formatBDT(fromPoisha(todayCollectedPoisha))} href="/rider/cash-collected" />
+        <StatCard icon={Wallet} label="Balance" value={formatBalance(balancePoisha)} href="/rider/balance" />
+        <StatCard icon={Star} label="Rating" value={rating} href="/rider/ratings" />
       </div>
 
       <div>

@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Wallet, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRiderHistory, getRiderDeliveryStats } from "@/lib/rider/queries";
 import { getRiderBalance, getRiderLedger, fromPoisha } from "@/lib/rider/ledger";
+import { getPeriodStart } from "@/lib/rider/balance";
 import { statusLabel } from "@/lib/orders/status-flow";
 import { formatBDT } from "@/lib/utils";
 
@@ -23,14 +25,20 @@ const LEDGER_TYPE_LABELS: Record<string, string> = {
   ADJUSTMENT: "Adjustment",
 };
 
-export default async function RiderHistoryPage() {
+export default async function RiderHistoryPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const user = await getCurrentUser();
   // See rider/(dashboard)/page.tsx — unreachable today (layout redirects
   // first), kept as a non-silent fallback.
   if (!user?.riderProfile) redirect("/rider/register");
 
+  const { period } = await searchParams;
+  // "today" mirrors the dashboard's "Delivered today" card exactly: DELIVERED
+  // only, since the start of today in Bangladesh time — so the list length
+  // here always matches that card's number.
+  const isToday = period === "today";
+
   const [history, stats, balancePoisha, ledger] = await Promise.all([
-    getRiderHistory(user.riderProfile.id),
+    getRiderHistory(user.riderProfile.id, isToday ? { since: getPeriodStart("today"), statusIn: ["DELIVERED"] } : undefined),
     getRiderDeliveryStats(user.riderProfile.id),
     getRiderBalance(user.riderProfile.id),
     getRiderLedger(user.riderProfile.id),
@@ -81,9 +89,16 @@ export default async function RiderHistoryPage() {
       </div>
 
       <div>
-        <h2 className="mb-3 font-heading text-lg font-bold text-brand-dark">Deliveries</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-heading text-lg font-bold text-brand-dark">{isToday ? "Delivered today" : "Deliveries"}</h2>
+          {isToday && (
+            <Link href="/rider/history" className="text-sm font-semibold text-brand-primary hover:underline">
+              View all
+            </Link>
+          )}
+        </div>
         {history.length === 0 ? (
-          <p className="text-sm text-gray-500">No completed deliveries yet.</p>
+          <p className="text-sm text-gray-500">{isToday ? "No deliveries completed today yet." : "No completed deliveries yet."}</p>
         ) : (
           <div className="space-y-2">
             {history.map((order) => {
