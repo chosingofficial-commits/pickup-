@@ -26,11 +26,17 @@ export type PurchaseVariant = {
 export function PurchasePanel({
   productId,
   productName,
+  productUnit,
   variants,
   isSaved,
 }: {
   productId: string;
   productName: string;
+  /** Product.unit — the pre-existing free-text size (backfilled products) or
+   * the single option's own label kept in sync (new products). Shown as-is,
+   * with no size picker, whenever there's only one active option, so a
+   * single-option product looks exactly like it did before variants existed. */
+  productUnit: string;
   variants: PurchaseVariant[];
   isSaved?: boolean;
 }) {
@@ -46,12 +52,13 @@ export function PurchasePanel({
   const selected = activeVariants.find((v) => v.id === selectedId) ?? initialSelected;
 
   const allSoldOut = activeVariants.length === 0 || activeVariants.every((v) => v.stockQty <= 0);
+  const hasMultipleOptions = activeVariants.length > 1;
 
   if (!selected) return null;
 
   return (
     <div className="space-y-4">
-      {activeVariants.length > 1 && (
+      {hasMultipleOptions && (
         <div>
           <p className="mb-1.5 text-sm font-medium text-brand-dark">Select unit</p>
           <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible" role="radiogroup" aria-label="Select unit">
@@ -89,7 +96,7 @@ export function PurchasePanel({
       )}
 
       <div>
-        <p className="text-sm text-gray-500">{formatVariantLabel(selected, locale)}</p>
+        <p className="text-sm text-gray-500">{hasMultipleOptions ? formatVariantLabel(selected, locale) : productUnit}</p>
         <div className="mt-0.5 flex items-baseline gap-3">
           <span className="font-heading text-3xl font-bold text-brand-dark">{formatBDT(selected.price)}</span>
           {selected.compareAtPrice && <span className="text-lg text-gray-400 line-through">{formatBDT(selected.compareAtPrice)}</span>}

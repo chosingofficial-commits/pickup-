@@ -49,7 +49,14 @@ export async function getFullCart(userId: string) {
     include: {
       items: {
         include: {
-          product: { include: { vendor: true, category: true, images: { take: 1 } } },
+          product: {
+            include: {
+              vendor: true,
+              category: true,
+              images: { take: 1 },
+              _count: { select: { variants: { where: { isActive: true } } } },
+            },
+          },
           variant: { include: { image: true } },
           menuItem: { include: { menu: { include: { vendor: true } } } },
         },
@@ -63,6 +70,12 @@ export async function getFullCart(userId: string) {
   for (const item of cart?.items ?? []) {
     if (item.product) {
       const variantOk = !item.variant || (item.variant.isActive && item.variant.stockQty > 0);
+      // A product with only one active option must look exactly like it did
+      // before variants existed — Product.unit already carries its original
+      // free text (backfilled products) or the single option's own label
+      // kept in sync (new products), so the computed variant label is only
+      // ever shown once there's an actual choice to describe.
+      const hasMultipleOptions = item.product._count.variants > 1;
       lines.push({
         id: item.id,
         productId: item.product.id,
@@ -71,9 +84,10 @@ export async function getFullCart(userId: string) {
         quantity: item.quantity,
         name: item.product.name,
         unit: item.product.unit,
-        variant: item.variant
-          ? { quantityValue: item.variant.quantityValue.toString(), unit: item.variant.unit, packCount: item.variant.packCount }
-          : null,
+        variant:
+          item.variant && hasMultipleOptions
+            ? { quantityValue: item.variant.quantityValue.toString(), unit: item.variant.unit, packCount: item.variant.packCount }
+            : null,
         imageUrl: item.variant?.image?.url ?? item.product.images[0]?.url ?? null,
         unitPrice: Number(item.variant ? item.variant.price : item.product.price),
         addOnsTotal: 0,

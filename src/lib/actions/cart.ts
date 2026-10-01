@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import { ensureDefaultVariant } from "@/lib/catalog/variant-sync";
 import type { ActionState } from "./types";
 
 async function requireCartId(nextPath: string): Promise<string> {
@@ -20,9 +21,10 @@ async function requireCartId(nextPath: string): Promise<string> {
 /**
  * Resolves and validates which variant an add-to-cart/buy-now should use —
  * the one explicitly picked (must belong to this product and be in stock),
- * or the product's default variant when none was picked (every product has
- * one since the variants backfill, so this never falls through to "no
- * variant" for a product created after that point).
+ * or the product's default variant when none was picked. Self-heals: a
+ * product created by pre-variants code during the deploy window would have
+ * none yet, so this creates the same default the backfill migration would
+ * have rather than failing.
  */
 async function resolveVariant(productId: string, variantId: string | null): Promise<{ id: string } | { error: string }> {
   if (variantId) {
@@ -31,6 +33,7 @@ async function resolveVariant(productId: string, variantId: string | null): Prom
     if (!variant.isActive || variant.stockQty <= 0) return { error: "That option is sold out." };
     return { id: variant.id };
   }
+  await ensureDefaultVariant(productId);
   const defaultVariant = await db.productVariant.findFirst({
     where: { productId, isActive: true },
     orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],

@@ -16,6 +16,7 @@ import { getPaymentAdapter } from "@/lib/payments/registry";
 import { publicEnv } from "@/lib/env/public";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { formatVariantLabel } from "@/lib/catalog/variant-label";
+import { ensureDefaultVariant } from "@/lib/catalog/variant-sync";
 import type { ActionState } from "./types";
 import type { PaymentProvider } from "@/generated/prisma/client";
 
@@ -158,12 +159,30 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
         });
 
         for (const line of item.group.lines) {
+          // Self-heal: a product created by pre-variants code during the
+          // deploy window could reach checkout with productId set but no
+          // variantId — create the same default the backfill migration
+          // would have rather than falling back to a legacy stock path.
+          let effectiveVariantId = line.variantId;
+          if (!effectiveVariantId && line.productId) {
+            await ensureDefaultVariant(line.productId, tx);
+            const healed = await tx.productVariant.findFirst({
+              where: { productId: line.productId, isActive: true },
+              orderBy: [{ isDefault: "desc" }, { sortOrder: "asc" }],
+            });
+            effectiveVariantId = healed?.id ?? null;
+          }
+
+          // line.variant (used for the name snapshot) already came back null
+          // from getFullCart whenever the product has only one active option
+          // — including this self-healed case — so a single-option product's
+          // order line reads exactly like it did before variants existed.
           const nameSnapshot = line.variant ? `${line.name} — ${formatVariantLabel(line.variant, locale)}` : line.name;
           await tx.orderItem.create({
             data: {
               orderId: order.id,
               productId: line.productId,
-              variantId: line.variantId,
+              variantId: effectiveVariantId,
               menuItemId: line.menuItemId,
               nameSnapshot,
               unitPriceSnapshot: line.unitPrice,
@@ -174,12 +193,12 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
             },
           });
 
-          if (line.variantId) {
+          if (effectiveVariantId) {
             // Guarded decrement — if two checkouts race for the last units of
             // this variant, whichever commits second finds insufficient
             // stock here and the whole order rolls back (thrown below).
             const decremented = await tx.productVariant.updateMany({
-              where: { id: line.variantId, stockQty: { gte: line.quantity } },
+              where: { id: effectiveVariantId, stockQty: { gte: line.quantity } },
               data: { stockQty: { decrement: line.quantity } },
             });
             if (decremented.count === 0) throw new Error(`INSUFFICIENT_STOCK:${line.name}`);
@@ -198,8 +217,8 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
               });
             }
           } else if (line.productId) {
-            // Defensive fallback — shouldn't happen once every product has a
-            // variant (see the backfill migration), but keeps working if it did.
+            // Truly last-resort fallback — shouldn't be reachable now that
+            // the self-heal above always creates a variant for a real product.
             await tx.inventory.updateMany({
               where: { productId: line.productId },
               data: { quantityInStock: { decrement: line.quantity } },

@@ -13,6 +13,7 @@ import { getSelectedLocation } from "@/lib/location/cookie";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
+import { ensureDefaultVariant } from "@/lib/catalog/variant-sync";
 import { publicEnv } from "@/lib/env/public";
 
 export async function generateMetadata({
@@ -39,6 +40,16 @@ export default async function ProductDetailPage({
   const product = await getProductBySlug(vendorSlug, productSlug);
   if (!product) notFound();
 
+  // Self-heal: every active product should always have at least one variant
+  // (see the backfill migration), but a product created by pre-variants code
+  // during the deploy window wouldn't. getProductBySlug is request-cached,
+  // so re-fetch the variants directly rather than calling it again.
+  let variants = product.variants;
+  if (variants.length === 0) {
+    await ensureDefaultVariant(product.id);
+    variants = await db.productVariant.findMany({ where: { productId: product.id, isActive: true }, orderBy: { sortOrder: "asc" } });
+  }
+
   const [related, location, user] = await Promise.all([
     getRelatedProducts(product.categoryId, product.id, 6),
     getSelectedLocation(),
@@ -56,9 +67,9 @@ export default async function ProductDetailPage({
   // A product counts as out of stock only when every one of its active
   // options is at 0 — the vendor's own availability toggle can also force
   // it regardless of stock.
-  const allVariantsSoldOut = product.variants.length > 0 && product.variants.every((v) => v.stockQty <= 0);
+  const allVariantsSoldOut = variants.length > 0 && variants.every((v) => v.stockQty <= 0);
   const isOutOfStock = product.availability === "OUT_OF_STOCK" || allVariantsSoldOut;
-  const purchaseVariants = product.variants.map((v) => ({
+  const purchaseVariants = variants.map((v) => ({
     id: v.id,
     quantityValue: v.quantityValue.toString(),
     unit: v.unit,
@@ -147,6 +158,7 @@ export default async function ProductDetailPage({
             <PurchasePanel
               productId={product.id}
               productName={product.name}
+              productUnit={product.unit}
               variants={purchaseVariants}
               isSaved={isSaved}
             />
