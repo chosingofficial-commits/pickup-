@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Wallet, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRiderHistory, getRiderDeliveryStats } from "@/lib/rider/queries";
-import { getRiderBalance, getRiderLedger, fromPoisha } from "@/lib/rider/ledger";
+import { getRiderBalance, getRiderLedger, formatCollectedLabel, fromPoisha } from "@/lib/rider/ledger";
 import { getPeriodStart } from "@/lib/rider/balance";
 import { statusLabel } from "@/lib/orders/status-flow";
 import { formatBDT } from "@/lib/utils";
@@ -53,17 +54,7 @@ export default async function RiderHistoryPage({ searchParams }: { searchParams:
       <h1 className="font-heading text-2xl font-bold text-brand-dark">Delivery history</h1>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-bg text-brand-primary">
-              <Wallet className="h-5 w-5" aria-hidden />
-            </span>
-            <div>
-              <p className="text-xs text-gray-500">Balance</p>
-              <p className="font-heading text-lg font-bold text-brand-dark">{formatBalance(balancePoisha)}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard icon={Wallet} label="Balance" value={formatBalance(balancePoisha)} href="/rider/balance" />
         <Card>
           <CardContent className="flex items-center gap-3 pt-5">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-bg text-brand-primary">
@@ -114,7 +105,7 @@ export default async function RiderHistoryPage({ searchParams }: { searchParams:
                   </div>
                   {entry && order.delivery && (
                     <div className="mt-2 grid grid-cols-3 gap-2 border-t border-border-brand pt-2 text-xs text-gray-600">
-                      <span>Collected: {formatBDT(fromPoisha(entry.amountPoisha))}</span>
+                      <span>{formatCollectedLabel(order.delivery.isCod, entry.amountPoisha)}</span>
                       <span>Earned: {order.delivery.riderEarningPoisha != null ? formatBDT(fromPoisha(order.delivery.riderEarningPoisha)) : "—"}</span>
                       <span>{entry.balanceImpactPoisha >= 0 ? "You owe" : "Owed to you"}: {formatBDT(Math.abs(fromPoisha(entry.balanceImpactPoisha)))}</span>
                     </div>
@@ -127,7 +118,16 @@ export default async function RiderHistoryPage({ searchParams }: { searchParams:
       </div>
 
       <div>
-        <h2 className="mb-3 font-heading text-lg font-bold text-brand-dark">Handovers & payouts</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-heading text-lg font-bold text-brand-dark">Handovers & payouts</h2>
+          <Link href="/rider/balance" className="text-sm font-semibold text-brand-primary hover:underline">
+            See full balance breakdown
+          </Link>
+        </div>
+        <p className="mb-3 text-xs text-gray-500">
+          Your balance above is the running total of every delivery (what you owe for cash collected, minus what you earned) plus the handovers and payouts below — not just the
+          deliveries shown higher up.
+        </p>
         {moneyEntries.length === 0 ? (
           <p className="text-sm text-gray-500">No handovers or payouts recorded yet.</p>
         ) : (

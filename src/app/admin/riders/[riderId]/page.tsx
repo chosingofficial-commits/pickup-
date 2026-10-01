@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { getRiderBalance, getRiderLedger, fromPoisha } from "@/lib/rider/ledger";
+import { getRiderBalance, getRiderLedger, formatCollectedLabel, fromPoisha } from "@/lib/rider/ledger";
 import { RiderHandoverForm, RiderPayoutForm, RiderAdjustmentForm, RiderCommissionRateForm, RiderMarkPaidAction } from "@/components/admin/rider-ledger-forms";
 import { RiderBalanceBadge } from "@/components/admin/rider-balance-badge";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +73,12 @@ export default async function AdminRiderDetailPage({ params }: { params: Promise
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-brand-dark">{formatBDT(fromPoisha(entry.amountPoisha))}</p>
+                  <p className="font-semibold text-brand-dark">
+                    {entry.delivery ? formatCollectedLabel(entry.delivery.isCod, entry.amountPoisha) : formatBDT(fromPoisha(entry.amountPoisha))}
+                  </p>
+                  {entry.delivery && (
+                    <p className="text-xs text-gray-500">Earned: {entry.delivery.riderEarningPoisha != null ? formatBDT(fromPoisha(entry.delivery.riderEarningPoisha)) : "—"}</p>
+                  )}
                   <Badge variant={entry.balanceImpactPoisha >= 0 ? "warning" : "success"}>
                     {entry.balanceImpactPoisha >= 0 ? "+" : "-"}
                     {formatBDT(Math.abs(fromPoisha(entry.balanceImpactPoisha)))}

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getRiderBalance, getRiderLedger, fromPoisha } from "@/lib/rider/ledger";
+import { getRiderBalance, getRiderLedger, formatCollectedLabel, fromPoisha } from "@/lib/rider/ledger";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Balance" };
@@ -78,7 +78,12 @@ export default async function RiderBalancePage() {
                     <p className="text-xs text-gray-400">{entry.occurredAt.toLocaleString("en-BD", { dateStyle: "medium", timeStyle: "short" })}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-heading font-bold text-brand-dark">{formatBDT(fromPoisha(entry.amountPoisha))}</p>
+                    <p className="font-heading font-bold text-brand-dark">
+                      {entry.delivery ? formatCollectedLabel(entry.delivery.isCod, entry.amountPoisha) : formatBDT(fromPoisha(entry.amountPoisha))}
+                    </p>
+                    {entry.delivery && (
+                      <p className="text-xs text-gray-500">Earned: {entry.delivery.riderEarningPoisha != null ? formatBDT(fromPoisha(entry.delivery.riderEarningPoisha)) : "—"}</p>
+                    )}
                     <p className="text-xs text-gray-500">
                       {entry.balanceImpactPoisha >= 0 ? "+" : "−"}
                       {formatBDT(Math.abs(fromPoisha(entry.balanceImpactPoisha)))} to balance

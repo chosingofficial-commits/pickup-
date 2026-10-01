@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { formatBDT } from "@/lib/utils";
 import { getPeriodStart, type PeriodKey } from "./balance";
 
 export function toPoisha(taka: number): number {
@@ -8,6 +9,19 @@ export function toPoisha(taka: number): number {
 
 export function fromPoisha(poisha: number): number {
   return poisha / 100;
+}
+
+/**
+ * `amountPoisha` on a DELIVERY_EARNING/DELIVERY_REVERSAL entry means two
+ * different things depending on payment method: for COD it's the full order
+ * total the rider physically collected in cash; for an online-paid order the
+ * rider never touches any cash, so it's their earning share instead. Showing
+ * either number under a generic "Collected" label is wrong for the other
+ * case — every UI that displays this must go through here instead of
+ * formatting amountPoisha directly.
+ */
+export function formatCollectedLabel(isCod: boolean | null | undefined, amountPoisha: number): string {
+  return isCod ? `Collected: ${formatBDT(fromPoisha(amountPoisha))}` : "Paid online";
 }
 
 /**
