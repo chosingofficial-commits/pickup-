@@ -1,6 +1,10 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
+import type { OrderStatus } from "@/generated/prisma/client";
+
+/** A cancelled or failed order never actually delivered the discount, so its redemption releases the coupon back for reuse — delivered (and still in-progress) orders keep counting. */
+const STATUSES_THAT_DONT_COUNT_TOWARD_COUPON_USAGE: OrderStatus[] = ["CANCELLED", "FAILED_DELIVERY"];
 
 export type ValidatedCoupon = {
   id: string;
@@ -23,13 +27,15 @@ export async function validateCoupon(
   if (now < coupon.startsAt || now > coupon.endsAt) return { ok: false, message: "This coupon has expired." };
 
   if (coupon.usageLimit != null) {
-    const used = await db.couponRedemption.count({ where: { couponId: coupon.id } });
+    const used = await db.couponRedemption.count({
+      where: { couponId: coupon.id, order: { status: { notIn: STATUSES_THAT_DONT_COUNT_TOWARD_COUPON_USAGE } } },
+    });
     if (used >= coupon.usageLimit) return { ok: false, message: "This coupon has reached its usage limit." };
   }
 
   if (userId) {
     const usedByCustomer = await db.couponRedemption.count({
-      where: { couponId: coupon.id, order: { customerId: userId } },
+      where: { couponId: coupon.id, order: { customerId: userId, status: { notIn: STATUSES_THAT_DONT_COUNT_TOWARD_COUPON_USAGE } } },
     });
     if (usedByCustomer >= coupon.perCustomerLimit) {
       return { ok: false, message: "You've already used this coupon the maximum number of times." };

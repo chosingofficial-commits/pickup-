@@ -52,8 +52,17 @@ export async function getFreeDeliveryPromoSettingsUncached(): Promise<FreeDelive
   return mapPromoSettings(await getSiteSettingsUncached());
 }
 
-/** No prior OrderGroup at all — checked fresh on every read, not cached, since eligibility changes the moment an order is placed. */
+/**
+ * No prior OrderGroup containing a real order — checked fresh on every
+ * read, not cached, since eligibility changes the moment an order is
+ * placed. A group whose every order was cancelled or failed never actually
+ * delivered anything, so it doesn't burn the customer's first-order
+ * eligibility; a group with at least one order in any other status
+ * (in-progress or delivered) does.
+ */
 export async function isFirstOrderCustomer(userId: string): Promise<boolean> {
-  const count = await db.orderGroup.count({ where: { customerId: userId } });
+  const count = await db.orderGroup.count({
+    where: { customerId: userId, orders: { some: { status: { notIn: ["CANCELLED", "FAILED_DELIVERY"] } } } },
+  });
   return count === 0;
 }
