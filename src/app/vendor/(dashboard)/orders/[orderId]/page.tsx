@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { DeliveryTimeline } from "@/components/orders/delivery-timeline";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
+import { FindRiderButton } from "@/components/orders/find-rider-button";
 import { CustomerTrackingPanel } from "@/components/orders/customer-tracking-panel";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorOrderDetail } from "@/lib/vendor/queries";
@@ -20,6 +21,8 @@ export default async function VendorOrderDetailPage({ params }: { params: Promis
   if (!order) notFound();
 
   const businessType = user.vendorProfile.businessType;
+  const readyStatus = businessType === "RESTAURANT" ? "READY_FOR_PICKUP" : "PREPARING";
+  const canFindRider = order.status === readyStatus && !order.delivery?.riderId;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -33,7 +36,26 @@ export default async function VendorOrderDetailPage({ params }: { params: Promis
       <Card>
         <CardContent className="pt-5">
           <CardTitle className="mb-3">Update status</CardTitle>
-          <OrderStatusActions orderId={order.id} nextOptions={getAvailableNextStatuses(order.status, businessType, "VENDOR")} />
+          <div className="flex flex-wrap items-center gap-2">
+            <OrderStatusActions orderId={order.id} nextOptions={getAvailableNextStatuses(order.status, businessType, "VENDOR")} />
+            {canFindRider && <FindRiderButton orderId={order.id} />}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-5">
+          <CardTitle className="mb-3">Rider</CardTitle>
+          {order.delivery?.rider ? (
+            <div className="text-sm">
+              <p className="font-semibold text-brand-dark">{order.delivery.rider.user.name}</p>
+              <p className="text-gray-600">{order.delivery.rider.user.phone}</p>
+            </div>
+          ) : order.delivery?.riderSearchStartedAt ? (
+            <p className="text-sm text-gray-500">Searching for a rider…</p>
+          ) : (
+            <p className="text-sm text-gray-500">Not searching yet.</p>
+          )}
         </CardContent>
       </Card>
 

@@ -3,10 +3,17 @@ import type { OrderStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getPeriodStart } from "@/lib/rider/balance";
 
+/**
+ * A rider sees an order here ONLY once the vendor has clicked "Find rider"
+ * (riderSearchStartedAt set) — being PREPARING/READY_FOR_PICKUP alone is no
+ * longer enough. See findRiderAction, which sets it and notifies every
+ * eligible rider at once; whichever rider accepts first wins the race in
+ * advanceOrderStatusAction's guarded update.
+ */
 export async function getAvailableAssignments() {
   return db.order.findMany({
     where: {
-      delivery: { riderId: null },
+      delivery: { riderId: null, riderSearchStartedAt: { not: null } },
       OR: [
         { vendor: { businessType: "GROCERY_VENDOR" }, status: "PREPARING" },
         { vendor: { businessType: "RESTAURANT" }, status: "READY_FOR_PICKUP" },

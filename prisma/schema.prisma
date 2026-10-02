@@ -962,6 +962,10 @@ model Delivery {
   pickedUpAt      DateTime?
   deliveredAt     DateTime?
   isTrackingActive Boolean     @default(false)
+  // Set when a vendor clicks "Find rider" — riders only see this delivery in
+  // their available-deliveries list once this is non-null (never reset;
+  // re-clicking "Find rider" just bumps it to notify everyone again).
+  riderSearchStartedAt DateTime?
   // Snapshot fields, written once when the ledger DELIVERY_EARNING entry is
   // created (see lib/actions/orders.ts) — never recomputed afterward, so a
   // later change to the rider's commissionRatePct never rewrites history.

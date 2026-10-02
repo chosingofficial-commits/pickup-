@@ -66,34 +66,48 @@ export async function advanceOrderStatusAction(_prev: ActionState, formData: For
     return { status: "error", message: "You are not authorized to update this order." };
   }
 
-  await db.$transaction(async (tx) => {
-    await tx.order.update({ where: { id: orderId }, data: { status: nextStatus } });
-    await tx.deliveryStatusHistory.create({ data: { orderId, status: nextStatus, note, changedByUserId: user.id } });
+  try {
+    await db.$transaction(async (tx) => {
+      if (nextStatus === "RIDER_ASSIGNED" && user.riderProfile) {
+        // Atomic claim — the pre-check above is only a fast-fail UX nicety;
+        // this guarded update is what actually prevents two riders who both
+        // passed that check at the same instant from both winning. Whichever
+        // transaction commits first flips riderId away from null, so the
+        // second one's updateMany matches zero rows.
+        const claimed = await tx.delivery.updateMany({
+          where: { orderId, riderId: null },
+          data: { riderId: user.riderProfile.id, assignedAt: new Date(), isTrackingActive: true },
+        });
+        if (claimed.count === 0) throw new Error("RIDER_RACE_LOST");
+      }
 
-    if (nextStatus === "RIDER_ASSIGNED" && user.riderProfile) {
-      await tx.delivery.update({
-        where: { orderId },
-        data: { riderId: user.riderProfile.id, assignedAt: new Date(), isTrackingActive: true },
-      });
-    }
-    if (nextStatus === "PICKED_UP") {
-      await tx.delivery.update({ where: { orderId }, data: { pickedUpAt: new Date() } });
-    }
-    if (nextStatus === "DELIVERED" || nextStatus === "FAILED_DELIVERY") {
-      await tx.delivery.update({
-        where: { orderId },
-        data: { deliveredAt: nextStatus === "DELIVERED" ? new Date() : undefined, isTrackingActive: false },
-      });
-    }
+      await tx.order.update({ where: { id: orderId }, data: { status: nextStatus } });
+      await tx.deliveryStatusHistory.create({ data: { orderId, status: nextStatus, note, changedByUserId: user.id } });
 
-    if (nextStatus === "DELIVERED" && order.delivery?.riderId) {
-      await createDeliveryEarningEntry(tx, order, order.delivery.id, order.delivery.riderId);
-    }
+      if (nextStatus === "PICKED_UP") {
+        await tx.delivery.update({ where: { orderId }, data: { pickedUpAt: new Date() } });
+      }
+      if (nextStatus === "DELIVERED" || nextStatus === "FAILED_DELIVERY") {
+        await tx.delivery.update({
+          where: { orderId },
+          data: { deliveredAt: nextStatus === "DELIVERED" ? new Date() : undefined, isTrackingActive: false },
+        });
+      }
 
-    if ((nextStatus === "RETURNED" || nextStatus === "REFUNDED") && order.delivery) {
-      await reverseDeliveryEarningEntry(tx, order.delivery.id);
+      if (nextStatus === "DELIVERED" && order.delivery?.riderId) {
+        await createDeliveryEarningEntry(tx, order, order.delivery.id, order.delivery.riderId);
+      }
+
+      if ((nextStatus === "RETURNED" || nextStatus === "REFUNDED") && order.delivery) {
+        await reverseDeliveryEarningEntry(tx, order.delivery.id);
+      }
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "RIDER_RACE_LOST") {
+      return { status: "error", message: "This delivery has already been accepted by another rider." };
     }
-  });
+    throw err;
+  }
 
   await recordAuditLog({ actorUserId: user.id, action: "ORDER_STATUS_CHANGED", entityType: "Order", entityId: orderId, metadata: { from: order.status, to: nextStatus } });
 
@@ -102,6 +116,64 @@ export async function advanceOrderStatusAction(_prev: ActionState, formData: For
   revalidatePath("/rider");
   revalidatePath("/rider/deliveries");
   return { status: "success" };
+}
+
+/**
+ * Vendor clicks "Find rider": broadcasts the order to every eligible rider
+ * (approved, online, not already mid-delivery) at once, via both a
+ * Notification row and the existing /rider polling alert — riders never see
+ * this order in getAvailableAssignments() before this runs. Whichever rider
+ * accepts first wins; advanceOrderStatusAction's guarded update is what
+ * actually enforces that atomically, this just makes the order visible.
+ * Re-clicking before anyone accepts just re-notifies everyone.
+ */
+export async function findRiderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user?.vendorProfile) return { status: "error", message: "You are not authorized to do this." };
+
+  const orderId = String(formData.get("orderId") ?? "");
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { vendor: true, delivery: true } });
+  if (!order || order.vendorId !== user.vendorProfile.id) return { status: "error", message: "Order not found." };
+  if (order.delivery?.riderId) return { status: "error", message: "A rider has already accepted this order." };
+
+  const readyStatus = order.vendor.businessType === "RESTAURANT" ? "READY_FOR_PICKUP" : "PREPARING";
+  if (order.status !== readyStatus) {
+    return { status: "error", message: "This order isn't ready for a rider yet." };
+  }
+
+  const eligibleRiders = await db.riderProfile.findMany({
+    where: {
+      isApproved: true,
+      isOnline: true,
+      deliveries: { none: { order: { status: { in: ["RIDER_ASSIGNED", "PICKED_UP", "ON_THE_WAY"] } } } },
+    },
+    select: { userId: true },
+  });
+
+  await db.$transaction(async (tx) => {
+    await tx.delivery.update({ where: { orderId }, data: { riderSearchStartedAt: new Date() } });
+    if (eligibleRiders.length > 0) {
+      await tx.notification.createMany({
+        data: eligibleRiders.map((r) => ({
+          userId: r.userId,
+          type: "DELIVERY" as const,
+          title: "New delivery available",
+          body: `${order.vendor.businessName} has order ${order.orderNumber} ready for pickup.`,
+          linkUrl: "/rider",
+        })),
+      });
+    }
+  });
+
+  await recordAuditLog({ actorUserId: user.id, action: "FIND_RIDER_BROADCAST", entityType: "Order", entityId: orderId, metadata: { eligibleRiderCount: eligibleRiders.length } });
+
+  revalidatePath(`/vendor/orders/${orderId}`);
+  revalidatePath("/vendor/orders");
+  revalidatePath("/rider");
+
+  return eligibleRiders.length > 0
+    ? { status: "success", message: `Notified ${eligibleRiders.length} rider${eligibleRiders.length === 1 ? "" : "s"}.` }
+    : { status: "error", message: "No riders are currently online and free. Try again shortly." };
 }
 
 type OrderForEarning = {

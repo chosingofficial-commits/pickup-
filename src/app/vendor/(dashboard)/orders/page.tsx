@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
+import { FindRiderButton } from "@/components/orders/find-rider-button";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorOrders } from "@/lib/vendor/queries";
 import { getAvailableNextStatuses, statusLabel } from "@/lib/orders/status-flow";
@@ -53,30 +54,40 @@ export default async function VendorOrdersPage({ searchParams }: { searchParams:
         <p className="text-sm text-gray-500">No orders found.</p>
       ) : (
         <div className="space-y-3">
-          {orders.map((order) => (
-            <div key={order.id} className="rounded-card border border-border-brand bg-white p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <Link href={`/vendor/orders/${order.id}`} className="text-sm font-semibold text-brand-dark hover:text-brand-primary">
-                    {order.orderNumber}
-                  </Link>
-                  <p className="text-xs text-gray-500">
-                    {order.customer.name} · {order.customer.phone} · {order.address.neighbourhood?.name}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-600">
-                    {order.items.map((i) => `${i.quantity}× ${i.nameSnapshot}`).join(", ")}
-                  </p>
+          {orders.map((order) => {
+            const readyStatus = businessType === "RESTAURANT" ? "READY_FOR_PICKUP" : "PREPARING";
+            const canFindRider = order.status === readyStatus && !order.delivery?.riderId;
+            return (
+              <div key={order.id} className="rounded-card border border-border-brand bg-white p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <Link href={`/vendor/orders/${order.id}`} className="text-sm font-semibold text-brand-dark hover:text-brand-primary">
+                      {order.orderNumber}
+                    </Link>
+                    <p className="text-xs text-gray-500">
+                      {order.customer.name} · {order.customer.phone} · {order.address.neighbourhood?.name}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-600">
+                      {order.items.map((i) => `${i.quantity}× ${i.nameSnapshot}`).join(", ")}
+                    </p>
+                    {order.delivery?.rider ? (
+                      <p className="mt-1 text-xs font-semibold text-brand-primary">Rider: {order.delivery.rider.user.name}</p>
+                    ) : order.delivery?.riderSearchStartedAt ? (
+                      <p className="mt-1 text-xs text-gray-500">Searching for a rider…</p>
+                    ) : null}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-heading font-bold text-brand-dark">{formatBDT(order.total)}</p>
+                    <Badge variant={order.status === "DELIVERED" ? "brand" : "accent"}>{statusLabel(order.status)}</Badge>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-heading font-bold text-brand-dark">{formatBDT(order.total)}</p>
-                  <Badge variant={order.status === "DELIVERED" ? "brand" : "accent"}>{statusLabel(order.status)}</Badge>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <OrderStatusActions orderId={order.id} nextOptions={getAvailableNextStatuses(order.status, businessType, "VENDOR")} />
+                  {canFindRider && <FindRiderButton orderId={order.id} />}
                 </div>
               </div>
-              <div className="mt-3">
-                <OrderStatusActions orderId={order.id} nextOptions={getAvailableNextStatuses(order.status, businessType, "VENDOR")} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

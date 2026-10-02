@@ -70,7 +70,12 @@ export async function getVendorOrders(vendorId: string, statusFilter?: string) {
 
   return db.order.findMany({
     where,
-    include: { items: true, customer: { select: { name: true, phone: true } }, address: { include: { neighbourhood: true } } },
+    include: {
+      items: true,
+      customer: { select: { name: true, phone: true } },
+      address: { include: { neighbourhood: true } },
+      delivery: { select: { riderId: true, riderSearchStartedAt: true, rider: { select: { user: { select: { name: true } } } } } },
+    },
     orderBy: { createdAt: "desc" },
     take: 100,
   });
