@@ -53,9 +53,25 @@ export async function approveVendorApplicationAction(_prev: ActionState, formDat
           scheduledOrderingEnabled: false,
         },
       });
+
+      // Use the hours the applicant actually set in the structured picker —
+      // falling back to the old hard-coded default only for applications
+      // submitted before that picker existed (which only have the old
+      // free-text openingHoursText, never parsed into anything usable here).
+      const submittedHours = Array.isArray(application.weeklyHoursJson)
+        ? (application.weeklyHoursJson as unknown as { dayOfWeek: number; opensAt: string; closesAt: string; isClosed: boolean }[])
+        : null;
+
       for (let day = 0; day < 7; day++) {
+        const submitted = submittedHours?.find((h) => h.dayOfWeek === day);
         await tx.restaurantWeeklyHours.create({
-          data: { restaurantId: restaurant.id, dayOfWeek: day, opensAt: "10:00", closesAt: "22:00", isClosed: false },
+          data: {
+            restaurantId: restaurant.id,
+            dayOfWeek: day,
+            opensAt: submitted?.opensAt ?? "10:00",
+            closesAt: submitted?.closesAt ?? "22:00",
+            isClosed: submitted?.isClosed ?? false,
+          },
         });
       }
     }

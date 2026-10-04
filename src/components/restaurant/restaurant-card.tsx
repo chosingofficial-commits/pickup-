@@ -3,6 +3,7 @@ import { Star, Clock, Bike } from "lucide-react";
 import { ProductImage } from "@/components/product/product-image";
 import { Badge } from "@/components/ui/badge";
 import { FavoriteVendorButton } from "@/components/restaurant/favorite-vendor-button";
+import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { formatBDT } from "@/lib/utils";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
 import type { Vendor, Restaurant, RestaurantWeeklyHours } from "@/generated/prisma/client";
@@ -20,10 +21,15 @@ export function RestaurantCard({ vendor, isFavorited }: { vendor: RestaurantCard
         <div className="relative aspect-[16/9]">
           <ProductImage src={vendor.coverImageUrl} alt={vendor.businessName} categorySlug="restaurant" className="h-full w-full" />
           <div className="absolute left-2 top-2">
-            <Badge variant={status.isOpenNow ? "brand" : "dark"}>{status.isOpenNow ? "Open now" : "Closed"}</Badge>
+            <Badge variant={status.isOpenNow ? "brand" : "dark"}>
+              {status.isOpenNow ? "Open now" : status.nextOpen ? `Closed · Opens ${status.nextOpen.label} at ${status.nextOpen.time}` : "Closed"}
+            </Badge>
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-1.5 p-3.5">
+          <div className="-mt-7 flex items-end gap-2">
+            <VendorLogo logoUrl={vendor.logoUrl} businessName={vendor.businessName} size={40} />
+          </div>
           <h3 className="font-heading text-base font-bold text-brand-dark group-hover:text-brand-primary">{vendor.businessName}</h3>
           <p className="line-clamp-1 text-xs text-gray-500">{vendor.restaurant.cuisineTags.join(" · ")}</p>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">

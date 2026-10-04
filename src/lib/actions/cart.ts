@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ensureDefaultVariant } from "@/lib/catalog/variant-sync";
+import { getRestaurantStatus } from "@/lib/restaurant/status";
 import type { ActionState } from "./types";
 
 async function requireCartId(nextPath: string): Promise<string> {
@@ -110,10 +111,22 @@ export async function addMenuItemToCartAction(_prev: ActionState, formData: Form
 
   const menuItem = await db.menuItem.findUnique({
     where: { id: menuItemId },
-    include: { addOnGroups: { include: { addOns: true } } },
+    include: { addOnGroups: { include: { addOns: true } }, menu: { include: { vendor: { include: { restaurant: { include: { weeklyHours: true } } } } } } },
   });
   if (!menuItem || !menuItem.isAvailable) {
     return { status: "error", message: "This item is not available." };
+  }
+
+  // Re-checked here, not just hidden client-side — a restaurant can close
+  // between page load and this request, and the UI's "Add" button is only a
+  // courtesy. A restaurant that still accepts scheduled orders may add; one
+  // that doesn't is refused with a clear reason.
+  const restaurant = menuItem.menu.vendor.restaurant;
+  if (restaurant) {
+    const status = getRestaurantStatus(restaurant);
+    if (!status.isOpenNow && !status.canAcceptScheduledOrders) {
+      return { status: "error", message: `${menuItem.menu.vendor.businessName} is closed right now and isn't accepting orders.` };
+    }
   }
 
   // Re-derive selections from the authoritative menu data — never trust

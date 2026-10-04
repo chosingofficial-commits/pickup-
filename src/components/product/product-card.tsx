@@ -5,6 +5,7 @@ import { AddToCartButton } from "./add-to-cart-button";
 import { WishlistButton } from "./wishlist-button";
 import { QuickViewButton } from "./quick-view-button";
 import { Badge } from "@/components/ui/badge";
+import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { formatBDT } from "@/lib/utils";
 import type { ProductListItem } from "@/lib/catalog/queries";
 
@@ -59,7 +60,8 @@ export function ProductCard({ product, isSaved }: { product: ProductListItem; is
         <Link href={href} prefetch={false} className="line-clamp-2 text-sm font-semibold text-brand-dark hover:text-brand-primary">
           {product.name}
         </Link>
-        <p className="text-xs text-gray-500">
+        <p className="flex items-center gap-1 text-xs text-gray-500">
+          <VendorLogo logoUrl={product.vendor.logoUrl} businessName={product.vendor.businessName} size={14} className="border-0 shadow-none" />
           {product.unit} · {product.vendor.businessName}
         </p>
         {product.ratingCount > 0 && (

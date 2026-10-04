@@ -99,11 +99,19 @@ export default async function CheckoutReviewPage() {
           {groups.map((group) => (
             <div key={group.vendorId} className="mb-3 last:mb-0">
               <p className="text-xs font-semibold text-gray-500">{group.vendorBusinessName}</p>
+              {group.restaurantStatus && !group.restaurantStatus.isOpenNow && (
+                <p className="mb-1 rounded-control bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900">
+                  Closed now — prepared once they open{group.restaurantStatus.nextOpen ? ` ${group.restaurantStatus.nextOpen.label} at ${group.restaurantStatus.nextOpen.time}` : ""}.
+                </p>
+              )}
               {group.lines.map((line) => (
                 <div key={line.id} className="flex justify-between py-1 text-sm">
                   <span className="text-gray-700">
                     {line.quantity}× {line.name}
                     {line.variant && <span className="text-gray-500"> — {formatVariantLabel(line.variant, locale)}</span>}
+                    {line.selectedAddOns.length > 0 && (
+                      <span className="block text-xs text-gray-500">+ {line.selectedAddOns.map((a) => a.name).join(", ")}</span>
+                    )}
                   </span>
                   <span className="text-brand-dark">{formatBDT((line.unitPrice + line.addOnsTotal) * line.quantity)}</span>
                 </div>

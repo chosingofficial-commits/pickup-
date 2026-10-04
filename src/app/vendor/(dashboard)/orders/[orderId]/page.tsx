@@ -8,6 +8,7 @@ import { CustomerTrackingPanel } from "@/components/orders/customer-tracking-pan
 import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorOrderDetail } from "@/lib/vendor/queries";
 import { getAvailableNextStatuses } from "@/lib/orders/status-flow";
+import { parseSelectedAddOns } from "@/lib/catalog/order-addons";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order details" };
@@ -84,6 +85,9 @@ export default async function VendorOrderDetailPage({ params }: { params: Promis
               <div key={item.id} className="flex justify-between">
                 <span className="text-gray-700">
                   {item.quantity}× {item.nameSnapshot}
+                  {parseSelectedAddOns(item.selectedAddOns).length > 0 && (
+                    <span className="block text-xs text-gray-500">+ {parseSelectedAddOns(item.selectedAddOns).map((a) => a.name).join(", ")}</span>
+                  )}
                 </span>
                 <span className="text-brand-dark">{formatBDT(item.lineTotal)}</span>
               </div>

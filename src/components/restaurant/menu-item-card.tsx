@@ -15,6 +15,7 @@ export type MenuItemWithAddOns = {
   name: string;
   description: string | null;
   price: string;
+  compareAtPrice: string | null;
   imageUrl: string | null;
   isAvailable: boolean;
   allowsInstructions: boolean;
@@ -26,16 +27,28 @@ export function MenuItemCard({ item, canOrder }: { item: MenuItemWithAddOns; can
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [state, formAction, pending] = useActionState(addMenuItemToCartAction, initialActionState);
   const hasOptions = item.addOnGroups.length > 0;
+  const soldOut = !item.isAvailable;
 
   return (
-    <div className="flex gap-3 rounded-card border border-border-brand bg-white p-3">
-      <ProductImage src={item.imageUrl} alt={item.name} categorySlug="restaurant" className="h-20 w-20 shrink-0 rounded-control" emoji="🍽️" />
+    <div className={`flex gap-3 rounded-card border border-border-brand bg-white p-3 ${soldOut ? "opacity-60" : ""}`}>
+      <ProductImage
+        src={item.imageUrl}
+        alt={item.name}
+        categorySlug="restaurant"
+        className={`h-20 w-20 shrink-0 rounded-control ${soldOut ? "grayscale" : ""}`}
+        emoji="🍽️"
+      />
       <div className="flex flex-1 flex-col">
         <h3 className="font-heading text-sm font-bold text-brand-dark">{item.name}</h3>
         {item.description && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{item.description}</p>}
         <div className="mt-auto flex items-center justify-between pt-2">
-          <span className="font-heading text-sm font-bold text-brand-dark">{formatBDT(item.price)}</span>
-          {canOrder && item.isAvailable ? (
+          <span className="flex items-baseline gap-1.5">
+            <span className="font-heading text-sm font-bold text-brand-dark">{formatBDT(item.price)}</span>
+            {item.compareAtPrice && <span className="text-xs text-gray-400 line-through">{formatBDT(item.compareAtPrice)}</span>}
+          </span>
+          {soldOut ? (
+            <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Sold out</span>
+          ) : canOrder ? (
             <button
               type="button"
               onClick={() => {
@@ -55,7 +68,7 @@ export function MenuItemCard({ item, canOrder }: { item: MenuItemWithAddOns; can
               {state.status === "success" ? "Added" : "Add"}
             </button>
           ) : (
-            <span className="text-xs font-medium text-gray-400">{item.isAvailable ? "Closed" : "Unavailable"}</span>
+            <span className="text-xs font-medium text-gray-400">Closed</span>
           )}
         </div>
         {state.status === "error" && <p className="mt-1 text-xs text-red-600">{state.message}</p>}

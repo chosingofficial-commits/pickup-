@@ -52,7 +52,7 @@ export const getCigaretteProducts = cache(async () => {
     include: {
       images: { take: 1 },
       category: true,
-      vendor: { select: { businessName: true, slug: true } },
+      vendor: { select: { businessName: true, slug: true, logoUrl: true } },
       inventory: { select: { quantityInStock: true } },
       _count: { select: { variants: { where: { isActive: true } } } },
     },

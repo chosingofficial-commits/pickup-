@@ -11,6 +11,7 @@ import { RequestRefundForm } from "@/components/orders/request-refund-form";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCustomerOrderDetail } from "@/lib/orders/queries";
+import { parseSelectedAddOns } from "@/lib/catalog/order-addons";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order details" };
@@ -116,6 +117,9 @@ export default async function AccountOrderDetailPage({ params }: { params: Promi
                   <div key={item.id} className="flex justify-between">
                     <span className="text-gray-700">
                       {item.quantity}× {item.nameSnapshot}
+                      {parseSelectedAddOns(item.selectedAddOns).length > 0 && (
+                        <span className="block text-xs text-gray-500">+ {parseSelectedAddOns(item.selectedAddOns).map((a) => a.name).join(", ")}</span>
+                      )}
                     </span>
                     <span className="text-brand-dark">{formatBDT(item.lineTotal)}</span>
                   </div>

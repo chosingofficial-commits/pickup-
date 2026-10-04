@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Star, Truck, Store } from "lucide-react";
+import { Star, Truck } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductCard } from "@/components/product/product-card";
 import { PurchasePanel } from "@/components/product/purchase-panel";
 import { JsonLd } from "@/components/seo/json-ld";
+import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { getProductBySlug, getRelatedProducts } from "@/lib/catalog/queries";
 import { getSelectedLocation } from "@/lib/location/cookie";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -166,7 +167,7 @@ export default async function ProductDetailPage({
 
           <div className="mt-6 space-y-2 rounded-card border border-border-brand bg-surface-muted p-4 text-sm">
             <p className="flex items-center gap-2 text-brand-dark">
-              <Store className="h-4 w-4 text-brand-primary" aria-hidden />
+              <VendorLogo logoUrl={product.vendor.logoUrl} businessName={product.vendor.businessName} size={24} className="border-0 shadow-none" />
               Sold by <span className="font-semibold">{product.vendor.businessName}</span>
             </p>
             <p className="flex items-center gap-2 text-brand-dark">

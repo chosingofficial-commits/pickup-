@@ -47,7 +47,10 @@ export const getRestaurantBySlug = cache(async (slug: string) => {
       restaurantMenus: {
         where: { isActive: true },
         orderBy: { sortOrder: "asc" },
-        include: { items: { where: { isAvailable: true }, include: { addOnGroups: { include: { addOns: true } } } } },
+        // Unavailable items stay visible (greyed out, "Sold out") rather
+        // than vanishing — consistent with how out-of-stock grocery
+        // products are shown, not hidden.
+        include: { items: { include: { addOnGroups: { include: { addOns: true } } } } },
       },
       reviews: { include: { customer: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 10 },
     },

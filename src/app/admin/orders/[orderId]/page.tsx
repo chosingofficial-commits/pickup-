@@ -7,6 +7,7 @@ import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { OrderAdminActions } from "@/components/admin/order-admin-actions";
 import { getAvailableNextStatuses, isTerminal, statusLabel } from "@/lib/orders/status-flow";
 import { getApprovedRiders } from "@/lib/admin/queries";
+import { parseSelectedAddOns } from "@/lib/catalog/order-addons";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 
@@ -100,6 +101,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   <div key={item.id} className="flex justify-between">
                     <span className="text-gray-700">
                       {item.quantity}× {item.nameSnapshot}
+                      {parseSelectedAddOns(item.selectedAddOns).length > 0 && (
+                        <span className="block text-xs text-gray-500">+ {parseSelectedAddOns(item.selectedAddOns).map((a) => a.name).join(", ")}</span>
+                      )}
                     </span>
                     <span className="text-brand-dark">{formatBDT(item.lineTotal)}</span>
                   </div>

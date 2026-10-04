@@ -24,6 +24,11 @@ export function AddMenuItemForm({ menuId }: { menuId: string }) {
         <Input id={`item-price-${menuId}`} name="price" type="number" step="0.01" min="0" required aria-invalid={!!state.fieldErrors?.price} />
         <FieldError>{state.fieldErrors?.price?.[0]}</FieldError>
       </div>
+      <div>
+        <Label htmlFor={`item-compare-${menuId}`}>Old price (optional)</Label>
+        <Input id={`item-compare-${menuId}`} name="compareAtPrice" type="number" step="0.01" min="0" placeholder="Shown crossed out" aria-invalid={!!state.fieldErrors?.compareAtPrice} />
+        <FieldError>{state.fieldErrors?.compareAtPrice?.[0]}</FieldError>
+      </div>
       <div className="sm:col-span-2">
         <Label htmlFor={`item-desc-${menuId}`}>Description</Label>
         <Input id={`item-desc-${menuId}`} name="description" />

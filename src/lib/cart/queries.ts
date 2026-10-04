@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { getRestaurantStatus, type RestaurantStatus } from "@/lib/restaurant/status";
 
 export async function getCartItemCount(userId: string | undefined): Promise<number> {
   if (!userId) return 0;
@@ -58,7 +59,7 @@ export async function getFullCart(userId: string) {
             },
           },
           variant: { include: { image: true } },
-          menuItem: { include: { menu: { include: { vendor: true } } } },
+          menuItem: { include: { menu: { include: { vendor: { include: { restaurant: { include: { weeklyHours: true } } } } } } } },
         },
         orderBy: { createdAt: "asc" },
       },
@@ -130,7 +131,22 @@ export async function getFullCart(userId: string) {
     }
   }
 
-  const groups = new Map<string, { vendorId: string; vendorSlug: string; vendorBusinessName: string; vendorBusinessType: string; lines: NormalizedCartLine[] }>();
+  // Captured alongside the lines loop above (only menu-item lines carry a
+  // restaurant) so each restaurant group can tell the customer "this will be
+  // delivered once X opens" rather than silently allowing a closed-but-
+  // scheduling restaurant's item to sit in the cart with no explanation.
+  const restaurantStatusByVendorId = new Map<string, RestaurantStatus>();
+  for (const item of cart?.items ?? []) {
+    const restaurant = item.menuItem?.menu.vendor.restaurant;
+    if (restaurant && !restaurantStatusByVendorId.has(item.menuItem!.menu.vendorId)) {
+      restaurantStatusByVendorId.set(item.menuItem!.menu.vendorId, getRestaurantStatus(restaurant));
+    }
+  }
+
+  const groups = new Map<
+    string,
+    { vendorId: string; vendorSlug: string; vendorBusinessName: string; vendorBusinessType: string; restaurantStatus: RestaurantStatus | null; lines: NormalizedCartLine[] }
+  >();
   for (const line of lines) {
     const existing = groups.get(line.vendorId);
     if (existing) {
@@ -141,6 +157,7 @@ export async function getFullCart(userId: string) {
         vendorSlug: line.vendorSlug,
         vendorBusinessName: line.vendorBusinessName,
         vendorBusinessType: line.vendorBusinessType,
+        restaurantStatus: restaurantStatusByVendorId.get(line.vendorId) ?? null,
         lines: [line],
       });
     }

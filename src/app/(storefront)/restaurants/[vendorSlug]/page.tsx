@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProductImage } from "@/components/product/product-image";
 import { MenuItemCard } from "@/components/restaurant/menu-item-card";
 import { FavoriteVendorButton } from "@/components/restaurant/favorite-vendor-button";
+import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getRestaurantBySlug } from "@/lib/restaurant/queries";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
@@ -55,34 +56,45 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
 
       <Container className="py-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-2xl font-bold text-brand-dark sm:text-3xl">{vendor.businessName}</h1>
-            <p className="mt-1 text-sm text-gray-600">{vendor.restaurant.cuisineTags.join(" · ")}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
-              {vendor.ratingCount > 0 && (
+          <div className="flex items-start gap-3">
+            <VendorLogo logoUrl={vendor.logoUrl} businessName={vendor.businessName} size={56} className="-mt-10" />
+            <div>
+              <h1 className="font-heading text-2xl font-bold text-brand-dark sm:text-3xl">{vendor.businessName}</h1>
+              <p className="mt-1 text-sm text-gray-600">{vendor.restaurant.cuisineTags.join(" · ")}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
+                {vendor.ratingCount > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
+                    {Number(vendor.ratingAvg).toFixed(1)} ({vendor.ratingCount})
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
-                  {Number(vendor.ratingAvg).toFixed(1)} ({vendor.ratingCount})
+                  <Clock className="h-4 w-4" aria-hidden />
+                  {vendor.restaurant.preparationTimeMinutes} min prep
                 </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" aria-hidden />
-                {vendor.restaurant.preparationTimeMinutes} min prep
-              </span>
-              <span className="flex items-center gap-1">
-                <Bike className="h-4 w-4" aria-hidden />
-                Min order {formatBDT(vendor.restaurant.minimumOrderAmount)}
-              </span>
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" aria-hidden />
-                {vendor.addressText}
-              </span>
+                <span className="flex items-center gap-1">
+                  <Bike className="h-4 w-4" aria-hidden />
+                  Min order {formatBDT(vendor.restaurant.minimumOrderAmount)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" aria-hidden />
+                  {vendor.addressText}
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <FavoriteVendorButton vendorId={vendor.id} isFavorited={isFavorited} className="border border-border-brand" />
             <Badge variant={status.isOpenNow ? "brand" : "dark"} className="text-sm">
-              {status.isOpenNow ? "Open now" : status.reason === "manually_closed" ? "Closed" : status.reason === "temporarily_closed" ? "Temporarily closed" : "Closed"}
+              {status.isOpenNow
+                ? "Open now"
+                : status.nextOpen
+                  ? `Closed · Opens ${status.nextOpen.label} at ${status.nextOpen.time}`
+                  : status.reason === "manually_closed"
+                    ? "Closed"
+                    : status.reason === "temporarily_closed"
+                      ? "Temporarily closed"
+                      : "Closed"}
             </Badge>
           </div>
         </div>
@@ -109,6 +121,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
                       name: item.name,
                       description: item.description,
                       price: item.price.toString(),
+                      compareAtPrice: item.compareAtPrice?.toString() ?? null,
                       imageUrl: item.imageUrl,
                       isAvailable: item.isAvailable,
                       allowsInstructions: item.allowsInstructions,

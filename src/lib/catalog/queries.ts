@@ -51,7 +51,7 @@ const activeVendorFilter = { isApproved: true, isSuspended: false, deletedAt: nu
 export const PRODUCT_CARD_INCLUDE = {
   images: { take: 1 },
   category: true,
-  vendor: { select: { businessName: true, slug: true } },
+  vendor: { select: { businessName: true, slug: true, logoUrl: true } },
   inventory: { select: { quantityInStock: true } },
   _count: { select: { variants: { where: { isActive: true } } } },
 } as const;

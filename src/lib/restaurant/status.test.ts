@@ -88,3 +88,41 @@ describe("getRestaurantStatus — scheduled ordering while closed", () => {
     expect(status.canAcceptScheduledOrders).toBe(true);
   });
 });
+
+describe("getRestaurantStatus — nextOpen", () => {
+  it("says 'today' when it's still before today's opening time", () => {
+    vi.setSystemTime(new Date("2024-01-03T02:00:00Z")); // Wed 08:00 Dhaka, opens 10:00
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(status.nextOpen).toEqual({ label: "today", time: "10:00 AM" });
+  });
+
+  // Regression test for the bug this replaces: it used to report today's own
+  // opensAt even once that time had already passed, i.e. "opens at 10:00 AM"
+  // while it's 11pm and already closed for the day — technically true at
+  // some point today, but useless and misleading by the time anyone reads it.
+  it("says 'tomorrow' (not today's already-passed opening time) once past today's closing time", () => {
+    vi.setSystemTime(WEDNESDAY_23_00_DHAKA); // Wed 23:00 Dhaka, closes 22:00; Thursday opens 22:00 (overnight)
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(status.nextOpen).toEqual({ label: "tomorrow", time: "10:00 PM" });
+  });
+
+  it("skips closed days and names the correct weekday", () => {
+    const hoursWithClosedDays: WeeklyHour[] = regularHours.map((h) => (h.dayOfWeek === 4 || h.dayOfWeek === 5 ? { ...h, isClosed: true } : h));
+    vi.setSystemTime(WEDNESDAY_23_00_DHAKA); // Wed closed now; Thu+Fri also closed; next open day is Saturday
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: hoursWithClosedDays });
+    expect(status.nextOpen).toEqual({ label: "Saturday", time: "10:00 AM" });
+  });
+
+  it("has no nextOpen for a manual closure (no schedule to report)", () => {
+    vi.setSystemTime(WEDNESDAY_14_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: true, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(status.nextOpen).toBeUndefined();
+  });
+
+  it("reports the resume date/time for a temporary closure", () => {
+    vi.setSystemTime(WEDNESDAY_14_00_DHAKA);
+    const resumeAt = new Date("2024-01-05T08:30:00Z"); // Fri 14:30 Dhaka
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: resumeAt, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(status.nextOpen).toEqual({ label: "on Jan 5", time: "2:30 PM" });
+  });
+});

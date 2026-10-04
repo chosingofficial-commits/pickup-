@@ -6,6 +6,7 @@ import { submitVendorApplicationAction } from "@/lib/actions/vendor-application"
 import { initialActionState } from "@/lib/actions/types";
 import { Input, Label, FieldError, Textarea, Select } from "@/components/ui/input";
 import { FileUploadField } from "@/components/forms/file-upload-field";
+import { WeeklyHoursPicker } from "@/components/vendor-application/weekly-hours-picker";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +95,7 @@ export function VendorApplicationWizard({
       case "productCategories":
         return "categories";
       case "openingHoursText":
+      case "weeklyHoursJson":
         return "hours";
       case "tradeLicenseNo":
       case "tradeLicenseDocUrl":
@@ -227,11 +229,8 @@ export function VendorApplicationWizard({
       {isRestaurant && (
         <div className={cn("space-y-4 rounded-card border border-border-brand bg-white p-5", activeSection !== "hours" && "hidden")}>
           <h2 className="font-heading text-base font-bold text-brand-dark">Operating hours</h2>
-          <div>
-            <Label htmlFor="openingHoursText">Typical opening hours</Label>
-            <Input id="openingHoursText" name="openingHoursText" placeholder="E.g. 10:00 AM – 10:00 PM, every day" />
-            <p className="mt-1 text-xs text-gray-500">You&apos;ll be able to set exact daily hours after approval, in your restaurant dashboard.</p>
-          </div>
+          <WeeklyHoursPicker />
+          <p className="text-xs text-gray-500">You can change these any time after approval, in your restaurant dashboard.</p>
         </div>
       )}
 

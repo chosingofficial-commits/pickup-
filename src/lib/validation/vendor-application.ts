@@ -15,6 +15,25 @@ function optionalText(inner: z.ZodString) {
   return z.preprocess((v) => (v === "" || v == null ? undefined : v), inner.optional());
 }
 
+const dayHoursSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  opensAt: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time"),
+  closesAt: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time"),
+  isClosed: z.boolean(),
+});
+
+// The WeeklyHoursPicker writes its 7-day array into a hidden JSON input —
+// parsed here (never trusting the raw string) into the exact shape
+// RestaurantWeeklyHours rows need, so approval can create them directly.
+const weeklyHoursJsonSchema = z.preprocess((v) => {
+  if (typeof v !== "string" || v === "") return undefined;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return undefined;
+  }
+}, z.array(dayHoursSchema).length(7, "Set hours for all 7 days").optional());
+
 export const vendorApplicationSchema = z.object({
   businessType: z.enum(["GROCERY_VENDOR", "RESTAURANT"], { message: "Choose grocery vendor or restaurant" }),
   businessName: z.string().trim().min(2, "Enter your business name").max(120),
@@ -27,6 +46,7 @@ export const vendorApplicationSchema = z.object({
   // Restaurant-only in the wizard UI, and optional there too (real hours are set
   // later in the vendor dashboard) — not rendered at all for grocery vendors.
   openingHoursText: optionalText(z.string().trim()),
+  weeklyHoursJson: weeklyHoursJsonSchema,
   businessDescription: optionalText(z.string().trim().max(1000, "Business description must be 1000 characters or less")),
   tradeLicenseNo: z.string().trim().min(1, "Enter your trade licence number"),
   tradeLicenseDocUrl: z.string().min(1, "Upload your trade licence document"),

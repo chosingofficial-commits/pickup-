@@ -514,6 +514,13 @@ model VendorApplication {
   bankOrMfsAccount  String?
   productCategories String[]
   openingHoursText  String?
+  /// Structured replacement for openingHoursText (restaurant applications
+  /// only) — an array of 7 { dayOfWeek, opensAt, closesAt, isClosed }
+  /// entries, the same shape as RestaurantWeeklyHours, so approval can
+  /// write it straight through with no parsing. Old free-text field kept
+  /// for existing applications that predate this; new ones populate this
+  /// instead and leave openingHoursText blank.
+  weeklyHoursJson   Json?
   businessDescription String?
   logoUrl           String?
   coverImageUrl     String?
@@ -759,6 +766,9 @@ model MenuItem {
   name              String
   description       String?
   price             Decimal  @db.Decimal(10, 2)
+  /// Optional "was" price, shown crossed out next to `price` — same idea as
+  /// Product.compareAtPrice. Validated (price-form.ts) to always be > price.
+  compareAtPrice    Decimal? @db.Decimal(10, 2)
   imageUrl          String?
   isAvailable       Boolean  @default(true)
   allowsInstructions Boolean @default(true)
