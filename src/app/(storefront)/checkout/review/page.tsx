@@ -15,6 +15,7 @@ import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { formatVariantLabel } from "@/lib/catalog/variant-label";
+import { formatUnavailableAction } from "@/lib/catalog/order-addons";
 
 export const metadata: Metadata = { title: "Checkout — Review order" };
 
@@ -111,6 +112,10 @@ export default async function CheckoutReviewPage() {
                     {line.variant && <span className="text-gray-500"> — {formatVariantLabel(line.variant, locale)}</span>}
                     {line.selectedAddOns.length > 0 && (
                       <span className="block text-xs text-gray-500">+ {line.selectedAddOns.map((a) => a.name).join(", ")}</span>
+                    )}
+                    {line.specialInstructions && <span className="block text-xs italic text-gray-400">&ldquo;{line.specialInstructions}&rdquo;</span>}
+                    {formatUnavailableAction(line.unavailableAction) && (
+                      <span className="block text-xs text-gray-400">{formatUnavailableAction(line.unavailableAction)}</span>
                     )}
                   </span>
                   <span className="text-brand-dark">{formatBDT((line.unitPrice + line.addOnsTotal) * line.quantity)}</span>

@@ -8,7 +8,7 @@ import { CustomerTrackingPanel } from "@/components/orders/customer-tracking-pan
 import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorOrderDetail } from "@/lib/vendor/queries";
 import { getAvailableNextStatuses } from "@/lib/orders/status-flow";
-import { parseSelectedAddOns } from "@/lib/catalog/order-addons";
+import { parseSelectedAddOns, formatUnavailableAction } from "@/lib/catalog/order-addons";
 import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Order details" };
@@ -87,6 +87,10 @@ export default async function VendorOrderDetailPage({ params }: { params: Promis
                   {item.quantity}× {item.nameSnapshot}
                   {parseSelectedAddOns(item.selectedAddOns).length > 0 && (
                     <span className="block text-xs text-gray-500">+ {parseSelectedAddOns(item.selectedAddOns).map((a) => a.name).join(", ")}</span>
+                  )}
+                  {item.specialInstructions && <span className="block text-xs italic text-gray-400">&ldquo;{item.specialInstructions}&rdquo;</span>}
+                  {formatUnavailableAction(item.unavailableAction) && (
+                    <span className="block text-xs font-medium text-amber-700">{formatUnavailableAction(item.unavailableAction)}</span>
                   )}
                 </span>
                 <span className="text-brand-dark">{formatBDT(item.lineTotal)}</span>

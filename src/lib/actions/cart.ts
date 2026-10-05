@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ensureDefaultVariant } from "@/lib/catalog/variant-sync";
@@ -102,12 +103,17 @@ export async function buyNowAction(formData: FormData): Promise<void> {
 
 export type SelectedAddOn = { groupId: string; groupName: string; addOnId: string; name: string; priceDelta: number };
 
+const VALID_UNAVAILABLE_ACTIONS = new Set(["REMOVE", "CALL"]);
+
 export async function addMenuItemToCartAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const menuItemId = String(formData.get("menuItemId") ?? "");
   const quantity = Math.max(1, Number(formData.get("quantity") ?? 1));
   const specialInstructions = formData.get("specialInstructions") ? String(formData.get("specialInstructions")) : null;
+  const rawUnavailableAction = formData.get("unavailableAction") ? String(formData.get("unavailableAction")) : null;
+  const unavailableAction = rawUnavailableAction && VALID_UNAVAILABLE_ACTIONS.has(rawUnavailableAction) ? rawUnavailableAction : null;
   const redirectPath = String(formData.get("redirectPath") ?? "/restaurants");
   const submittedAddOnIds = formData.getAll("addOnId").map(String);
+  const submittedSuggestedIds = formData.getAll("suggestedItemId").map(String);
 
   const menuItem = await db.menuItem.findUnique({
     where: { id: menuItemId },
@@ -130,12 +136,16 @@ export async function addMenuItemToCartAction(_prev: ActionState, formData: Form
   }
 
   // Re-derive selections from the authoritative menu data — never trust
-  // client-submitted names/prices.
+  // client-submitted names/prices, and never let a choice that's been turned
+  // off since the page loaded slip through.
   const selectedAddOns: SelectedAddOn[] = [];
   for (const group of menuItem.addOnGroups) {
-    const picked = group.addOns.filter((a) => submittedAddOnIds.includes(a.id));
-    if (group.isRequired && picked.length === 0) {
-      return { status: "error", message: `Please choose an option for "${group.name}".` };
+    const picked = group.addOns.filter((a) => a.isAvailable && submittedAddOnIds.includes(a.id));
+    if (picked.length < group.minSelect) {
+      return {
+        status: "error",
+        message: group.minSelect >= group.maxSelect ? `Please choose an option for "${group.name}".` : `Choose at least ${group.minSelect} option(s) for "${group.name}".`,
+      };
     }
     if (picked.length > group.maxSelect) {
       return { status: "error", message: `You can choose up to ${group.maxSelect} option(s) for "${group.name}".` };
@@ -151,13 +161,32 @@ export async function addMenuItemToCartAction(_prev: ActionState, formData: Form
   // Restaurant items from a different vendor cannot share a cart line with grocery items —
   // each vendor settles as its own Order at checkout, so we just add the line item. Items
   // with different add-on selections get separate lines rather than merging quantities.
-  const existing = await db.cartItem.findMany({ where: { cartId, menuItemId, specialInstructions } });
+  const existing = await db.cartItem.findMany({ where: { cartId, menuItemId, specialInstructions, unavailableAction } });
   const matching = existing.find((e) => JSON.stringify(e.selectedAddOns) === JSON.stringify(addOnsJson));
 
   if (matching) {
     await db.cartItem.update({ where: { id: matching.id }, data: { quantity: matching.quantity + quantity } });
   } else {
-    await db.cartItem.create({ data: { cartId, menuItemId, quantity, specialInstructions, selectedAddOns: addOnsJson ?? undefined } });
+    await db.cartItem.create({ data: { cartId, menuItemId, quantity, specialInstructions, unavailableAction, selectedAddOns: addOnsJson ?? undefined } });
+  }
+
+  // "Frequently bought together" picks — simple separate lines at list price,
+  // no options of their own. Re-validated against the same vendor + current
+  // availability, never trusting the submitted id list.
+  if (submittedSuggestedIds.length > 0) {
+    const suggestedItems = await db.menuItem.findMany({
+      where: { id: { in: submittedSuggestedIds }, isAvailable: true, menu: { vendorId: menuItem.menu.vendorId } },
+    });
+    for (const suggested of suggestedItems) {
+      const existingSuggested = await db.cartItem.findFirst({
+        where: { cartId, menuItemId: suggested.id, specialInstructions: null, unavailableAction: null, selectedAddOns: { equals: Prisma.DbNull } },
+      });
+      if (existingSuggested) {
+        await db.cartItem.update({ where: { id: existingSuggested.id }, data: { quantity: existingSuggested.quantity + 1 } });
+      } else {
+        await db.cartItem.create({ data: { cartId, menuItemId: suggested.id, quantity: 1 } });
+      }
+    }
   }
 
   revalidatePath("/cart");

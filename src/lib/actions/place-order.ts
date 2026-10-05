@@ -202,6 +202,7 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
               quantity: line.quantity,
               selectedAddOns: line.selectedAddOns.length > 0 ? line.selectedAddOns : undefined,
               specialInstructions: line.specialInstructions,
+              unavailableAction: line.unavailableAction,
               lineTotal: round2((line.unitPrice + line.addOnsTotal) * line.quantity),
             },
           });

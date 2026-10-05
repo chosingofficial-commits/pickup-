@@ -7,6 +7,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { ProductImage } from "@/components/product/product-image";
 import { formatBDT } from "@/lib/utils";
 import { formatVariantLabel } from "@/lib/catalog/variant-label";
+import { formatUnavailableAction } from "@/lib/catalog/order-addons";
 import { useLocale } from "@/components/providers/locale-provider";
 import type { NormalizedCartLine } from "@/lib/cart/queries";
 
@@ -39,6 +40,9 @@ export function CartLineRow({ line }: { line: NormalizedCartLine }) {
             )}
             {line.specialInstructions && (
               <p className="text-xs italic text-gray-400">&ldquo;{line.specialInstructions}&rdquo;</p>
+            )}
+            {formatUnavailableAction(line.unavailableAction) && (
+              <p className="text-xs text-gray-400">{formatUnavailableAction(line.unavailableAction)}</p>
             )}
             {!line.isAvailable && <p className="text-xs font-semibold text-red-600">No longer available</p>}
           </div>

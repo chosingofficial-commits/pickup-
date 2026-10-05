@@ -7,7 +7,7 @@ import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { OrderAdminActions } from "@/components/admin/order-admin-actions";
 import { getAvailableNextStatuses, isTerminal, statusLabel } from "@/lib/orders/status-flow";
 import { getApprovedRiders } from "@/lib/admin/queries";
-import { parseSelectedAddOns } from "@/lib/catalog/order-addons";
+import { parseSelectedAddOns, formatUnavailableAction } from "@/lib/catalog/order-addons";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 
@@ -103,6 +103,10 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                       {item.quantity}× {item.nameSnapshot}
                       {parseSelectedAddOns(item.selectedAddOns).length > 0 && (
                         <span className="block text-xs text-gray-500">+ {parseSelectedAddOns(item.selectedAddOns).map((a) => a.name).join(", ")}</span>
+                      )}
+                      {item.specialInstructions && <span className="block text-xs italic text-gray-400">&ldquo;{item.specialInstructions}&rdquo;</span>}
+                      {formatUnavailableAction(item.unavailableAction) && (
+                        <span className="block text-xs text-gray-400">{formatUnavailableAction(item.unavailableAction)}</span>
                       )}
                     </span>
                     <span className="text-brand-dark">{formatBDT(item.lineTotal)}</span>

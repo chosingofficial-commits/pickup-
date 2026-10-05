@@ -1,151 +1,67 @@
 "use client";
 
-import { useActionState, useRef } from "react";
-import { usePathname } from "next/navigation";
-import { Plus } from "lucide-react";
-import { addMenuItemToCartAction } from "@/lib/actions/cart";
-import { initialActionState } from "@/lib/actions/types";
+import { useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
 import { formatBDT } from "@/lib/utils";
+import { MenuItemDetailDialog } from "./menu-item-detail-dialog";
 
-type AddOn = { id: string; name: string; priceDelta: string };
-type AddOnGroup = { id: string; name: string; isRequired: boolean; maxSelect: number; addOns: AddOn[] };
-export type MenuItemWithAddOns = {
+export type AddOn = { id: string; name: string; priceDelta: string; isPopular: boolean };
+export type AddOnGroup = { id: string; name: string; isRequired: boolean; minSelect: number; maxSelect: number; addOns: AddOn[] };
+export type SuggestionItem = { id: string; name: string; price: string; imageUrl: string | null };
+export type MenuItemWithDetail = {
   id: string;
   name: string;
   description: string | null;
   price: string;
   compareAtPrice: string | null;
   imageUrl: string | null;
+  ingredients: string | null;
+  allergens: string | null;
   isAvailable: boolean;
   allowsInstructions: boolean;
+  photos: string[];
   addOnGroups: AddOnGroup[];
+  suggestions: SuggestionItem[];
 };
 
-export function MenuItemCard({ item, canOrder }: { item: MenuItemWithAddOns; canOrder: boolean }) {
-  const pathname = usePathname();
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const [state, formAction, pending] = useActionState(addMenuItemToCartAction, initialActionState);
-  const hasOptions = item.addOnGroups.length > 0;
+export function MenuItemCard({ item, canOrder }: { item: MenuItemWithDetail; canOrder: boolean }) {
+  const [open, setOpen] = useState(false);
   const soldOut = !item.isAvailable;
 
   return (
-    <div className={`flex gap-3 rounded-card border border-border-brand bg-white p-3 ${soldOut ? "opacity-60" : ""}`}>
-      <ProductImage
-        src={item.imageUrl}
-        alt={item.name}
-        categorySlug="restaurant"
-        className={`h-20 w-20 shrink-0 rounded-control ${soldOut ? "grayscale" : ""}`}
-        emoji="🍽️"
-      />
-      <div className="flex flex-1 flex-col">
-        <h3 className="font-heading text-sm font-bold text-brand-dark">{item.name}</h3>
-        {item.description && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{item.description}</p>}
-        <div className="mt-auto flex items-center justify-between pt-2">
-          <span className="flex items-baseline gap-1.5">
-            <span className="font-heading text-sm font-bold text-brand-dark">{formatBDT(item.price)}</span>
-            {item.compareAtPrice && <span className="text-xs text-gray-400 line-through">{formatBDT(item.compareAtPrice)}</span>}
-          </span>
-          {soldOut ? (
-            <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Sold out</span>
-          ) : canOrder ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (hasOptions) {
-                  dialogRef.current?.showModal();
-                  return;
-                }
-                const form = new FormData();
-                form.set("menuItemId", item.id);
-                form.set("quantity", "1");
-                form.set("redirectPath", pathname);
-                formAction(form);
-              }}
-              className="flex items-center gap-1 rounded-control bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-primary-hover"
-            >
-              <Plus className="h-3.5 w-3.5" aria-hidden />
-              {state.status === "success" ? "Added" : "Add"}
-            </button>
-          ) : (
-            <span className="text-xs font-medium text-gray-400">Closed</span>
-          )}
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={`flex w-full gap-3 rounded-card border border-border-brand bg-white p-3 text-left transition-shadow hover:shadow-soft ${soldOut ? "opacity-60" : ""}`}
+      >
+        <ProductImage
+          src={item.imageUrl}
+          alt={item.name}
+          categorySlug="restaurant"
+          className={`h-20 w-20 shrink-0 rounded-control ${soldOut ? "grayscale" : ""}`}
+          emoji="🍽️"
+        />
+        <div className="flex flex-1 flex-col">
+          <h3 className="font-heading text-sm font-bold text-brand-dark">{item.name}</h3>
+          {item.description && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{item.description}</p>}
+          <div className="mt-auto flex items-center justify-between pt-2">
+            <span className="flex items-baseline gap-1.5">
+              <span className="font-heading text-sm font-bold text-brand-dark">{formatBDT(item.price)}</span>
+              {item.compareAtPrice && <span className="text-xs text-gray-400 line-through">{formatBDT(item.compareAtPrice)}</span>}
+            </span>
+            {soldOut ? (
+              <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600">Sold out</span>
+            ) : canOrder ? (
+              <span className="rounded-control bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white">Add</span>
+            ) : (
+              <span className="text-xs font-medium text-gray-400">Closed</span>
+            )}
+          </div>
         </div>
-        {state.status === "error" && <p className="mt-1 text-xs text-red-600">{state.message}</p>}
-      </div>
+      </button>
 
-      {hasOptions && (
-        <dialog
-          ref={dialogRef}
-          aria-label={`Customize ${item.name}`}
-          className="w-full max-w-md rounded-card border border-border-brand p-0 shadow-lifted backdrop:bg-black/40"
-        >
-          <form action={formAction}>
-            <input type="hidden" name="menuItemId" value={item.id} />
-            <input type="hidden" name="redirectPath" value={pathname} />
-            <div className="border-b border-border-brand p-4">
-              <h3 className="font-heading text-base font-bold text-brand-dark">{item.name}</h3>
-              <p className="text-sm text-gray-500">{formatBDT(item.price)}</p>
-            </div>
-            <div className="max-h-[50vh] space-y-4 overflow-y-auto p-4">
-              {item.addOnGroups.map((group) => (
-                <fieldset key={group.id}>
-                  <legend className="mb-1.5 text-sm font-semibold text-brand-dark">
-                    {group.name} {group.isRequired && <span className="text-red-500">*</span>}
-                  </legend>
-                  <div className="space-y-1.5">
-                    {group.addOns.map((addOn) => (
-                      <label key={addOn.id} className="flex items-center justify-between gap-2 rounded-control border border-border-brand px-3 py-2 text-sm">
-                        <span className="flex items-center gap-2">
-                          <input
-                            type={group.maxSelect > 1 ? "checkbox" : "radio"}
-                            name="addOnId"
-                            value={addOn.id}
-                            required={group.isRequired && group.maxSelect === 1}
-                          />
-                          {addOn.name}
-                        </span>
-                        {Number(addOn.priceDelta) > 0 && <span className="text-gray-500">+{formatBDT(addOn.priceDelta)}</span>}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              ))}
-              {item.allowsInstructions && (
-                <div>
-                  <label htmlFor={`note-${item.id}`} className="mb-1 block text-sm font-semibold text-brand-dark">
-                    Special instructions
-                  </label>
-                  <textarea
-                    id={`note-${item.id}`}
-                    name="specialInstructions"
-                    rows={2}
-                    className="w-full rounded-control border border-border-brand px-3 py-2 text-sm"
-                    placeholder="E.g. less spicy, no onion"
-                  />
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 border-t border-border-brand p-4">
-              <button
-                type="button"
-                onClick={() => dialogRef.current?.close()}
-                className="h-10 flex-1 rounded-control border border-border-brand text-sm font-semibold text-brand-dark hover:bg-brand-bg"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={pending}
-                onClick={() => dialogRef.current?.close()}
-                className="h-10 flex-1 rounded-control bg-brand-primary text-sm font-semibold text-white hover:bg-brand-primary-hover disabled:opacity-60"
-              >
-                Add to cart
-              </button>
-            </div>
-          </form>
-        </dialog>
-      )}
-    </div>
+      {open && <MenuItemDetailDialog item={item} canOrder={canOrder} onClose={() => setOpen(false)} />}
+    </>
   );
 }

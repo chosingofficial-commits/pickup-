@@ -23,6 +23,7 @@ const ANONYMOUS_ALLOWED_FOLDERS = ["ad-pending"];
 // highest-risk upload path since it's shown to every site visitor.
 const FOLDER_RULES: Record<string, { maxBytes?: number; allowedTypes?: readonly string[]; alwaysCheckMagicBytes?: boolean }> = {
   "ad-pending": { maxBytes: 5 * 1024 * 1024, allowedTypes: ["image/jpeg", "image/png", "image/webp"], alwaysCheckMagicBytes: true },
+  "menu-items": { maxBytes: 5 * 1024 * 1024, allowedTypes: ["image/jpeg", "image/png", "image/webp"] },
 };
 
 export async function POST(req: NextRequest) {

@@ -50,7 +50,18 @@ export const getRestaurantBySlug = cache(async (slug: string) => {
         // Unavailable items stay visible (greyed out, "Sold out") rather
         // than vanishing — consistent with how out-of-stock grocery
         // products are shown, not hidden.
-        include: { items: { include: { addOnGroups: { include: { addOns: true } } } } },
+        include: {
+          items: {
+            include: {
+              addOnGroups: { include: { addOns: true } },
+              photos: { orderBy: { sortOrder: "asc" } },
+              suggestions: {
+                orderBy: { sortOrder: "asc" },
+                include: { suggestedItem: { select: { id: true, name: true, price: true, imageUrl: true, isAvailable: true } } },
+              },
+            },
+          },
+        },
       },
       reviews: { include: { customer: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 10 },
     },

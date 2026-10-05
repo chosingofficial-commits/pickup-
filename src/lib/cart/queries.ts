@@ -35,6 +35,7 @@ export type NormalizedCartLine = {
   addOnsTotal: number;
   selectedAddOns: { name: string; priceDelta: number }[];
   specialInstructions: string | null;
+  unavailableAction: string | null;
   isAvailable: boolean;
   vendorId: string;
   vendorSlug: string;
@@ -94,6 +95,7 @@ export async function getFullCart(userId: string) {
         addOnsTotal: 0,
         selectedAddOns: [],
         specialInstructions: null,
+        unavailableAction: null,
         isAvailable: item.product.isPublished && item.product.availability === "AVAILABLE" && variantOk,
         vendorId: item.product.vendorId,
         vendorSlug: item.product.vendor.slug,
@@ -120,6 +122,7 @@ export async function getFullCart(userId: string) {
         addOnsTotal: selectedAddOns.reduce((s, a) => s + Number(a.priceDelta), 0),
         selectedAddOns,
         specialInstructions: item.specialInstructions,
+        unavailableAction: item.unavailableAction,
         isAvailable: item.menuItem.isAvailable,
         vendorId: item.menuItem.menu.vendorId,
         vendorSlug: item.menuItem.menu.vendor.slug,

@@ -123,19 +123,34 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
                       price: item.price.toString(),
                       compareAtPrice: item.compareAtPrice?.toString() ?? null,
                       imageUrl: item.imageUrl,
+                      ingredients: item.ingredients,
+                      allergens: item.allergens,
                       isAvailable: item.isAvailable,
                       allowsInstructions: item.allowsInstructions,
+                      photos: item.photos.map((p) => p.url),
                       addOnGroups: item.addOnGroups.map((group) => ({
                         id: group.id,
                         name: group.name,
                         isRequired: group.isRequired,
+                        minSelect: group.minSelect,
                         maxSelect: group.maxSelect,
-                        addOns: group.addOns.map((addOn) => ({
-                          id: addOn.id,
-                          name: addOn.name,
-                          priceDelta: addOn.priceDelta.toString(),
-                        })),
+                        addOns: group.addOns
+                          .filter((a) => a.isAvailable)
+                          .map((addOn) => ({
+                            id: addOn.id,
+                            name: addOn.name,
+                            priceDelta: addOn.priceDelta.toString(),
+                            isPopular: addOn.isPopular,
+                          })),
                       })),
+                      suggestions: item.suggestions
+                        .filter((s) => s.suggestedItem.isAvailable)
+                        .map((s) => ({
+                          id: s.suggestedItem.id,
+                          name: s.suggestedItem.name,
+                          price: s.suggestedItem.price.toString(),
+                          imageUrl: s.suggestedItem.imageUrl,
+                        })),
                     }}
                   />
                 ))}
