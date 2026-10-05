@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { bdPhoneSchema } from "./phone";
+import { optionalText } from "./form-helpers";
 
 export const loginSchema = z.object({
   phone: bdPhoneSchema,
@@ -10,7 +11,7 @@ export const registerSchema = z
   .object({
     name: z.string().trim().min(2, "Enter your full name").max(80),
     phone: bdPhoneSchema,
-    email: z.string().trim().email("Enter a valid email").optional().or(z.literal("")),
+    email: optionalText(z.string().trim().email("Enter a valid email")),
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string(),
   })

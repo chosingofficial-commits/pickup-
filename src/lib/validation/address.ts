@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { bdPhoneSchema } from "./phone";
+import { optionalText } from "./form-helpers";
 
 export const addressSchema = z.object({
   label: z.string().trim().min(1).max(30).default("Home"),
@@ -7,5 +8,5 @@ export const addressSchema = z.object({
   recipientPhone: bdPhoneSchema,
   neighbourhoodId: z.string().min(1, "Choose your area"),
   streetOrVillage: z.string().trim().min(3, "Enter a street, house, or village address"),
-  landmark: z.string().trim().max(120).optional().or(z.literal("")),
+  landmark: optionalText(z.string().trim().max(120)),
 });

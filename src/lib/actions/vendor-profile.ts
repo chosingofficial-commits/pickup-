@@ -4,16 +4,17 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import { optionalText } from "@/lib/validation/form-helpers";
 import type { ActionState } from "./types";
 
 const businessProfileSchema = z.object({
   businessName: z.string().trim().min(2).max(120),
-  description: z.string().trim().max(1000).optional().or(z.literal("")),
+  description: optionalText(z.string().trim().max(1000)),
   phone: z.string().trim().min(6).max(20),
   email: z.string().trim().email(),
   addressText: z.string().trim().min(5),
-  logoUrl: z.string().url().optional().or(z.literal("")),
-  coverImageUrl: z.string().url().optional().or(z.literal("")),
+  logoUrl: optionalText(z.string().url()),
+  coverImageUrl: optionalText(z.string().url()),
 });
 
 export async function updateVendorProfileAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -35,18 +36,22 @@ export async function updateVendorProfileAction(_prev: ActionState, formData: Fo
     return { status: "error", message: "Please fix the errors below.", fieldErrors };
   }
 
-  await db.vendor.update({
-    where: { id: user.vendorProfile.id },
-    data: {
-      businessName: parsed.data.businessName,
-      description: parsed.data.description || null,
-      phone: parsed.data.phone,
-      email: parsed.data.email,
-      addressText: parsed.data.addressText,
-      logoUrl: parsed.data.logoUrl || undefined,
-      coverImageUrl: parsed.data.coverImageUrl || undefined,
-    },
-  });
+  try {
+    await db.vendor.update({
+      where: { id: user.vendorProfile.id },
+      data: {
+        businessName: parsed.data.businessName,
+        description: parsed.data.description || null,
+        phone: parsed.data.phone,
+        email: parsed.data.email,
+        addressText: parsed.data.addressText,
+        logoUrl: parsed.data.logoUrl || undefined,
+        coverImageUrl: parsed.data.coverImageUrl || undefined,
+      },
+    });
+  } catch {
+    return { status: "error", message: "Couldn't save changes. Please try again." };
+  }
 
   revalidatePath("/vendor/profile");
   return { status: "success", message: "Business profile updated." };

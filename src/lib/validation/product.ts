@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { VARIANT_UNITS } from "@/lib/catalog/variant-label";
+import { optionalText, optionalNumber } from "./form-helpers";
 
 export const MAX_PRODUCT_PHOTOS = 6;
 
@@ -10,8 +11,8 @@ export const MAX_PRODUCT_PHOTOS = 6;
 export const productSchema = z.object({
   name: z.string().trim().min(2, "Enter a product name").max(150),
   categoryId: z.string().min(1, "Choose a category"),
-  description: z.string().trim().max(2000).optional().or(z.literal("")),
-  sku: z.string().trim().max(60).optional().or(z.literal("")),
+  description: optionalText(z.string().trim().max(2000)),
+  sku: optionalText(z.string().trim().max(60)),
   isWeeklyGrocery: z.coerce.boolean().default(false),
 });
 
@@ -21,10 +22,7 @@ export const variantRowSchema = z.object({
   unit: z.enum(VARIANT_UNITS, { message: "Choose a unit" }),
   packCount: z.coerce.number().int().min(1).default(1),
   price: z.coerce.number().min(0, "Enter a price"),
-  compareAtPrice: z.preprocess(
-    (val) => (val === "" || val == null ? undefined : val),
-    z.coerce.number().positive().optional(),
-  ),
+  compareAtPrice: optionalNumber(z.coerce.number().positive()),
   stock: z.coerce.number().int().min(0, "Stock cannot be negative"),
 });
 export type VariantRowInput = z.infer<typeof variantRowSchema>;

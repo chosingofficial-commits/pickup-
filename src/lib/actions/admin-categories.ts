@@ -6,11 +6,12 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
 import { slugify } from "@/lib/utils";
+import { optionalText } from "@/lib/validation/form-helpers";
 import type { ActionState } from "./types";
 
 const categorySchema = z.object({
   name: z.string().trim().min(2, "Enter a category name").max(80),
-  parentId: z.string().optional().or(z.literal("")),
+  parentId: optionalText(z.string()),
   isAgeRestricted: z.coerce.boolean().default(false),
 });
 

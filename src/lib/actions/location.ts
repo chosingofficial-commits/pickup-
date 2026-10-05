@@ -79,11 +79,11 @@ export async function submitCoverageRequestAction(_prev: ActionState, formData: 
     name: formData.get("name"),
     phone: formData.get("phone"),
     addressText: formData.get("addressText"),
-    lat: formData.get("lat") || undefined,
-    lng: formData.get("lng") || undefined,
-    divisionText: formData.get("divisionText") || undefined,
-    districtText: formData.get("districtText") || undefined,
-    upazilaText: formData.get("upazilaText") || undefined,
+    lat: formData.get("lat"),
+    lng: formData.get("lng"),
+    divisionText: formData.get("divisionText"),
+    districtText: formData.get("districtText"),
+    upazilaText: formData.get("upazilaText"),
   });
 
   if (!parsed.success) {

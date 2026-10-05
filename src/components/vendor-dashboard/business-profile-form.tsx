@@ -21,6 +21,11 @@ export function BusinessProfileForm({
           {state.message}
         </p>
       )}
+      {state.status === "error" && state.message && (
+        <p role="alert" className="rounded-control bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+          {state.message}
+        </p>
+      )}
       <div>
         <Label htmlFor="businessName">Business name</Label>
         <Input id="businessName" name="businessName" defaultValue={defaults.businessName} required aria-invalid={!!state.fieldErrors?.businessName} />

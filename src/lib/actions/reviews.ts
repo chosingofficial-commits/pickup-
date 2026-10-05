@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import { optionalText } from "@/lib/validation/form-helpers";
 import type { ActionState } from "./types";
 
 const reviewSchema = z.object({
   orderId: z.string().min(1),
   rating: z.coerce.number().int().min(1).max(5),
-  comment: z.string().trim().max(1000).optional().or(z.literal("")),
+  comment: optionalText(z.string().trim().max(1000)),
 });
 
 export async function submitOrderReviewAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

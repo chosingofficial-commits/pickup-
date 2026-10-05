@@ -1,29 +1,15 @@
 import { z } from "zod";
+import { optionalText, optionalNumber } from "./form-helpers";
 
 export const MAX_MENU_ITEM_PHOTOS = 4;
 export const MAX_SUGGESTED_ITEMS = 10;
 
 export const menuSchema = z.object({ name: z.string().trim().min(2, "Enter a menu name").max(80) });
 
-// `.optional().or(z.literal(""))` only treats an absent FIELD as valid when
-// the value is exactly `undefined` — but FormData.get() returns `null` for a
-// key that isn't in the form at all (e.g. a create form that doesn't render
-// an "ingredients" input yet), and neither branch of that union accepts
-// `null`, so the whole parse fails. That silently blocked "Add item" whenever
-// a field wasn't present in the submitting form. Preprocessing null/""/
-// missing to `undefined` up front, before a single non-union schema, avoids
-// that trap for every optional field below.
-function optionalText(inner: z.ZodString) {
-  return z.preprocess((v) => (v === "" || v == null ? undefined : v), inner.optional());
-}
-function optionalPositiveNumber() {
-  return z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().positive().optional());
-}
-
 const nameSchema = z.string().trim().min(2, "Enter an item name").max(120);
 const priceSchema = z.coerce.number().positive("Enter a valid price");
 const descriptionSchema = optionalText(z.string().trim().max(500));
-const compareAtPriceSchema = optionalPositiveNumber();
+const compareAtPriceSchema = optionalNumber(z.coerce.number().positive());
 const imageUrlSchema = optionalText(z.string().url());
 const ingredientsSchema = optionalText(z.string().trim().max(1000));
 const allergensSchema = optionalText(z.string().trim().max(300));

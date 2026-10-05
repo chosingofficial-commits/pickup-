@@ -1,19 +1,6 @@
 import { z } from "zod";
 import { bdPhoneSchema } from "./phone";
-
-// A `.optional().or(z.literal(""))` union collapses ANY failure (including a
-// max-length or url() failure on the first branch) into Zod's generic
-// top-level "Invalid input" message, discarding whatever specific message
-// the branch was given. It also only accepts `undefined` for "absent", not
-// `null` — which is what FormData.get() returns for a field a particular
-// wizard flow doesn't render at all (e.g. openingHoursText for grocery
-// vendors), causing the same generic, unhelpful error. Preprocessing
-// null/"" to undefined before a single non-union schema avoids both problems:
-// real validation failures keep their specific message, and an absent field
-// is treated the same as an empty one.
-function optionalText(inner: z.ZodString) {
-  return z.preprocess((v) => (v === "" || v == null ? undefined : v), inner.optional());
-}
+import { optionalText } from "./form-helpers";
 
 const dayHoursSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),

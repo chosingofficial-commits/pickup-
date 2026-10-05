@@ -16,6 +16,11 @@ export function ProfileForm({ name, email, phone }: { name: string; email: strin
           {state.message}
         </p>
       )}
+      {state.status === "error" && state.message && (
+        <p role="alert" className="rounded-control bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+          {state.message}
+        </p>
+      )}
       <div>
         <Label htmlFor="phone-ro">Mobile number</Label>
         <Input id="phone-ro" value={phone} disabled />

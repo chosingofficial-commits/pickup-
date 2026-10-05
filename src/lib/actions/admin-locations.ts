@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
 import { slugify } from "@/lib/utils";
 import { circlePolygon } from "@/lib/location/geo";
+import { optionalText, optionalNumber } from "@/lib/validation/form-helpers";
 import type { ActionState } from "./types";
 
 async function uniqueSlug(check: (slug: string) => Promise<boolean>, base: string) {
@@ -171,10 +172,10 @@ export async function deleteServiceAreaAction(_prev: ActionState, formData: Form
 const zoneSchema = z
   .object({
     name: z.string().trim().min(2, "Enter a zone name"),
-    nameBn: z.string().trim().optional(),
+    nameBn: optionalText(z.string().trim()),
     serviceAreaId: z.string().min(1),
-    centerLat: z.coerce.number().optional(),
-    centerLng: z.coerce.number().optional(),
+    centerLat: optionalNumber(z.coerce.number()),
+    centerLng: optionalNumber(z.coerce.number()),
     deliveryFee: z.coerce.number().min(0, "Enter a delivery fee of 0 or more"),
     estimatedMinutesMin: z.coerce.number().int().min(1),
     estimatedMinutesMax: z.coerce.number().int().min(1),
@@ -195,10 +196,10 @@ export async function createZoneAction(_prev: ActionState, formData: FormData): 
   const admin = await requireAdmin();
   const parsed = zoneSchema.safeParse({
     name: formData.get("name"),
-    nameBn: formData.get("nameBn") || undefined,
+    nameBn: formData.get("nameBn"),
     serviceAreaId: formData.get("serviceAreaId"),
-    centerLat: formData.get("centerLat") || undefined,
-    centerLng: formData.get("centerLng") || undefined,
+    centerLat: formData.get("centerLat"),
+    centerLng: formData.get("centerLng"),
     deliveryFee: formData.get("deliveryFee"),
     estimatedMinutesMin: formData.get("estimatedMinutesMin"),
     estimatedMinutesMax: formData.get("estimatedMinutesMax"),
@@ -319,7 +320,7 @@ const updateZoneSchema = z
   .object({
     zoneId: z.string().min(1),
     name: z.string().trim().min(2),
-    nameBn: z.string().trim().optional(),
+    nameBn: optionalText(z.string().trim()),
     deliveryFee: z.coerce.number().min(0),
     estimatedMinutesMin: z.coerce.number().int().min(1),
     estimatedMinutesMax: z.coerce.number().int().min(1),
@@ -336,7 +337,7 @@ export async function updateDeliveryZoneAction(formData: FormData): Promise<void
   const parsed = updateZoneSchema.safeParse({
     zoneId: formData.get("zoneId"),
     name: formData.get("name"),
-    nameBn: formData.get("nameBn") || undefined,
+    nameBn: formData.get("nameBn"),
     deliveryFee: formData.get("deliveryFee"),
     estimatedMinutesMin: formData.get("estimatedMinutesMin"),
     estimatedMinutesMax: formData.get("estimatedMinutesMax"),

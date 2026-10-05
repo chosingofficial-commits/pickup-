@@ -5,11 +5,12 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { optionalText } from "@/lib/validation/form-helpers";
 import type { ActionState } from "./types";
 
 const profileSchema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(80),
-  email: z.string().trim().email("Enter a valid email").optional().or(z.literal("")),
+  email: optionalText(z.string().trim().email("Enter a valid email")),
 });
 
 export async function updateProfileAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -23,10 +24,14 @@ export async function updateProfileAction(_prev: ActionState, formData: FormData
     return { status: "error", message: "Please fix the errors below.", fieldErrors };
   }
 
-  await db.user.update({
-    where: { id: user.id },
-    data: { name: parsed.data.name, email: parsed.data.email || null },
-  });
+  try {
+    await db.user.update({
+      where: { id: user.id },
+      data: { name: parsed.data.name, email: parsed.data.email || null },
+    });
+  } catch {
+    return { status: "error", message: "Couldn't save changes. Please try again." };
+  }
 
   revalidatePath("/account");
   return { status: "success", message: "Profile updated." };
