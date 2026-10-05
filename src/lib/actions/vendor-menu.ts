@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
@@ -59,20 +60,30 @@ export async function createMenuItemAction(_prev: ActionState, formData: FormDat
     ingredients: formData.get("ingredients"),
     allergens: formData.get("allergens"),
   });
-  if (!parsed.success) return { status: "error", message: "Please fix the errors below.", fieldErrors: fieldErrorsOf(parsed.error) };
+  if (!parsed.success) {
+    const fieldErrors = fieldErrorsOf(parsed.error);
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please fix the errors below.", fieldErrors };
+  }
 
-  await db.menuItem.create({
-    data: {
-      menuId,
-      name: parsed.data.name,
-      description: parsed.data.description || null,
-      price: parsed.data.price,
-      compareAtPrice: parsed.data.compareAtPrice ?? null,
-      imageUrl: parsed.data.imageUrl || null,
-      ingredients: parsed.data.ingredients ?? null,
-      allergens: parsed.data.allergens ?? null,
-    },
-  });
+  try {
+    await db.menuItem.create({
+      data: {
+        menuId,
+        name: parsed.data.name,
+        description: parsed.data.description || null,
+        price: parsed.data.price,
+        compareAtPrice: parsed.data.compareAtPrice ?? null,
+        imageUrl: parsed.data.imageUrl || null,
+        ingredients: parsed.data.ingredients ?? null,
+        allergens: parsed.data.allergens ?? null,
+      },
+    });
+  } catch {
+    // Never fail silently — a save that doesn't visibly succeed or show an
+    // error is worse than an ugly one, since the vendor has no way to tell
+    // whether to retry or that their item is actually sitting there twice.
+    return { status: "error", message: "Couldn't save this item. Please try again." };
+  }
 
   revalidatePath("/vendor/menu");
   return { status: "success", message: "Item added." };
@@ -93,19 +104,25 @@ export async function updateMenuItemAction(_prev: ActionState, formData: FormDat
     ingredients: formData.get("ingredients"),
     allergens: formData.get("allergens"),
   });
-  if (!parsed.success) return { status: "error", message: "Please fix the errors below.", fieldErrors: fieldErrorsOf(parsed.error) };
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please fix the errors below.", fieldErrors: fieldErrorsOf(parsed.error) };
+  }
 
-  await db.menuItem.update({
-    where: { id: itemId },
-    data: {
-      name: parsed.data.name,
-      description: parsed.data.description || null,
-      price: parsed.data.price,
-      compareAtPrice: parsed.data.compareAtPrice ?? null,
-      ingredients: parsed.data.ingredients ?? null,
-      allergens: parsed.data.allergens ?? null,
-    },
-  });
+  try {
+    await db.menuItem.update({
+      where: { id: itemId },
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description || null,
+        price: parsed.data.price,
+        compareAtPrice: parsed.data.compareAtPrice ?? null,
+        ingredients: parsed.data.ingredients ?? null,
+        allergens: parsed.data.allergens ?? null,
+      },
+    });
+  } catch {
+    return { status: "error", message: "Couldn't save changes. Please try again." };
+  }
 
   revalidatePath("/vendor/menu");
   return { status: "success", message: "Item updated." };
@@ -121,14 +138,123 @@ export async function toggleMenuItemAvailabilityAction(formData: FormData): Prom
   revalidatePath("/vendor/menu");
 }
 
+/**
+ * Hard-deletes a menu item when it has no order history (OrderItem has no
+ * FK cascade from MenuItem, so a past order would make a hard delete throw);
+ * otherwise hides it instead, the same way Product.deletedAt works. Any
+ * uncommitted cart lines for it are cleared first — a hard delete would
+ * otherwise also be blocked by CartItem's FK.
+ */
+async function hideOrDeleteMenuItem(tx: Prisma.TransactionClient, itemId: string): Promise<void> {
+  const pastOrderCount = await tx.orderItem.count({ where: { menuItemId: itemId } });
+  if (pastOrderCount > 0) {
+    await tx.menuItem.update({ where: { id: itemId }, data: { deletedAt: new Date(), isAvailable: false } });
+  } else {
+    await tx.cartItem.deleteMany({ where: { menuItemId: itemId } });
+    await tx.menuItem.delete({ where: { id: itemId } });
+  }
+}
+
 export async function deleteMenuItemAction(formData: FormData): Promise<void> {
   const vendorId = await requireRestaurant();
   const itemId = String(formData.get("itemId") ?? "");
   const item = await db.menuItem.findUnique({ where: { id: itemId }, include: { menu: true } });
   if (item && item.menu.vendorId === vendorId) {
-    await db.menuItem.delete({ where: { id: itemId } });
+    await db.$transaction((tx) => hideOrDeleteMenuItem(tx, itemId));
   }
   revalidatePath("/vendor/menu");
+}
+
+export async function renameMenuAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const vendorId = await requireRestaurant();
+  const menuId = String(formData.get("menuId") ?? "");
+  const menu = await db.restaurantMenu.findUnique({ where: { id: menuId } });
+  if (!menu || menu.vendorId !== vendorId) return { status: "error", message: "Category not found." };
+
+  const parsed = menuSchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid name." };
+
+  try {
+    await db.restaurantMenu.update({ where: { id: menuId }, data: { name: parsed.data.name } });
+  } catch {
+    return { status: "error", message: "Couldn't rename this category. Please try again." };
+  }
+
+  revalidatePath("/vendor/menu");
+  return { status: "success", message: "Category renamed." };
+}
+
+export async function reorderMenuAction(formData: FormData): Promise<void> {
+  const vendorId = await requireRestaurant();
+  const menuId = String(formData.get("menuId") ?? "");
+  const direction = String(formData.get("direction") ?? "");
+  if (direction !== "up" && direction !== "down") return;
+
+  const menus = await db.restaurantMenu.findMany({ where: { vendorId }, orderBy: { sortOrder: "asc" } });
+  const index = menus.findIndex((m) => m.id === menuId);
+  if (index === -1) return;
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= menus.length) return;
+
+  const current = menus[index]!;
+  const target = menus[targetIndex]!;
+  await db.$transaction([
+    db.restaurantMenu.update({ where: { id: current.id }, data: { sortOrder: target.sortOrder } }),
+    db.restaurantMenu.update({ where: { id: target.id }, data: { sortOrder: current.sortOrder } }),
+  ]);
+  revalidatePath("/vendor/menu");
+}
+
+export async function deleteMenuAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const vendorId = await requireRestaurant();
+  const menuId = String(formData.get("menuId") ?? "");
+  const mode = String(formData.get("mode") ?? ""); // "" | "moveItems" | "deleteItems"
+  const targetMenuId = String(formData.get("targetMenuId") ?? "");
+
+  const menu = await db.restaurantMenu.findUnique({ where: { id: menuId }, include: { items: { where: { deletedAt: null }, select: { id: true } } } });
+  if (!menu || menu.vendorId !== vendorId) return { status: "error", message: "Category not found." };
+
+  if (menu.items.length === 0) {
+    try {
+      await db.restaurantMenu.delete({ where: { id: menuId } });
+    } catch {
+      return { status: "error", message: "Couldn't delete this category. Please try again." };
+    }
+    revalidatePath("/vendor/menu");
+    return { status: "success", message: "Category deleted." };
+  }
+
+  if (mode === "moveItems") {
+    const target = await db.restaurantMenu.findUnique({ where: { id: targetMenuId } });
+    if (!target || target.vendorId !== vendorId || target.id === menuId) {
+      return { status: "error", message: "Choose a different category to move these items into." };
+    }
+    try {
+      await db.$transaction([
+        db.menuItem.updateMany({ where: { menuId, deletedAt: null }, data: { menuId: targetMenuId } }),
+        db.restaurantMenu.delete({ where: { id: menuId } }),
+      ]);
+    } catch {
+      return { status: "error", message: "Couldn't move these items. Please try again." };
+    }
+    revalidatePath("/vendor/menu");
+    return { status: "success", message: `Items moved to "${target.name}" and category deleted.` };
+  }
+
+  if (mode === "deleteItems") {
+    try {
+      await db.$transaction(async (tx) => {
+        for (const item of menu.items) await hideOrDeleteMenuItem(tx, item.id);
+        await tx.restaurantMenu.delete({ where: { id: menuId } });
+      });
+    } catch {
+      return { status: "error", message: "Couldn't delete this category and its items. Please try again." };
+    }
+    revalidatePath("/vendor/menu");
+    return { status: "success", message: "Category and its items deleted." };
+  }
+
+  return { status: "error", message: `This category has ${menu.items.length} item(s) — choose what to do with them.` };
 }
 
 // The form only ever renders MAX_MENU_ITEM_PHOTOS upload slots, but this is a

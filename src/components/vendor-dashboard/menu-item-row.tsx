@@ -358,7 +358,12 @@ export function MenuItemRow({ item, otherItems }: { item: MenuItemRowData; other
             {item.isAvailable ? "Mark sold out" : "Mark available"}
           </button>
         </form>
-        <form action={deleteMenuItemAction}>
+        <form
+          action={deleteMenuItemAction}
+          onSubmit={(e) => {
+            if (!confirm(`Delete "${item.name}"? Items with past orders are hidden instead of removed.`)) e.preventDefault();
+          }}
+        >
           <input type="hidden" name="itemId" value={item.id} />
           <button type="submit" className="rounded-control border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">
             Delete

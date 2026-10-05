@@ -3,6 +3,7 @@ import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { AddMenuForm } from "@/components/vendor-dashboard/add-menu-form";
 import { AddMenuItemForm } from "@/components/vendor-dashboard/add-menu-item-form";
 import { MenuItemRow } from "@/components/vendor-dashboard/menu-item-row";
+import { CategoryControls } from "@/components/vendor-dashboard/category-controls";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
@@ -16,6 +17,7 @@ export default async function VendorMenuPage() {
     where: { vendorId: user.vendorProfile.id },
     include: {
       items: {
+        where: { deletedAt: null },
         orderBy: { createdAt: "desc" },
         include: {
           addOnGroups: { include: { addOns: true } },
@@ -43,10 +45,20 @@ export default async function VendorMenuPage() {
         </CardContent>
       </Card>
 
-      {menus.map((menu) => (
+      {menus.map((menu, index) => (
         <Card key={menu.id}>
           <CardContent className="space-y-4 pt-5">
-            <CardTitle>{menu.name}</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle>{menu.name}</CardTitle>
+              <CategoryControls
+                menuId={menu.id}
+                name={menu.name}
+                itemCount={menu.items.length}
+                isFirst={index === 0}
+                isLast={index === menus.length - 1}
+                otherMenus={menus.filter((m) => m.id !== menu.id).map((m) => ({ id: m.id, name: m.name }))}
+              />
+            </div>
 
             {menu.items.length > 0 && (
               <div className="space-y-2">

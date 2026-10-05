@@ -52,6 +52,7 @@ export const getRestaurantBySlug = cache(async (slug: string) => {
         // products are shown, not hidden.
         include: {
           items: {
+            where: { deletedAt: null },
             include: {
               addOnGroups: { include: { addOns: true } },
               photos: { orderBy: { sortOrder: "asc" } },
