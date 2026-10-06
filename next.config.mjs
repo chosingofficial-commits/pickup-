@@ -1,6 +1,5 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import("next").NextConfig} */
+const nextConfig = {
   // Produces a self-contained server bundle (.next/standalone) that can run
   // with `node server.js` on any Node.js host — including Hostinger's
   // Node.js Web App / Cloud / VPS hosting, or the Dockerfile in this repo.

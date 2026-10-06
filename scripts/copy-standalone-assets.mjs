@@ -1,4 +1,4 @@
-// `next build` with `output: "standalone"` (next.config.ts) does not copy
+// `next build` with `output: "standalone"` (next.config.mjs) does not copy
 // `public/` or `.next/static/` into `.next/standalone/` — Next.js expects
 // deployers to do that themselves. The Dockerfile already does this copy
 // manually; this script does the same for a plain `npm run build`, so
