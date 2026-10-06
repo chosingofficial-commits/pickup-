@@ -60,10 +60,10 @@ export function ProductCard({ product, isSaved }: { product: ProductListItem; is
         <Link href={href} prefetch={false} className="line-clamp-2 text-sm font-semibold text-brand-dark hover:text-brand-primary">
           {product.name}
         </Link>
-        <p className="flex items-center gap-1 text-xs text-gray-500">
+        <div className="flex items-center gap-1 text-xs text-gray-500">
           <VendorLogo logoUrl={product.vendor.logoUrl} businessName={product.vendor.businessName} size={14} className="border-0 shadow-none" />
           {product.unit} · {product.vendor.businessName}
-        </p>
+        </div>
         {product.ratingCount > 0 && (
           <div className="flex items-center gap-1 text-xs text-gray-600">
             <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />

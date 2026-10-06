@@ -166,10 +166,10 @@ export default async function ProductDetailPage({
           </div>
 
           <div className="mt-6 space-y-2 rounded-card border border-border-brand bg-surface-muted p-4 text-sm">
-            <p className="flex items-center gap-2 text-brand-dark">
+            <div className="flex items-center gap-2 text-brand-dark">
               <VendorLogo logoUrl={product.vendor.logoUrl} businessName={product.vendor.businessName} size={24} className="border-0 shadow-none" />
               Sold by <span className="font-semibold">{product.vendor.businessName}</span>
-            </p>
+            </div>
             <p className="flex items-center gap-2 text-brand-dark">
               <Truck className="h-4 w-4 text-brand-primary" aria-hidden />
               {location?.isCovered
