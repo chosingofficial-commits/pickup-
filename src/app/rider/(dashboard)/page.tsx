@@ -71,7 +71,7 @@ export default async function RiderAvailablePage() {
                   <span className="rounded-full bg-brand-bg px-2.5 py-1 text-xs font-semibold text-brand-dark">{statusLabel(order.status)}</span>
                 </div>
                 <div className="mt-3">
-                  <OrderStatusActions orderId={order.id} nextOptions={getAvailableNextStatuses(order.status, order.vendor.businessType, "RIDER")} />
+                  <OrderStatusActions orderId={order.id} nextOptions={getAvailableNextStatuses(order.status, order.vendor.businessType, "RIDER")} size="lg" />
                 </div>
               </div>
             ))}

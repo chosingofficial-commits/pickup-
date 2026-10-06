@@ -14,6 +14,7 @@ import { getCartItemCount, getWishlistItemCount } from "@/lib/cart/queries";
 import { getSelectedLocation } from "@/lib/location/cookie";
 import { getOrderableNeighbourhoods } from "@/lib/location/queries";
 import { logoutAction } from "@/lib/actions/auth";
+import { roleHome } from "@/lib/auth/role-home";
 
 const NAV_LINKS = [
   { href: "/marketplace?category=groceries", labelKey: "groceries" as const },
@@ -39,15 +40,7 @@ export async function Header() {
   ]);
 
   const neighbourhoodOptions = neighbourhoods.map((n) => ({ id: n.id, name: n.name, townName: n.town.name }));
-  const accountHref = !user
-    ? "/login"
-    : user.role === "ADMIN"
-      ? "/admin"
-      : user.role === "VENDOR"
-        ? "/vendor"
-        : user.role === "RIDER"
-          ? "/rider"
-          : "/account";
+  const accountHref = user ? roleHome(user.role) : "/login";
 
   return (
     <header className="sticky top-0 z-40 border-b border-border-brand bg-white/95 backdrop-blur">

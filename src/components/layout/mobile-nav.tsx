@@ -5,15 +5,18 @@ import { usePathname } from "next/navigation";
 import { Home, LayoutGrid, ShoppingCart, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/marketplace", label: "Shop", icon: LayoutGrid },
-  { href: "/cart", label: "Cart", icon: ShoppingCart },
-  { href: "/account", label: "Account", icon: UserRound },
-];
-
-export function MobileNav() {
+export function MobileNav({ accountHref }: { accountHref: string }) {
   const pathname = usePathname();
+
+  const items = [
+    { href: "/", label: "Home", icon: Home },
+    { href: "/marketplace", label: "Shop", icon: LayoutGrid },
+    { href: "/cart", label: "Cart", icon: ShoppingCart },
+    // Role-based: a rider/vendor/admin browsing the storefront must land back
+    // on their own dashboard, not the customer account page (and a logged-out
+    // visitor is sent to log in) — never hardcode "/account" here.
+    { href: accountHref, label: "Account", icon: UserRound },
+  ];
 
   return (
     <nav
@@ -21,11 +24,11 @@ export function MobileNav() {
       className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border-brand bg-white/95 backdrop-blur md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      {ITEMS.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, label, icon: Icon }) => {
         const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
         return (
           <Link
-            key={href}
+            key={label}
             href={href}
             aria-current={isActive ? "page" : undefined}
             className={cn(

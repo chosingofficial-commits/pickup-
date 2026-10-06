@@ -104,7 +104,7 @@ export default async function RiderHistoryPage({ searchParams }: { searchParams:
                     <Badge variant={order.status === "DELIVERED" ? "brand" : "danger"}>{statusLabel(order.status)}</Badge>
                   </div>
                   {entry && order.delivery && (
-                    <div className="mt-2 grid grid-cols-3 gap-2 border-t border-border-brand pt-2 text-xs text-gray-600">
+                    <div className="mt-2 grid grid-cols-1 gap-1 border-t border-border-brand pt-2 text-xs text-gray-600 sm:grid-cols-3 sm:gap-2">
                       <span>{formatCollectedLabel(order.delivery.isCod, entry.amountPoisha)}</span>
                       <span>Earned: {order.delivery.riderEarningPoisha != null ? formatBDT(fromPoisha(order.delivery.riderEarningPoisha)) : "—"}</span>
                       <span>{entry.balanceImpactPoisha >= 0 ? "You owe" : "Owed to you"}: {formatBDT(Math.abs(fromPoisha(entry.balanceImpactPoisha)))}</span>
