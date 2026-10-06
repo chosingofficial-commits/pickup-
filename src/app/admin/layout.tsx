@@ -4,12 +4,14 @@ import { Logo } from "@/components/brand/logo";
 import { Container } from "@/components/ui/container";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { getCurrentUser } from "@/lib/auth/session";
+import { mainDomainHome } from "@/lib/auth/section-redirect";
 import { logoutAction } from "@/lib/actions/auth";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/admin");
-  if (user.role !== "ADMIN") redirect("/");
+  const storefrontHref = await mainDomainHome();
+  if (user.role !== "ADMIN") redirect(storefrontHref);
 
   return (
     <div className="min-h-screen bg-brand-bg">
@@ -19,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Logo />
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-sm font-medium text-brand-dark hover:text-brand-primary">
+            <Link href={storefrontHref} className="text-sm font-medium text-brand-dark hover:text-brand-primary">
               View storefront
             </Link>
             <form action={logoutAction}>

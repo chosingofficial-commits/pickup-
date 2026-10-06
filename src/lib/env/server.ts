@@ -14,6 +14,15 @@ const serverEnvSchema = z.object({
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
   SESSION_COOKIE_NAME: z.string().default("pickup_session"),
 
+  // Host-based routing to vendor./rider./admin.<APP_URL's hostname> — see
+  // src/proxy.ts and src/lib/subdomains.ts. Off by default: the instant
+  // rollback for a subdomain-routing problem in production is flipping this
+  // back to false and restarting, no redeploy needed. proxy.ts itself reads
+  // process.env directly (never coupled to this schema finishing validation),
+  // but it's declared here too so it shows up in .env.example and anywhere
+  // else that introspects serverEnv.
+  ENABLE_SUBDOMAIN_ROUTING: boolFromString,
+
   // Platform defaults — configurable, never hard-coded into business logic.
   DEFAULT_TIMEZONE: z.string().default("Asia/Dhaka"),
   DEFAULT_CURRENCY: z.string().default("BDT"),

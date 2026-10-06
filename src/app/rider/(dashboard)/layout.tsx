@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { Container } from "@/components/ui/container";
 import { getCurrentUser } from "@/lib/auth/session";
+import { mainDomainHome } from "@/lib/auth/section-redirect";
 import { logoutAction } from "@/lib/actions/auth";
 import { toggleRiderOnlineAction } from "@/lib/actions/rider";
 import { IncomingDeliveryAlert } from "@/components/rider/incoming-delivery-alert";
@@ -37,7 +38,7 @@ function OnlineToggle({ isOnline, className }: { isOnline: boolean; className?: 
 export default async function RiderLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/rider");
-  if (user.role !== "RIDER") redirect("/");
+  if (user.role !== "RIDER") redirect(await mainDomainHome());
   if (!user.riderProfile) redirect("/rider/register");
 
   if (!user.riderProfile.isApproved) {

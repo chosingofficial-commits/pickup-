@@ -5,12 +5,14 @@ import { Container } from "@/components/ui/container";
 import { VendorNav } from "@/components/vendor-dashboard/vendor-nav";
 import { IncomingOrderAlert } from "@/components/vendor-dashboard/incoming-order-alert";
 import { getCurrentUser } from "@/lib/auth/session";
+import { mainDomainHome } from "@/lib/auth/section-redirect";
 import { logoutAction } from "@/lib/actions/auth";
 
 export default async function VendorLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/vendor");
-  if (user.role !== "VENDOR") redirect("/");
+  const storefrontHref = await mainDomainHome();
+  if (user.role !== "VENDOR") redirect(storefrontHref);
 
   if (!user.vendorProfile) {
     return (
@@ -57,7 +59,7 @@ export default async function VendorLayout({ children }: { children: React.React
             <Logo />
           </Link>
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-sm font-medium text-brand-dark hover:text-brand-primary">
+            <Link href={storefrontHref} className="text-sm font-medium text-brand-dark hover:text-brand-primary">
               View storefront
             </Link>
             <form action={logoutAction}>

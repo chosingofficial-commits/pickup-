@@ -2,13 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { RiderRegisterForm } from "@/components/rider/rider-register-form";
+import { mainDomainHome } from "@/lib/auth/section-redirect";
 
 export const metadata: Metadata = { title: "Become a Pick Up rider" };
 
-export default function RiderRegisterPage() {
+export default async function RiderRegisterPage() {
+  // Absolute on the rider subdomain — a relative "/" would rewrite straight
+  // back into the rider dashboard (see proxy.ts), not the real homepage.
+  const homeHref = await mainDomainHome();
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand-bg px-4 py-12">
-      <Link href="/" className="mb-8">
+      <Link href={homeHref} className="mb-8">
         <Logo size="lg" />
       </Link>
       <div className="w-full max-w-md rounded-card border border-border-brand bg-white p-6 shadow-lifted sm:p-8">

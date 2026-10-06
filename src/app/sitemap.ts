@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { publicEnv } from "@/lib/env/public";
+import { sectionFromHost, sectionOrigin, mainOrigin } from "@/lib/subdomains";
 
 // Computed at request time (and cached for an hour) instead of baked into
 // the build, since the catalog changes continuously and a build shouldn't
@@ -18,14 +20,35 @@ const STATIC_PATHS = [
   "/coverage",
   "/legal/terms",
   "/legal/privacy",
-  "/vendor/register",
-  "/rider/register",
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = publicEnv.appUrl;
+  // Deliberately reads process.env directly, same as src/proxy.ts — this
+  // route shouldn't ever be coupled to an unrelated env var failing the
+  // full serverEnv schema.
+  const subdomainRoutingEnabled = process.env.ENABLE_SUBDOMAIN_ROUTING === "true";
+  const host = (await headers()).get("host");
+  const section = subdomainRoutingEnabled ? sectionFromHost(host, publicEnv.appUrl) : null;
 
-  const staticEntries: MetadataRoute.Sitemap = STATIC_PATHS.map((path) => ({
+  // Vendor/rider sign-up now lives at <section>.<domain>/register — its own
+  // one-URL sitemap — instead of under the main domain's /vendor or /rider.
+  if (section === "vendor" || section === "rider") {
+    return [
+      {
+        url: `${sectionOrigin(section, publicEnv.appUrl)}/register`,
+        lastModified: new Date(),
+        changeFrequency: "monthly",
+        priority: 0.6,
+      },
+    ];
+  }
+  // Admin has nothing worth indexing.
+  if (section === "admin") return [];
+
+  const base = mainOrigin(publicEnv.appUrl);
+  const staticPaths = subdomainRoutingEnabled ? STATIC_PATHS : [...STATIC_PATHS, "/vendor/register", "/rider/register"];
+
+  const staticEntries: MetadataRoute.Sitemap = staticPaths.map((path) => ({
     url: `${base}${path}`,
     lastModified: new Date(),
     changeFrequency: path === "" ? "daily" : "weekly",

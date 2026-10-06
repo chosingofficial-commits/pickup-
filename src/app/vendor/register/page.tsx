@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { RegisterForm } from "@/components/auth/register-form";
 import { VendorApplicationWizard } from "@/components/vendor-application/vendor-application-wizard";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -8,7 +8,19 @@ export const metadata: Metadata = { title: "Register your business" };
 
 export default async function VendorRegisterPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/register?next=/vendor/register");
+
+  // Create account / log in right here, instead of redirecting to the main
+  // domain's /register — on the vendor subdomain that'd either loop (no
+  // logged-in session there) or, with separate logins, hit a login page the
+  // visitor was never logged into. RegisterForm's own "next" handling and
+  // its relative "Log in" link both resolve correctly on this same host.
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-md">
+        <RegisterForm next="/vendor/register" />
+      </div>
+    );
+  }
 
   const categories = await db.category.findMany({
     where: { parentId: null, isActive: true, isAgeRestricted: false },

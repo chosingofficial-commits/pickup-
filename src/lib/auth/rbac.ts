@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "./session";
+import { mainDomainHome } from "./section-redirect";
 import type { UserRole } from "@/generated/prisma/client";
 
 export async function requireUser(redirectTo = "/login") {
@@ -12,7 +13,7 @@ export async function requireUser(redirectTo = "/login") {
 export async function requireRole(roles: UserRole[], redirectTo = "/login") {
   const user = await getCurrentUser();
   if (!user) redirect(redirectTo);
-  if (!roles.includes(user.role)) redirect("/");
+  if (!roles.includes(user.role)) redirect(await mainDomainHome());
   return user;
 }
 
