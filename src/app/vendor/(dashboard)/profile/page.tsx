@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { BusinessProfileForm } from "@/components/vendor-dashboard/business-profile-form";
+import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorForUser } from "@/lib/vendor/queries";
 
@@ -27,6 +28,13 @@ export default async function VendorProfilePage() {
               addressText: vendor.addressText,
             }}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-5">
+          <CardTitle className="mb-4">Password & security</CardTitle>
+          <ChangePasswordForm />
         </CardContent>
       </Card>
     </div>

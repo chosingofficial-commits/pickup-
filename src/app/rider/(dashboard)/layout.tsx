@@ -15,8 +15,10 @@ const NAV = [
   { href: "/rider", label: "Available" },
   { href: "/rider/deliveries", label: "My deliveries" },
   { href: "/rider/history", label: "History" },
-  { href: "/account", label: "Profile" },
+  { href: "/rider/profile", label: "Profile" },
   { href: "/rider/ads", label: "My ads" },
+  { href: "/rider/notifications", label: "Notifications" },
+  { href: "/rider/support", label: "Support" },
 ];
 
 function OnlineToggle({ isOnline, className }: { isOnline: boolean; className?: string }) {
@@ -56,9 +58,9 @@ export default async function RiderLayout({ children }: { children: React.ReactN
 
   return (
     // Riders get their own header/nav entirely — never the customer storefront
-    // chrome (Header/MobileNav), even though /account (Profile) is also
-    // reachable from here; My ads lives at /rider/ads instead, same dashboard
-    // chrome as everything else here. Bottom padding on mobile only, to clear
+    // chrome (Header/MobileNav) or the customer-style /account pages; Profile,
+    // My ads, Notifications, and Support all live under /rider instead, same
+    // dashboard chrome as everything else here. Bottom padding on mobile only, to clear
     // RiderBottomNav; desktop has no fixed bottom bar.
     <div className="min-h-screen bg-brand-bg pb-20 md:pb-0">
       <IncomingDeliveryAlert isOnline={isOnline} />

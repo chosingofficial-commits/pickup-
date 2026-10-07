@@ -20,12 +20,15 @@ export const SECTION_PREFIX: Record<Section, string> = {
 /**
  * Pages that live under the main domain's route tree but must ALSO render
  * (same page, same already-authenticated subdomain session — never a
- * redirect) when visited from the vendor/rider subdomain: the handful of
- * account pages that apply to any role (see AccountNav's OTHER_ROLE_LINKS,
- * which this list matches exactly) plus the "create a new ad" flow linked
- * from My ads. Customer-only account pages (orders, addresses, wishlist,
- * coupons, favorites, reviews) are deliberately NOT here — those redirect
- * to the main domain, same as any other main-domain-only path.
+ * redirect) when visited from the vendor/rider subdomain, plus the
+ * "create a new ad" flow. A vendor/rider hitting /account itself gets
+ * redirected on to their own dashboard's Profile (see
+ * (storefront)/account/layout.tsx) — which, being a relative redirect,
+ * stays on the same subdomain and matches its own ownPrefix pass-through
+ * below, same as any other internal /vendor or /rider link. Customer-only
+ * account pages (orders, addresses, wishlist, coupons, favorites, reviews)
+ * are deliberately NOT here — those redirect to the main domain, same as
+ * any other main-domain-only path.
  */
 export const SHARED_PATHS = ["/account", "/account/ads", "/account/notifications", "/account/support", "/account/security", "/advertise"];
 

@@ -13,6 +13,8 @@ import {
   UtensilsCrossed,
   Clock,
   Megaphone,
+  Bell,
+  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BusinessType } from "@/generated/prisma/client";
@@ -35,6 +37,8 @@ export function VendorNav({ businessType }: { businessType: BusinessType }) {
     { href: "/vendor/payouts", label: "Payouts", icon: Wallet },
     { href: "/vendor/profile", label: "Business profile", icon: Store },
     { href: "/vendor/ads", label: "My ads", icon: Megaphone },
+    { href: "/vendor/notifications", label: "Notifications", icon: Bell },
+    { href: "/vendor/support", label: "Support", icon: LifeBuoy },
   ];
 
   return (

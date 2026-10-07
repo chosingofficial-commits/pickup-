@@ -5,14 +5,11 @@ import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Support" };
 
-export default async function AccountSupportPage() {
+export default async function VendorSupportPage() {
   const user = await getCurrentUser();
-  if (!user) return null;
+  if (!user?.vendorProfile) return null;
 
-  const tickets = await db.supportTicket.findMany({
-    where: { requesterId: user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  const tickets = await db.supportTicket.findMany({ where: { requesterId: user.id }, orderBy: { createdAt: "desc" } });
 
   return (
     <div className="space-y-6">

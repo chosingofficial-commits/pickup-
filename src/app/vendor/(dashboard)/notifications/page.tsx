@@ -5,9 +5,9 @@ import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Notifications" };
 
-export default async function AccountNotificationsPage() {
+export default async function VendorNotificationsPage() {
   const user = await getCurrentUser();
-  if (!user) return null;
+  if (!user?.vendorProfile) return null;
 
   const notifications = await db.notification.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 50 });
 

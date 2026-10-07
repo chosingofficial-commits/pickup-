@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import { User, Package, MapPin, Heart, Store, Star, Ticket, Bell, LifeBuoy, ShieldCheck, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Customers-only now — vendors, riders, and admins all redirect away from
+// /account before ever rendering this (see (storefront)/account/layout.tsx),
+// since they each have their own dashboard with all of this built in.
 const CUSTOMER_LINKS = [
   { href: "/account", label: "Profile", icon: User },
   { href: "/account/orders", label: "Orders", icon: Package },
@@ -19,23 +22,12 @@ const CUSTOMER_LINKS = [
   { href: "/account/security", label: "Password & security", icon: ShieldCheck },
 ];
 
-// Vendors and riders manage their storefront/deliveries, and now also their
-// ads, from their own dashboards (/vendor, /rider) — this section is just
-// for the handful of pages that apply to any account regardless of role.
-const OTHER_ROLE_LINKS = [
-  { href: "/account", label: "Profile", icon: User },
-  { href: "/account/notifications", label: "Notifications", icon: Bell },
-  { href: "/account/support", label: "Support", icon: LifeBuoy },
-  { href: "/account/security", label: "Password & security", icon: ShieldCheck },
-];
-
-export function AccountNav({ role }: { role: "CUSTOMER" | "VENDOR" | "RIDER" | "ADMIN" }) {
+export function AccountNav() {
   const pathname = usePathname();
-  const links = role === "CUSTOMER" ? CUSTOMER_LINKS : OTHER_ROLE_LINKS;
 
   return (
     <nav aria-label="Account" className="no-scrollbar -mx-4 flex gap-1 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
-      {links.map(({ href, label, icon: Icon }) => {
+      {CUSTOMER_LINKS.map(({ href, label, icon: Icon }) => {
         const isActive = href === "/account" ? pathname === "/account" : pathname.startsWith(href);
         return (
           <Link
