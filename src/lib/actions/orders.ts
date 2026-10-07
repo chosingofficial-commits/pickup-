@@ -98,7 +98,18 @@ export async function advanceOrderStatusAction(_prev: ActionState, formData: For
         await createDeliveryEarningEntry(tx, order, order.delivery.id, order.delivery.riderId);
       }
 
-      if ((nextStatus === "RETURNED" || nextStatus === "REFUNDED") && order.delivery) {
+      // REFUNDED never reverses the rider's ledger: once a rider has
+      // completed a delivery (DELIVERED) they already did the physical work
+      // and, for COD, already collected and handed over the cash — a refund
+      // afterward is a platform/vendor-side event only (see
+      // syncOrderStatusForProcessedRefund in lib/actions/refunds.ts, which
+      // handles the REFUNDED transition reached via the refund-request flow;
+      // this direct-admin-action path only ever reaches REFUNDED from
+      // CANCELLED/FAILED_DELIVERY, where no earning entry exists yet anyway).
+      // RETURNED (physical goods brought back) is a separate, still-open
+      // question — left reversing for now, pending a decision on whether it
+      // should behave like REFUNDED instead.
+      if (nextStatus === "RETURNED" && order.delivery) {
         await reverseDeliveryEarningEntry(tx, order.delivery.id);
       }
     });

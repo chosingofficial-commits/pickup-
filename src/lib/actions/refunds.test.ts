@@ -9,9 +9,17 @@ import { syncOrderStatusForProcessedRefund } from "./refunds";
  * processing a refund only ever updated Payment.status, never Order.status
  * — so a refunded order kept counting its commission/vendor-earnings in
  * every aggregate that filters on order.status === "DELIVERED" (admin
- * "Commission revenue", vendor payouts), and the rider's delivery-earning
- * ledger entry was never reversed either. Confirmed against production
+ * "Commission revenue", vendor payouts). Confirmed against production
  * (read-only): exactly one existing order was affected this way.
+ *
+ * A second production read confirmed a fix regression risk: the rider who
+ * delivered that order had already collected COD cash and handed the
+ * platform's share over (balance settled to 0) *before* the refund was
+ * processed. Reversing the rider's ledger entry at refund time — the first
+ * draft of this fix — would have left the platform owing the rider money it
+ * never actually gave back, which is wrong: the rider did the delivery and
+ * already settled the cash, so a refund afterward is a platform/vendor-side
+ * event only and must never touch the rider's ledger.
  */
 describe("syncOrderStatusForProcessedRefund", () => {
   let orderGroupId: string | undefined;
@@ -75,26 +83,25 @@ describe("syncOrderStatusForProcessedRefund", () => {
     return { order, delivery, vendor, rider, riderBalanceBefore: riderBefore.balancePoisha };
   }
 
-  it("moves the order to REFUNDED and reverses the rider's earning, netting the rider's balance back to its pre-delivery value", async () => {
+  it("moves the order to REFUNDED but never touches the rider's ledger or balance", async () => {
     const { order, delivery, vendor, rider, riderBalanceBefore } = await createDeliveredOrderWithRiderEarning();
     const admin = await db.user.findUniqueOrThrow({ where: { phone: "+8801700000001" } });
 
+    const earning = await db.riderLedgerEntry.findFirstOrThrow({ where: { deliveryId: delivery.id, type: "DELIVERY_EARNING" } });
+    const riderBalanceAfterDelivery = riderBalanceBefore + earning.balanceImpactPoisha;
+
     await db.$transaction(async (tx) => {
-      await syncOrderStatusForProcessedRefund(
-        tx,
-        { id: order.id, status: "DELIVERED", vendor: { businessType: vendor.businessType }, delivery: { id: delivery.id } },
-        admin.id,
-      );
+      await syncOrderStatusForProcessedRefund(tx, { id: order.id, status: "DELIVERED", vendor: { businessType: vendor.businessType } }, admin.id);
     });
 
     const updatedOrder = await db.order.findUniqueOrThrow({ where: { id: order.id } });
     expect(updatedOrder.status).toBe("REFUNDED");
 
     const reversal = await db.riderLedgerEntry.findFirst({ where: { deliveryId: delivery.id, type: "DELIVERY_REVERSAL" } });
-    expect(reversal).not.toBeNull();
+    expect(reversal).toBeNull();
 
     const riderAfter = await db.riderProfile.findUniqueOrThrow({ where: { id: rider.id }, select: { balancePoisha: true } });
-    expect(riderAfter.balancePoisha).toBe(riderBalanceBefore);
+    expect(riderAfter.balancePoisha).toBe(riderBalanceAfterDelivery);
 
     // The whole point: once REFUNDED, this order must drop out of every
     // aggregate that counts "live" vendor commission/earnings.
@@ -105,16 +112,47 @@ describe("syncOrderStatusForProcessedRefund", () => {
     expect(stillCounted._sum.commissionAmount).toBeNull();
   });
 
+  it("COD order delivered, rider settles the cash, refund processed afterward: rider balance stays unchanged", async () => {
+    const { order, delivery, vendor, rider, riderBalanceBefore } = await createDeliveredOrderWithRiderEarning();
+    const admin = await db.user.findUniqueOrThrow({ where: { phone: "+8801700000001" } });
+
+    // Rider hands the platform's share of the COD cash over, settling their
+    // balance back to its pre-delivery value — same shape as the real
+    // CASH_HANDOVER action in lib/actions/admin-riders.ts.
+    const earning = await db.riderLedgerEntry.findFirstOrThrow({ where: { deliveryId: delivery.id, type: "DELIVERY_EARNING" } });
+    await db.$transaction(async (tx) => {
+      await tx.riderLedgerEntry.create({
+        data: {
+          riderId: rider.id,
+          type: "CASH_HANDOVER",
+          balanceImpactPoisha: -earning.balanceImpactPoisha,
+          amountPoisha: earning.amountPoisha,
+          createdByUserId: admin.id,
+        },
+      });
+      await tx.riderProfile.update({ where: { id: rider.id }, data: { balancePoisha: { increment: -earning.balanceImpactPoisha } } });
+    });
+
+    const riderSettled = await db.riderProfile.findUniqueOrThrow({ where: { id: rider.id }, select: { balancePoisha: true } });
+    expect(riderSettled.balancePoisha).toBe(riderBalanceBefore);
+
+    await db.$transaction(async (tx) => {
+      await syncOrderStatusForProcessedRefund(tx, { id: order.id, status: "DELIVERED", vendor: { businessType: vendor.businessType } }, admin.id);
+    });
+
+    const riderAfterRefund = await db.riderProfile.findUniqueOrThrow({ where: { id: rider.id }, select: { balancePoisha: true } });
+    expect(riderAfterRefund.balancePoisha).toBe(riderBalanceBefore);
+
+    const reversal = await db.riderLedgerEntry.findFirst({ where: { deliveryId: delivery.id, type: "DELIVERY_REVERSAL" } });
+    expect(reversal).toBeNull();
+  });
+
   it("is a no-op for an order that can't legally move to REFUNDED (e.g. still ORDER_PLACED)", async () => {
     const { order, delivery, vendor } = await createDeliveredOrderWithRiderEarning();
     await db.order.update({ where: { id: order.id }, data: { status: "ORDER_PLACED" } });
 
     await db.$transaction(async (tx) => {
-      await syncOrderStatusForProcessedRefund(
-        tx,
-        { id: order.id, status: "ORDER_PLACED", vendor: { businessType: vendor.businessType }, delivery: { id: delivery.id } },
-        "irrelevant-user-id",
-      );
+      await syncOrderStatusForProcessedRefund(tx, { id: order.id, status: "ORDER_PLACED", vendor: { businessType: vendor.businessType } }, "irrelevant-user-id");
     });
 
     const unchangedOrder = await db.order.findUniqueOrThrow({ where: { id: order.id } });

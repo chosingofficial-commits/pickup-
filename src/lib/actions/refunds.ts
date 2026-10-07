@@ -6,7 +6,6 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
 import { canTransition } from "@/lib/orders/status-flow";
-import { reverseDeliveryEarningEntry } from "./orders";
 import type { ActionState } from "./types";
 import type { Prisma, BusinessType, OrderStatus } from "@/generated/prisma/client";
 
@@ -14,17 +13,18 @@ type OrderForRefundSync = {
   id: string;
   status: OrderStatus;
   vendor: { businessType: BusinessType };
-  delivery: { id: string } | null;
 };
 
 /**
  * The part of processing a refund that keeps the rest of the app honest:
  * moves the specific order this refund is for to REFUNDED — which is what
  * excludes it from vendor-earnings/commission-revenue aggregates (they
- * filter on order.status === "DELIVERED") — and reverses the rider's
- * delivery-earning ledger entry, exactly like any other admin-driven
- * REFUNDED transition (advanceOrderStatusAction). A no-op if the order
- * can't legally move to REFUNDED from its current status (e.g. it's
+ * filter on order.status === "DELIVERED"). Deliberately does NOT touch the
+ * rider's ledger: once a rider has delivered an order (and, for COD,
+ * collected and handed over the cash), a refund afterward is a
+ * platform/vendor-side event only — the rider already did the work and
+ * already settled the cash, so they keep their earning. A no-op if the
+ * order can't legally move to REFUNDED from its current status (e.g. it's
  * already REFUNDED, or this refund predates Refund.orderId and has no
  * order to sync).
  */
@@ -39,7 +39,6 @@ export async function syncOrderStatusForProcessedRefund(
   await tx.deliveryStatusHistory.create({
     data: { orderId: order.id, status: "REFUNDED", note: "Refund processed", changedByUserId },
   });
-  if (order.delivery) await reverseDeliveryEarningEntry(tx, order.delivery.id);
 }
 
 export async function requestRefundAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -88,7 +87,7 @@ export async function updateRefundStatusAction(formData: FormData): Promise<void
     const updated = await tx.refund.update({
       where: { id: refundId },
       data: { status: status as never, processedAt: status === "PROCESSED" ? new Date() : undefined },
-      include: { order: { include: { vendor: true, delivery: true } } },
+      include: { order: { include: { vendor: true } } },
     });
 
     if (status === "PROCESSED") {
