@@ -5,7 +5,42 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
+import { canTransition } from "@/lib/orders/status-flow";
+import { reverseDeliveryEarningEntry } from "./orders";
 import type { ActionState } from "./types";
+import type { Prisma, BusinessType, OrderStatus } from "@/generated/prisma/client";
+
+type OrderForRefundSync = {
+  id: string;
+  status: OrderStatus;
+  vendor: { businessType: BusinessType };
+  delivery: { id: string } | null;
+};
+
+/**
+ * The part of processing a refund that keeps the rest of the app honest:
+ * moves the specific order this refund is for to REFUNDED — which is what
+ * excludes it from vendor-earnings/commission-revenue aggregates (they
+ * filter on order.status === "DELIVERED") — and reverses the rider's
+ * delivery-earning ledger entry, exactly like any other admin-driven
+ * REFUNDED transition (advanceOrderStatusAction). A no-op if the order
+ * can't legally move to REFUNDED from its current status (e.g. it's
+ * already REFUNDED, or this refund predates Refund.orderId and has no
+ * order to sync).
+ */
+export async function syncOrderStatusForProcessedRefund(
+  tx: Prisma.TransactionClient,
+  order: OrderForRefundSync | null,
+  changedByUserId: string,
+): Promise<void> {
+  if (!order || !canTransition(order.status, "REFUNDED", order.vendor.businessType)) return;
+
+  await tx.order.update({ where: { id: order.id }, data: { status: "REFUNDED" } });
+  await tx.deliveryStatusHistory.create({
+    data: { orderId: order.id, status: "REFUNDED", note: "Refund processed", changedByUserId },
+  });
+  if (order.delivery) await reverseDeliveryEarningEntry(tx, order.delivery.id);
+}
 
 export async function requestRefundAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
@@ -30,6 +65,7 @@ export async function requestRefundAction(_prev: ActionState, formData: FormData
   await db.refund.create({
     data: {
       paymentId: order.orderGroup.payment.id,
+      orderId: order.id,
       amount: order.total,
       reason: `[${order.orderNumber}] ${reason}`,
       status: "REQUESTED",
@@ -48,14 +84,20 @@ export async function updateRefundStatusAction(formData: FormData): Promise<void
   const status = String(formData.get("status") ?? "");
   if (!["APPROVED", "REJECTED", "PROCESSED"].includes(status)) return;
 
-  const refund = await db.refund.update({
-    where: { id: refundId },
-    data: { status: status as never, processedAt: status === "PROCESSED" ? new Date() : undefined },
-  });
+  await db.$transaction(async (tx) => {
+    const updated = await tx.refund.update({
+      where: { id: refundId },
+      data: { status: status as never, processedAt: status === "PROCESSED" ? new Date() : undefined },
+      include: { order: { include: { vendor: true, delivery: true } } },
+    });
 
-  if (status === "PROCESSED") {
-    await db.payment.update({ where: { id: refund.paymentId }, data: { status: "REFUNDED" } });
-  }
+    if (status === "PROCESSED") {
+      await tx.payment.update({ where: { id: updated.paymentId }, data: { status: "REFUNDED" } });
+      await syncOrderStatusForProcessedRefund(tx, updated.order, admin.id);
+    }
+
+    return updated;
+  });
 
   await recordAuditLog({ actorUserId: admin.id, action: `REFUND_${status}`, entityType: "Refund", entityId: refundId });
   revalidatePath("/admin/refunds");
