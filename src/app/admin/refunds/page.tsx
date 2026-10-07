@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Refunds" };
 export default async function AdminRefundsPage() {
   const refunds = await db.refund.findMany({
     include: { payment: { include: { orderGroup: { include: { customer: { select: { name: true } } } } } } },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
     take: 100,
   });
 

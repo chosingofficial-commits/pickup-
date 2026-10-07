@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DollarSign, ShoppingBag, Users, Store, FileClock, Bike, Percent, Undo2, Wallet } from "lucide-react";
+import { DollarSign, ShoppingBag, Users, Store, FileClock, Bike, Percent, Undo2, Wallet, HandCoins } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SalesChart } from "@/components/admin/sales-chart";
 import { MoneyOverview } from "@/components/admin/money-overview";
@@ -11,7 +11,7 @@ import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Admin dashboard" };
 
-function Stat({ icon: Icon, label, value, href }: { icon: React.ElementType; label: string; value: string; href: string }) {
+function Stat({ icon: Icon, label, value, hint, href }: { icon: React.ElementType; label: string; value: string; hint?: string; href: string }) {
   return (
     <Link href={href}>
       <Card className="transition-shadow hover:shadow-lifted">
@@ -22,6 +22,7 @@ function Stat({ icon: Icon, label, value, href }: { icon: React.ElementType; lab
           <div>
             <p className="text-xs text-gray-500">{label}</p>
             <p className="font-heading text-lg font-bold text-brand-dark">{value}</p>
+            {hint && <p className="text-[11px] text-gray-500">{hint}</p>}
           </div>
         </CardContent>
       </Card>
@@ -52,8 +53,21 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
         <Stat icon={FileClock} label="Pending applications" value={String(stats.pendingApplications)} href="/admin/vendor-applications" />
         <Stat icon={Bike} label="Riders" value={String(stats.totalRiders)} href="/admin/riders" />
         <Stat icon={Percent} label="Commission revenue" value={formatBDT(stats.commissionRevenue)} href="/admin/payouts" />
-        <Stat icon={Undo2} label="Pending refunds" value={String(stats.pendingRefunds)} href="/admin/refunds" />
-        <Stat icon={Wallet} label="Pending payouts" value={String(stats.pendingPayouts)} href="/admin/payouts" />
+        <Stat
+          icon={Undo2}
+          label="Pending refunds"
+          value={formatBDT(stats.pendingRefundsAmount)}
+          hint={`${stats.pendingRefunds} request${stats.pendingRefunds === 1 ? "" : "s"}`}
+          href="/admin/refunds"
+        />
+        <Stat
+          icon={Wallet}
+          label="Pending vendor payouts"
+          value={formatBDT(stats.pendingPayoutsAmount)}
+          hint={`${stats.pendingPayouts} request${stats.pendingPayouts === 1 ? "" : "s"}`}
+          href="/admin/payouts"
+        />
+        <Stat icon={HandCoins} label="Owed to riders" value={formatBDT(stats.owedToRidersAmount)} hint="Current balance, all time" href="/admin/riders?status=weOwe" />
       </div>
 
       <MoneyOverview period={period} overview={moneyOverview} />

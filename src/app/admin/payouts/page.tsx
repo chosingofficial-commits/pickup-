@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Vendor payouts" };
 export default async function AdminPayoutsPage() {
   const payouts = await db.vendorPayout.findMany({
     include: { vendor: { select: { businessName: true } } },
-    orderBy: { requestedAt: "desc" },
+    orderBy: { requestedAt: "asc" },
     take: 100,
   });
 

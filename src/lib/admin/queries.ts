@@ -10,8 +10,9 @@ export async function getAdminOverviewStats() {
     pendingApplications,
     totalRiders,
     commissionAgg,
-    pendingRefunds,
-    pendingPayouts,
+    pendingRefundsAgg,
+    pendingPayoutsAgg,
+    owedToRidersAgg,
   ] = await Promise.all([
     db.order.aggregate({ where: { status: "DELIVERED" }, _sum: { total: true } }),
     db.order.count(),
@@ -22,8 +23,12 @@ export async function getAdminOverviewStats() {
     // Same DELIVERED-only rule as totalSalesAgg/getDailySalesSeries above —
     // commission on an order that hasn't been delivered isn't realized revenue.
     db.commissionEntry.aggregate({ where: { order: { status: "DELIVERED" } }, _sum: { commissionAmount: true } }),
-    db.refund.count({ where: { status: "REQUESTED" } }),
-    db.vendorPayout.count({ where: { status: "PENDING" } }),
+    db.refund.aggregate({ where: { status: "REQUESTED" }, _sum: { amount: true }, _count: { _all: true } }),
+    db.vendorPayout.aggregate({ where: { status: "PENDING" }, _sum: { amount: true }, _count: { _all: true } }),
+    // Riders with a negative balance (Pick Up owes them) — same figure as
+    // getRiderPaymentSummary's weOweRidersPoisha, kept here too so the main
+    // dashboard card doesn't need the whole money-overview query.
+    db.riderProfile.aggregate({ where: { balancePoisha: { lt: 0 } }, _sum: { balancePoisha: true } }),
   ]);
 
   return {
@@ -34,8 +39,11 @@ export async function getAdminOverviewStats() {
     pendingApplications,
     totalRiders,
     commissionRevenue: Number(commissionAgg._sum.commissionAmount ?? 0),
-    pendingRefunds,
-    pendingPayouts,
+    pendingRefunds: pendingRefundsAgg._count._all,
+    pendingRefundsAmount: Number(pendingRefundsAgg._sum.amount ?? 0),
+    pendingPayouts: pendingPayoutsAgg._count._all,
+    pendingPayoutsAmount: Number(pendingPayoutsAgg._sum.amount ?? 0),
+    owedToRidersAmount: Math.abs(owedToRidersAgg._sum.balancePoisha ?? 0) / 100,
   };
 }
 
