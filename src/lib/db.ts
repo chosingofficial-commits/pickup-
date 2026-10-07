@@ -7,7 +7,11 @@ declare global {
 }
 
 function createPrismaClient() {
-  const adapter = new PrismaPg({ connectionString: serverEnv.DATABASE_URL });
+  // DATABASE_POOL_URL (a transaction-mode pooler, when configured) is what
+  // every request goes through — DATABASE_URL itself is reserved for
+  // `prisma migrate deploy`, which needs a session/direct connection. See
+  // the comments on both in src/lib/env/server.ts.
+  const adapter = new PrismaPg({ connectionString: serverEnv.DATABASE_POOL_URL ?? serverEnv.DATABASE_URL });
   return new PrismaClient({ adapter });
 }
 

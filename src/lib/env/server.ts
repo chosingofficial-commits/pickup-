@@ -10,7 +10,18 @@ const boolFromString = z
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_URL: z.string().url().default("http://localhost:3000"),
+  // Used by `prisma migrate deploy` (via prisma.config.ts) and as the
+  // runtime fallback below — needs a session/direct connection (e.g.
+  // Supabase's session pooler, port 5432), since migrations need
+  // session-level behavior that a transaction-mode pooler doesn't support.
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  // Optional: the connection the RUNNING APP queries through — point this
+  // at a transaction-mode pooler (e.g. Supabase's pooler on port 6543,
+  // `?pgbouncer=true`) in production, which multiplexes many app-side
+  // connections onto far fewer real Postgres backends than a session
+  // pooler's low client cap allows. Falls back to DATABASE_URL when unset
+  // (e.g. local dev against a single local Postgres — see src/lib/db.ts).
+  DATABASE_POOL_URL: z.string().optional(),
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
   SESSION_COOKIE_NAME: z.string().default("pickup_session"),
 

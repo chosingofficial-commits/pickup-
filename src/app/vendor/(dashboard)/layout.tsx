@@ -59,9 +59,13 @@ export default async function VendorLayout({ children }: { children: React.React
             <Logo />
           </Link>
           <div className="flex items-center gap-3">
-            <Link href={storefrontHref} className="text-sm font-medium text-brand-dark hover:text-brand-primary">
+            {/* A plain <a>, not <Link> — this can be a different origin (the
+                main domain, from a vendor subdomain), and must always be a
+                real full-page navigation, never a same-origin client-side
+                soft nav. */}
+            <a href={storefrontHref} className="text-sm font-medium text-brand-dark hover:text-brand-primary">
               View storefront
-            </Link>
+            </a>
             <form action={logoutAction}>
               <button type="submit" className="rounded-control px-3 py-2 text-sm font-medium text-brand-dark hover:bg-brand-bg">
                 Log out

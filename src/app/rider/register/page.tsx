@@ -13,9 +13,12 @@ export default async function RiderRegisterPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand-bg px-4 py-12">
-      <Link href={homeHref} className="mb-8">
+      {/* A plain <a>, not <Link> — homeHref can be a different origin (the
+          main domain, from the rider subdomain), and must always be a real
+          full-page navigation, never a same-origin client-side soft nav. */}
+      <a href={homeHref} className="mb-8">
         <Logo size="lg" />
-      </Link>
+      </a>
       <div className="w-full max-w-md rounded-card border border-border-brand bg-white p-6 shadow-lifted sm:p-8">
         <h1 className="font-heading text-2xl font-bold text-brand-dark">Ride with Pick Up</h1>
         <p className="mt-1 text-sm text-gray-600">Create your rider account, then complete your profile to start accepting deliveries.</p>
