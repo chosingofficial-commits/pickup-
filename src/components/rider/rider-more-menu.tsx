@@ -34,7 +34,7 @@ export function RiderMoreMenu() {
               <UserRound className="h-4 w-4" aria-hidden />
               Profile
             </Link>
-            <Link href="/account/ads" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-brand-dark hover:bg-brand-bg">
+            <Link href="/rider/ads" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-brand-dark hover:bg-brand-bg">
               <Megaphone className="h-4 w-4" aria-hidden />
               My ads
             </Link>

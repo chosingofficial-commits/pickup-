@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { myAdsHref } from "./my-ads-href";
 
 type TransitionRow = { id: string; advertisementId: string };
 
@@ -42,13 +43,13 @@ export async function syncAdCampaignLifecycle(now: Date = new Date()): Promise<v
   ];
   const ads = await db.advertisement.findMany({
     where: { id: { in: toNotify.map((t) => t.advertisementId) } },
-    include: { advertiser: true },
+    include: { advertiser: { include: { user: { select: { role: true } } } } },
   });
   const adById = new Map(ads.map((a) => [a.id, a]));
 
   const notifications = toNotify.flatMap(({ advertisementId, kind }) => {
     const ad = adById.get(advertisementId);
-    if (!ad?.advertiser.userId) return [];
+    if (!ad?.advertiser.userId || !ad.advertiser.user) return [];
     return [
       {
         userId: ad.advertiser.userId,
@@ -58,7 +59,7 @@ export async function syncAdCampaignLifecycle(now: Date = new Date()): Promise<v
           kind === "started"
             ? `"${ad.title}" started showing to customers.`
             : `"${ad.title}" has finished its run.`,
-        linkUrl: "/account/ads",
+        linkUrl: myAdsHref(ad.advertiser.user.role),
       },
     ];
   });

@@ -19,12 +19,11 @@ const CUSTOMER_LINKS = [
   { href: "/account/security", label: "Password & security", icon: ShieldCheck },
 ];
 
-// Vendors and riders manage their storefront/deliveries from their own
-// dashboards (/vendor, /rider) — this section is just for the handful of
-// pages that apply to any account regardless of role.
+// Vendors and riders manage their storefront/deliveries, and now also their
+// ads, from their own dashboards (/vendor, /rider) — this section is just
+// for the handful of pages that apply to any account regardless of role.
 const OTHER_ROLE_LINKS = [
   { href: "/account", label: "Profile", icon: User },
-  { href: "/account/ads", label: "My ads", icon: Megaphone },
   { href: "/account/notifications", label: "Notifications", icon: Bell },
   { href: "/account/support", label: "Support", icon: LifeBuoy },
   { href: "/account/security", label: "Password & security", icon: ShieldCheck },

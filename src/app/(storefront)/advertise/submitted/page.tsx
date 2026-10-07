@@ -3,11 +3,14 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { getSiteSettings, SITE_SETTING_KEYS } from "@/lib/settings";
+import { myAdsHref } from "@/lib/ads/queries";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Advertising request submitted" };
 
 export default async function AdvertiseSubmittedPage() {
-  const settings = await getSiteSettings();
+  const [settings, user] = await Promise.all([getSiteSettings(), getCurrentUser()]);
+  const myAdsLink = myAdsHref(user?.role ?? "CUSTOMER");
 
   return (
     <Container className="flex flex-col items-center py-16 text-center">
@@ -20,7 +23,7 @@ export default async function AdvertiseSubmittedPage() {
         {settings[SITE_SETTING_KEYS.adPaymentInstructions]}
       </div>
       <div className="mt-6 flex gap-3">
-        <Link href="/account/ads" className="rounded-control bg-brand-primary px-6 py-3 text-sm font-semibold text-white hover:bg-brand-primary-hover">
+        <Link href={myAdsLink} className="rounded-control bg-brand-primary px-6 py-3 text-sm font-semibold text-white hover:bg-brand-primary-hover">
           View my ads
         </Link>
         <Link href="/" className="rounded-control border border-border-brand px-6 py-3 text-sm font-semibold text-brand-dark hover:bg-brand-bg">

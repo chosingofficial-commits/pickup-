@@ -23,10 +23,16 @@ export type PlacementOption = {
   bookedRanges: { start: string; end: string }[];
 };
 
-export function AdvertisementRequestForm({ defaults, placements }: { defaults: { phone: string }; placements: PlacementOption[] }) {
+export function AdvertisementRequestForm({
+  defaults,
+  placements,
+}: {
+  defaults: { phone: string; businessName?: string };
+  placements: PlacementOption[];
+}) {
   const [state, formAction] = useActionState(submitAdvertisementRequestAction, initialActionState);
 
-  const [businessName, setBusinessName] = useState("");
+  const [businessName, setBusinessName] = useState(defaults.businessName ?? "");
   const [bannerImageUrl, setBannerImageUrl] = useState<string | null>(null);
   const [placementCode, setPlacementCode] = useState(placements[0]?.code ?? "");
   const [startDate, setStartDate] = useState("");

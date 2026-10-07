@@ -34,7 +34,7 @@ export function VendorNav({ businessType }: { businessType: BusinessType }) {
     { href: "/vendor/reviews", label: "Reviews", icon: Star },
     { href: "/vendor/payouts", label: "Payouts", icon: Wallet },
     { href: "/vendor/profile", label: "Business profile", icon: Store },
-    { href: "/account/ads", label: "My ads", icon: Megaphone },
+    { href: "/vendor/ads", label: "My ads", icon: Megaphone },
   ];
 
   return (
