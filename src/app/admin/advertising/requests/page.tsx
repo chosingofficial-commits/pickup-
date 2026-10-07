@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { RejectAdForm } from "@/components/admin/reject-ad-form";
 import { CreateCampaignForm } from "@/components/admin/create-campaign-form";
@@ -9,10 +10,13 @@ import { formatBDT } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Advertising requests" };
 
-export default async function AdminAdvertisingRequestsPage() {
+export default async function AdminAdvertisingRequestsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  const { status } = await searchParams;
+  const statusFilter = status === "SUBMITTED" || status === "APPROVED" ? status : undefined;
+
   const [advertisements, placements] = await Promise.all([
     db.advertisement.findMany({
-      where: { campaigns: { none: {} } },
+      where: { campaigns: { none: {} }, ...(statusFilter ? { status: statusFilter } : {}) },
       include: { advertiser: true },
       orderBy: { createdAt: "desc" },
     }),
@@ -30,7 +34,14 @@ export default async function AdminAdvertisingRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold text-brand-dark">Advertising requests</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-heading text-2xl font-bold text-brand-dark">Advertising requests</h1>
+        {statusFilter && (
+          <Link href="/admin/advertising/requests" className="text-xs font-semibold text-brand-primary hover:underline">
+            Showing {statusFilter === "SUBMITTED" ? "new requests" : "approved, awaiting payment"} only — clear filter
+          </Link>
+        )}
+      </div>
 
       {advertisements.length === 0 ? (
         <p className="text-sm text-gray-500">No pending requests. Running campaigns are under &quot;Ad campaigns&quot;.</p>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cancelAdCampaignAction } from "@/lib/actions/admin-advertising";
 import { MarkAdPaymentPaidForm, PauseResumeCampaignForm, EditCampaignDatesForm } from "@/components/admin/ad-campaign-actions";
@@ -6,6 +7,7 @@ import { AdCard } from "@/components/ads/ad-card";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 import { syncAdCampaignLifecycle } from "@/lib/ads/lifecycle";
+import type { AdStatus, AdPlacementCode } from "@/generated/prisma/client";
 
 export const metadata: Metadata = { title: "Ad campaigns" };
 
@@ -20,17 +22,49 @@ const BADGE_VARIANT: Record<string, "brand" | "outline" | "danger" | "accent"> =
   EXPIRED: "outline",
 };
 
-export default async function AdminAdvertisingCampaignsPage() {
+type CampaignFilters = { campaignStatus?: AdStatus; placement?: AdPlacementCode; pendingPayment?: boolean; paidOnly?: boolean };
+
+export default async function AdminAdvertisingCampaignsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; placement?: string; pendingPayment?: string; paid?: string }>;
+}) {
   await syncAdCampaignLifecycle();
+  const sp = await searchParams;
+  const filters: CampaignFilters = {
+    campaignStatus: sp.status as AdStatus | undefined,
+    placement: sp.placement as AdPlacementCode | undefined,
+    pendingPayment: sp.pendingPayment === "1",
+    paidOnly: sp.paid === "1",
+  };
+  const hasFilter = !!(filters.campaignStatus || filters.placement || filters.pendingPayment || filters.paidOnly);
+
+  const campaignWhere = {
+    ...(filters.campaignStatus ? { status: filters.campaignStatus } : {}),
+    ...(filters.placement ? { placement: { code: filters.placement } } : {}),
+    ...(filters.pendingPayment ? { payments: { some: { status: "PENDING" as const } } } : {}),
+    ...(filters.paidOnly ? { payments: { some: { status: "PAID" as const } } } : {}),
+  };
+
   const advertisements = await db.advertisement.findMany({
-    where: { campaigns: { some: {} } },
-    include: { advertiser: true, campaigns: { include: { placement: true, payments: true, impressions: true, clicks: true } } },
+    where: { campaigns: hasFilter ? { some: campaignWhere } : { some: {} } },
+    include: {
+      advertiser: true,
+      campaigns: { where: hasFilter ? campaignWhere : undefined, include: { placement: true, payments: true, impressions: true, clicks: true } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
   return (
     <div className="space-y-6">
-      <h1 className="font-heading text-2xl font-bold text-brand-dark">Ad campaigns</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-heading text-2xl font-bold text-brand-dark">Ad campaigns</h1>
+        {hasFilter && (
+          <Link href="/admin/advertising/campaigns" className="text-xs font-semibold text-brand-primary hover:underline">
+            Filtered — clear filter
+          </Link>
+        )}
+      </div>
 
       {advertisements.length === 0 ? (
         <p className="text-sm text-gray-500">No campaigns yet.</p>

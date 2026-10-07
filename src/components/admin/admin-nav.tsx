@@ -60,6 +60,7 @@ const GROUPS: { label: string; links: { href: string; label: string; icon: React
   {
     label: "Advertising",
     links: [
+      { href: "/admin/advertising", label: "Overview", icon: LayoutDashboard },
       { href: "/admin/advertising/requests", label: "Ad requests", icon: Megaphone },
       { href: "/admin/advertising/campaigns", label: "Ad campaigns", icon: ClipboardList },
       { href: "/admin/advertising/placements", label: "Placements & pricing", icon: Tag },
