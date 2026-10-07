@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
+import { MAX_PRODUCT_PHOTOS } from "@/lib/validation/product";
 import type { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -199,7 +200,10 @@ export const getProductBySlug = cache(async (vendorSlug: string, productSlug: st
       vendor: { slug: vendorSlug, ...activeVendorFilter },
     },
     include: {
-      images: true,
+      // Existing products from before the 6->3 photo-limit cut may still have
+      // more than MAX_PRODUCT_PHOTOS stored — customers only ever see the
+      // first 3 (by sortOrder), never the extras.
+      images: { orderBy: { sortOrder: "asc" }, take: MAX_PRODUCT_PHOTOS },
       variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
       category: true,
       vendor: true,

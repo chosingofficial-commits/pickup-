@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { optionalText, optionalNumber } from "./form-helpers";
 
-export const MAX_MENU_ITEM_PHOTOS = 4;
+// Was 4 — lowered to 3. Existing items with more than 3 photos keep them
+// (never silently deleted); the edit form shows every existing photo and
+// asks the vendor to remove extras down to 3 before it'll save — see
+// menu-item-row.tsx and the >MAX_MENU_ITEM_PHOTOS rejection in vendor-menu.ts.
+export const MAX_MENU_ITEM_PHOTOS = 3;
 export const MAX_SUGGESTED_ITEMS = 10;
 
 export const menuSchema = z.object({ name: z.string().trim().min(2, "Enter a menu name").max(80) });

@@ -34,14 +34,15 @@ async function requireGroceryVendor() {
   return { user, vendorId: user.vendorProfile.id };
 }
 
-// The form only ever renders MAX_PRODUCT_PHOTOS upload slots, but this is a
-// server action — cap it here too in case of a tampered/direct POST.
+// Deliberately NOT sliced to MAX_PRODUCT_PHOTOS here — a product that
+// already has more than that (from before the 6->3 cut) must have its
+// extras explicitly removed by the vendor, never silently dropped on a
+// plain resubmit. Callers check the length themselves and reject instead.
 function getImageUrls(formData: FormData): string[] {
   return formData
     .getAll("imageUrls")
     .map((v) => String(v).trim())
-    .filter(Boolean)
-    .slice(0, MAX_PRODUCT_PHOTOS);
+    .filter(Boolean);
 }
 
 // Variant rows arrive as parallel repeated fields (variantQuantityValue,
@@ -99,6 +100,7 @@ export async function createProductAction(_prev: ActionState, formData: FormData
   const { rows, defaultIndex } = variantsResult;
 
   const imageUrls = getImageUrls(formData);
+  if (imageUrls.length > MAX_PRODUCT_PHOTOS) return { status: "error", message: `Up to ${MAX_PRODUCT_PHOTOS} photos only.` };
   const baseSlug = slugify(parsed.data.name);
   let slug = baseSlug;
   let n = 1;
@@ -177,6 +179,9 @@ export async function updateProductAction(_prev: ActionState, formData: FormData
   const { rows, defaultIndex } = variantsResult;
 
   const imageUrls = getImageUrls(formData);
+  if (imageUrls.length > MAX_PRODUCT_PHOTOS) {
+    return { status: "error", message: `Up to ${MAX_PRODUCT_PHOTOS} photos only — remove ${imageUrls.length - MAX_PRODUCT_PHOTOS} to save.` };
+  }
 
   await db.$transaction(async (tx) => {
     await tx.product.update({

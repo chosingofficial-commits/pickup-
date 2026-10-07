@@ -15,7 +15,6 @@ import {
   updateAddOnSchema,
   menuItemPhotosSchema,
   menuItemSuggestionsSchema,
-  MAX_MENU_ITEM_PHOTOS,
   MAX_SUGGESTED_ITEMS,
 } from "@/lib/validation/menu-item";
 import type { ActionState } from "./types";
@@ -257,14 +256,16 @@ export async function deleteMenuAction(_prev: ActionState, formData: FormData): 
   return { status: "error", message: `This category has ${menu.items.length} item(s) — choose what to do with them.` };
 }
 
-// The form only ever renders MAX_MENU_ITEM_PHOTOS upload slots, but this is a
-// server action — cap it here too in case of a tampered/direct POST.
+// Deliberately NOT sliced to MAX_MENU_ITEM_PHOTOS here — an item that
+// already has more than that (from before the 4->3 cut) must have its extras
+// explicitly removed by the vendor, never silently dropped on a plain
+// resubmit. menuItemPhotosSchema's own .max() rejects anything still over
+// the limit instead.
 function getPhotoUrls(formData: FormData): string[] {
   return formData
     .getAll("photoUrls")
     .map((v) => String(v).trim())
-    .filter(Boolean)
-    .slice(0, MAX_MENU_ITEM_PHOTOS);
+    .filter(Boolean);
 }
 
 export async function updateMenuItemPhotosAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

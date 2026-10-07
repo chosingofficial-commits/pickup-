@@ -79,6 +79,13 @@ export function ProductForm({
   const isEdit = !!defaults?.id;
   const [state, formAction] = useActionState(isEdit ? updateProductAction : createProductAction, initialActionState);
 
+  // An existing product from before the photo-limit cut may have more than
+  // MAX_PRODUCT_PHOTOS saved — show every one of them (not just the first
+  // MAX) so the vendor can actually remove the extras, rather than the form
+  // silently hiding (and, on save, deleting) whatever didn't fit a slot.
+  const existingPhotoCount = defaults?.images?.length ?? 0;
+  const photoSlotCount = Math.max(MAX_PRODUCT_PHOTOS, existingPhotoCount);
+
   const initial = rowsFromDefaults(defaults?.variants);
   const [rows, setRows] = useState<Row[]>(initial.rows);
   const [defaultIndex, setDefaultIndex] = useState(initial.defaultIndex);
@@ -165,8 +172,14 @@ export function ProductForm({
 
       <div>
         <Label>Product photos (up to {MAX_PRODUCT_PHOTOS})</Label>
+        {existingPhotoCount > MAX_PRODUCT_PHOTOS && (
+          <p className="mb-2 rounded-control bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
+            This product has {existingPhotoCount} photos from before the {MAX_PRODUCT_PHOTOS}-photo limit — remove{" "}
+            {existingPhotoCount - MAX_PRODUCT_PHOTOS} of them (✕ on a photo below) before you can save.
+          </p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
-          {Array.from({ length: MAX_PRODUCT_PHOTOS }, (_, i) => (
+          {Array.from({ length: photoSlotCount }, (_, i) => (
             <FileUploadField
               key={i}
               fieldId={`imageUrls-${i}`}

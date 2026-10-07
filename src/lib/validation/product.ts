@@ -2,7 +2,11 @@ import { z } from "zod";
 import { VARIANT_UNITS } from "@/lib/catalog/variant-label";
 import { optionalText, optionalNumber } from "./form-helpers";
 
-export const MAX_PRODUCT_PHOTOS = 6;
+// Was 6 — lowered to 3. Existing products with more than 3 photos keep them
+// (never silently deleted); the edit form shows every existing photo and
+// asks the vendor to remove extras down to 3 before it'll save — see
+// product-form.tsx and the >MAX_PRODUCT_PHOTOS rejection in vendor-products.ts.
+export const MAX_PRODUCT_PHOTOS = 3;
 
 // Price, compare-at-price, unit, and stock all moved to per-variant fields —
 // every product has at least one size/option row (see the variants

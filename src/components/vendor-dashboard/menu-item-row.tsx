@@ -210,8 +210,13 @@ function EditItemForm({ item, onClose }: { item: MenuItemRowData; onClose: () =>
 
 function PhotosPanel({ itemId, photos }: { itemId: string; photos: string[] }) {
   const [state, formAction, pending] = useActionState(updateMenuItemPhotosAction, initialActionState);
+  // An item from before the photo-limit cut may have more than
+  // MAX_MENU_ITEM_PHOTOS saved — show every one of them (not just the first
+  // MAX) so the vendor can actually remove the extras, rather than the form
+  // silently hiding (and, on save, deleting) whatever didn't fit a slot.
+  const slotCount = Math.max(MAX_MENU_ITEM_PHOTOS, photos.length);
   const [urls, setUrls] = useState<(string | null)[]>(() => {
-    const slots = Array.from({ length: MAX_MENU_ITEM_PHOTOS }, (_, i) => photos[i] ?? null);
+    const slots = Array.from({ length: slotCount }, (_, i) => photos[i] ?? null);
     return slots;
   });
 
@@ -229,6 +234,13 @@ function PhotosPanel({ itemId, photos }: { itemId: string; photos: string[] }) {
     <form action={formAction} className="space-y-3 rounded-control bg-surface-muted p-3">
       <input type="hidden" name="itemId" value={itemId} />
       <p className="text-xs text-gray-500">Up to {MAX_MENU_ITEM_PHOTOS} photos. JPEG, PNG, or WebP, 5MB max.</p>
+      {photos.length > MAX_MENU_ITEM_PHOTOS && (
+        <p className="rounded-control bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
+          This item has {photos.length} photos from before the {MAX_MENU_ITEM_PHOTOS}-photo limit — remove{" "}
+          {urls.filter((u) => u).length - MAX_MENU_ITEM_PHOTOS > 0 ? urls.filter((u) => u).length - MAX_MENU_ITEM_PHOTOS : 0} of them (✕
+          on a photo below) before you can save.
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         {urls.map((url, i) => (
           // Keyed on slot index + current url so moving a photo up/down remounts
