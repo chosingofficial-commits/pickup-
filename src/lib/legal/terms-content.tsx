@@ -1,21 +1,37 @@
-const LAST_UPDATED = "[TO FILL IN]";
+import { LEGAL_INFO } from "./config";
 
-export function TermsEn() {
+function whoWeAreParenthetical(locale: "en" | "bn"): string {
+  const bits: string[] = [];
+  if (LEGAL_INFO.registeredBusinessName) {
+    bits.push(locale === "bn" ? `নিবন্ধিত ব্যবসার নাম: ${LEGAL_INFO.registeredBusinessName}` : `registered business name: ${LEGAL_INFO.registeredBusinessName}`);
+  }
+  if (LEGAL_INFO.tradeLicenceNumber) {
+    bits.push(locale === "bn" ? `ট্রেড লাইসেন্স নম্বর: ${LEGAL_INFO.tradeLicenceNumber}` : `trade licence number: ${LEGAL_INFO.tradeLicenceNumber}`);
+  }
+  return bits.length > 0 ? ` (${bits.join("; ")})` : "";
+}
+
+export function TermsEn({ showAdminBanner }: { showAdminBanner: boolean }) {
+  const whoWeAre = whoWeAreParenthetical("en");
   return (
     <>
-      <p className="rounded-control bg-amber-50 p-3 text-xs text-amber-900">
-        <strong>Template — not legal advice.</strong> This document was drafted to match Pick Up&apos;s actual
-        features (marketplace structure, age-restricted products, scheduled orders, payments, refunds) so it&apos;s
-        ready for a lawyer to review, not so it can be treated as final. Have a qualified lawyer licensed in
-        Bangladesh review and adapt it — including consumer-protection, e-commerce, and tobacco-control requirements
-        — before Pick Up launches to real customers.
-      </p>
-      <p className="text-xs text-gray-500">Last updated: {LAST_UPDATED} · Effective for users in Khagrachari Sadar, Bangladesh.</p>
+      {showAdminBanner && (
+        <p className="rounded-control bg-amber-50 p-3 text-xs text-amber-900">
+          <strong>Template — not legal advice.</strong> This document was drafted to match Pick Up&apos;s actual
+          features (marketplace structure, age-restricted products, scheduled orders, payments, refunds) so it&apos;s
+          ready for a lawyer to review, not so it can be treated as final. Have a qualified lawyer licensed in
+          Bangladesh review and adapt it — including consumer-protection, e-commerce, and tobacco-control requirements
+          — before Pick Up launches to real customers. (Only visible to admins.)
+        </p>
+      )}
+      {LEGAL_INFO.lastUpdated && (
+        <p className="text-xs text-gray-500">Last updated: {LEGAL_INFO.lastUpdated} · Effective for users in Khagrachari Sadar, Bangladesh.</p>
+      )}
 
       <h2 className="font-heading text-brand-dark">1. Who we are</h2>
       <p>
-        Pick Up is an online marketplace operated by Pick Up (registered business name: {LAST_UPDATED}; trade licence
-        number: {LAST_UPDATED}), based in Khagrachari Sadar, Khagrachari, Chattogram, Bangladesh. You can reach us at{" "}
+        Pick Up is an online marketplace operated by Pick Up{whoWeAre}, based in Khagrachari Sadar, Khagrachari,
+        Chattogram, Bangladesh. You can reach us at{" "}
         <a href="mailto:information@pickupn.com">information@pickupn.com</a> or{" "}
         <a href="tel:+8801310790678">+8801310790678</a>.
       </p>
@@ -269,22 +285,27 @@ export function TermsEn() {
   );
 }
 
-export function TermsBn() {
+export function TermsBn({ showAdminBanner }: { showAdminBanner: boolean }) {
+  const whoWeAre = whoWeAreParenthetical("bn");
   return (
     <>
-      <p className="rounded-control bg-amber-50 p-3 text-xs text-amber-900">
-        <strong>টেমপ্লেট — এটি আইনি পরামর্শ নয়।</strong> Pick Up-এর বাস্তব ফিচারগুলোর (মার্কেটপ্লেস কাঠামো,
-        বয়স-নিষিদ্ধ পণ্য, শিডিউল করা অর্ডার, পেমেন্ট, রিফান্ড) সাথে মিলিয়ে এই নথিটি তৈরি করা হয়েছে, যাতে একজন
-        আইনজীবী এটি পর্যালোচনা করতে পারেন — এটিকে চূড়ান্ত হিসেবে গণ্য করা উচিত নয়। Pick Up সাধারণ গ্রাহকদের জন্য চালু
-        করার আগে বাংলাদেশে লাইসেন্সপ্রাপ্ত একজন যোগ্য আইনজীবীকে দিয়ে এটি পর্যালোচনা ও সংশোধন করান — ভোক্তা-সুরক্ষা,
-        ই-কমার্স এবং তামাক-নিয়ন্ত্রণ সংক্রান্ত আইনসহ।
-      </p>
-      <p className="text-xs text-gray-500">সর্বশেষ হালনাগাদ: {LAST_UPDATED} · খাগড়াছড়ি সদর, বাংলাদেশের ব্যবহারকারীদের জন্য প্রযোজ্য।</p>
+      {showAdminBanner && (
+        <p className="rounded-control bg-amber-50 p-3 text-xs text-amber-900">
+          <strong>টেমপ্লেট — এটি আইনি পরামর্শ নয়।</strong> Pick Up-এর বাস্তব ফিচারগুলোর (মার্কেটপ্লেস কাঠামো,
+          বয়স-নিষিদ্ধ পণ্য, শিডিউল করা অর্ডার, পেমেন্ট, রিফান্ড) সাথে মিলিয়ে এই নথিটি তৈরি করা হয়েছে, যাতে একজন
+          আইনজীবী এটি পর্যালোচনা করতে পারেন — এটিকে চূড়ান্ত হিসেবে গণ্য করা উচিত নয়। Pick Up সাধারণ গ্রাহকদের জন্য চালু
+          করার আগে বাংলাদেশে লাইসেন্সপ্রাপ্ত একজন যোগ্য আইনজীবীকে দিয়ে এটি পর্যালোচনা ও সংশোধন করান — ভোক্তা-সুরক্ষা,
+          ই-কমার্স এবং তামাক-নিয়ন্ত্রণ সংক্রান্ত আইনসহ। (শুধুমাত্র অ্যাডমিনদের জন্য দৃশ্যমান।)
+        </p>
+      )}
+      {LEGAL_INFO.lastUpdated && (
+        <p className="text-xs text-gray-500">সর্বশেষ হালনাগাদ: {LEGAL_INFO.lastUpdated} · খাগড়াছড়ি সদর, বাংলাদেশের ব্যবহারকারীদের জন্য প্রযোজ্য।</p>
+      )}
 
       <h2 className="font-heading text-brand-dark">১. আমরা কারা</h2>
       <p>
-        Pick Up একটি অনলাইন মার্কেটপ্লেস, যা পরিচালনা করে Pick Up (নিবন্ধিত ব্যবসার নাম: {LAST_UPDATED}; ট্রেড লাইসেন্স
-        নম্বর: {LAST_UPDATED}), ঠিকানা: খাগড়াছড়ি সদর, খাগড়াছড়ি, চট্টগ্রাম, বাংলাদেশ। যোগাযোগ করতে পারেন{" "}
+        Pick Up একটি অনলাইন মার্কেটপ্লেস, যা পরিচালনা করে Pick Up{whoWeAre}, ঠিকানা: খাগড়াছড়ি সদর, খাগড়াছড়ি,
+        চট্টগ্রাম, বাংলাদেশ। যোগাযোগ করতে পারেন{" "}
         <a href="mailto:information@pickupn.com">information@pickupn.com</a> অথবা{" "}
         <a href="tel:+8801310790678">+8801310790678</a> নম্বরে।
       </p>

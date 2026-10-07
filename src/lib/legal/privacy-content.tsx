@@ -1,19 +1,32 @@
-const LAST_UPDATED = "[TO FILL IN]";
+import { LEGAL_INFO } from "./config";
 
-export function PrivacyEn() {
+function whoWeAreParenthetical(locale: "en" | "bn"): string {
+  return LEGAL_INFO.registeredBusinessName
+    ? locale === "bn"
+      ? ` (নিবন্ধিত ব্যবসার নাম: ${LEGAL_INFO.registeredBusinessName})`
+      : ` (registered business name: ${LEGAL_INFO.registeredBusinessName})`
+    : "";
+}
+
+export function PrivacyEn({ showAdminBanner }: { showAdminBanner: boolean }) {
+  const whoWeAre = whoWeAreParenthetical("en");
   return (
     <>
-      <p className="rounded-control bg-amber-50 p-3 text-xs text-amber-900">
-        <strong>Template — not legal advice.</strong> This document was drafted to match Pick Up&apos;s actual data
-        practices, so it&apos;s ready for a lawyer to review, not so it can be treated as final. Have a qualified
-        lawyer licensed in Bangladesh review and finalize this policy — including any Bangladesh data-protection
-        obligations — before Pick Up launches to real customers.
-      </p>
-      <p className="text-xs text-gray-500">Last updated: {LAST_UPDATED} · Applies to all users of the Pick Up platform.</p>
+      {showAdminBanner && (
+        <p className="rounded-control bg-amber-50 p-3 text-xs text-amber-900">
+          <strong>Template — not legal advice.</strong> This document was drafted to match Pick Up&apos;s actual data
+          practices, so it&apos;s ready for a lawyer to review, not so it can be treated as final. Have a qualified
+          lawyer licensed in Bangladesh review and finalize this policy — including any Bangladesh data-protection
+          obligations — before Pick Up launches to real customers. (Only visible to admins.)
+        </p>
+      )}
+      {LEGAL_INFO.lastUpdated && (
+        <p className="text-xs text-gray-500">Last updated: {LEGAL_INFO.lastUpdated} · Applies to all users of the Pick Up platform.</p>
+      )}
 
       <h2 className="font-heading text-brand-dark">1. Who this policy covers</h2>
       <p>
-        This Privacy Policy explains how Pick Up (registered business name: {LAST_UPDATED}; contact{" "}
+        This Privacy Policy explains how Pick Up{whoWeAre} (contact{" "}
         <a href="mailto:information@pickupn.com">information@pickupn.com</a>, <a href="tel:+8801310790678">+8801310790678</a>,
         Khagrachari Sadar, Khagrachari, Chattogram, Bangladesh) collects, uses, and protects personal data from
         Customers, Vendors, Riders, and Advertisers who use the Pick Up platform.
@@ -123,20 +136,25 @@ export function PrivacyEn() {
   );
 }
 
-export function PrivacyBn() {
+export function PrivacyBn({ showAdminBanner }: { showAdminBanner: boolean }) {
+  const whoWeAre = whoWeAreParenthetical("bn");
   return (
     <>
-      <p className="rounded-control bg-amber-50 p-3 text-xs text-amber-900">
-        <strong>টেমপ্লেট — এটি আইনি পরামর্শ নয়।</strong> Pick Up-এর প্রকৃত ডেটা-ব্যবহার পদ্ধতির সাথে মিলিয়ে এই নথিটি
-        তৈরি করা হয়েছে, যাতে একজন আইনজীবী এটি পর্যালোচনা করতে পারেন — এটিকে চূড়ান্ত হিসেবে গণ্য করা উচিত নয়। Pick
-        Up সাধারণ গ্রাহকদের জন্য চালু করার আগে বাংলাদেশে লাইসেন্সপ্রাপ্ত একজন যোগ্য আইনজীবীকে দিয়ে এই নীতি
-        পর্যালোচনা ও চূড়ান্ত করান — বাংলাদেশের ডেটা-সুরক্ষা সংক্রান্ত যেকোনো বাধ্যবাধকতাসহ।
-      </p>
-      <p className="text-xs text-gray-500">সর্বশেষ হালনাগাদ: {LAST_UPDATED} · Pick Up প্ল্যাটফর্মের সকল ব্যবহারকারীর জন্য প্রযোজ্য।</p>
+      {showAdminBanner && (
+        <p className="rounded-control bg-amber-50 p-3 text-xs text-amber-900">
+          <strong>টেমপ্লেট — এটি আইনি পরামর্শ নয়।</strong> Pick Up-এর প্রকৃত ডেটা-ব্যবহার পদ্ধতির সাথে মিলিয়ে এই নথিটি
+          তৈরি করা হয়েছে, যাতে একজন আইনজীবী এটি পর্যালোচনা করতে পারেন — এটিকে চূড়ান্ত হিসেবে গণ্য করা উচিত নয়। Pick
+          Up সাধারণ গ্রাহকদের জন্য চালু করার আগে বাংলাদেশে লাইসেন্সপ্রাপ্ত একজন যোগ্য আইনজীবীকে দিয়ে এই নীতি
+          পর্যালোচনা ও চূড়ান্ত করান — বাংলাদেশের ডেটা-সুরক্ষা সংক্রান্ত যেকোনো বাধ্যবাধকতাসহ। (শুধুমাত্র অ্যাডমিনদের জন্য দৃশ্যমান।)
+        </p>
+      )}
+      {LEGAL_INFO.lastUpdated && (
+        <p className="text-xs text-gray-500">সর্বশেষ হালনাগাদ: {LEGAL_INFO.lastUpdated} · Pick Up প্ল্যাটফর্মের সকল ব্যবহারকারীর জন্য প্রযোজ্য।</p>
+      )}
 
       <h2 className="font-heading text-brand-dark">১. এই নীতি কাদের জন্য প্রযোজ্য</h2>
       <p>
-        এই গোপনীয়তা নীতি ব্যাখ্যা করে যে Pick Up (নিবন্ধিত ব্যবসার নাম: {LAST_UPDATED}; যোগাযোগ{" "}
+        এই গোপনীয়তা নীতি ব্যাখ্যা করে যে Pick Up{whoWeAre} (যোগাযোগ{" "}
         <a href="mailto:information@pickupn.com">information@pickupn.com</a>, <a href="tel:+8801310790678">+8801310790678</a>,
         ঠিকানা: খাগড়াছড়ি সদর, খাগড়াছড়ি, চট্টগ্রাম, বাংলাদেশ) কীভাবে Pick Up প্ল্যাটফর্ম ব্যবহারকারী গ্রাহক, ভেন্ডর,
         রাইডার ও বিজ্ঞাপনদাতাদের ব্যক্তিগত তথ্য সংগ্রহ, ব্যবহার ও সুরক্ষা করে।
