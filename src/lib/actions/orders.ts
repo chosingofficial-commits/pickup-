@@ -98,20 +98,18 @@ export async function advanceOrderStatusAction(_prev: ActionState, formData: For
         await createDeliveryEarningEntry(tx, order, order.delivery.id, order.delivery.riderId);
       }
 
-      // REFUNDED never reverses the rider's ledger: once a rider has
-      // completed a delivery (DELIVERED) they already did the physical work
-      // and, for COD, already collected and handed over the cash — a refund
-      // afterward is a platform/vendor-side event only (see
-      // syncOrderStatusForProcessedRefund in lib/actions/refunds.ts, which
-      // handles the REFUNDED transition reached via the refund-request flow;
-      // this direct-admin-action path only ever reaches REFUNDED from
-      // CANCELLED/FAILED_DELIVERY, where no earning entry exists yet anyway).
-      // RETURNED (physical goods brought back) is a separate, still-open
-      // question — left reversing for now, pending a decision on whether it
-      // should behave like REFUNDED instead.
-      if (nextStatus === "RETURNED" && order.delivery) {
-        await reverseDeliveryEarningEntry(tx, order.delivery.id);
-      }
+      // Neither REFUNDED nor RETURNED reverses the rider's ledger: once a
+      // rider has completed a delivery (DELIVERED) they already did the
+      // physical work and, for COD, already collected and handed over the
+      // cash. Both a refund and a return afterward are platform/vendor-side
+      // events only (see syncOrderStatusForProcessedRefund in
+      // lib/actions/refunds.ts, which handles the REFUNDED transition
+      // reached via the refund-request flow; this direct-admin-action path
+      // only ever reaches REFUNDED from CANCELLED/FAILED_DELIVERY, where no
+      // earning entry exists yet anyway). If a return warrants paying the
+      // rider extra (e.g. a pickup trip) or deducting something, that's done
+      // manually via an ADJUSTMENT ledger entry (lib/actions/admin-riders.ts)
+      // — never automatically here.
     });
   } catch (err) {
     if (err instanceof Error && err.message === "RIDER_RACE_LOST") {
@@ -248,10 +246,14 @@ export async function createDeliveryEarningEntry(tx: Prisma.TransactionClient, o
 }
 
 /**
- * Reverses a delivery's earning entry when a DELIVERED order is later
- * RETURNED or REFUNDED. Idempotent the same two ways as the entry it undoes.
- * No-ops if the delivery was never actually credited (e.g. FAILED_DELIVERY
- * never passes through DELIVERED, so there's nothing to reverse).
+ * Reverses a delivery's earning entry. NOT used for REFUNDED or RETURNED —
+ * once a rider has completed a delivery they keep their earning regardless
+ * of what happens to the order afterward (see advanceOrderStatusAction and
+ * syncOrderStatusForProcessedRefund). Only called defensively from
+ * adminCancelOrderAction, for a pre-delivery cancel that in practice never
+ * has an earning entry to reverse (kept correct if that invariant ever
+ * changes). Idempotent two ways: an in-transaction existence check plus a
+ * partial unique index on (deliveryId) WHERE type = 'DELIVERY_REVERSAL'.
  */
 export async function reverseDeliveryEarningEntry(tx: Prisma.TransactionClient, deliveryId: string): Promise<void> {
   const earning = await tx.riderLedgerEntry.findFirst({ where: { deliveryId, type: "DELIVERY_EARNING" } });

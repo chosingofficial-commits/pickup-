@@ -23,11 +23,21 @@ import { syncOrderStatusForProcessedRefund } from "./refunds";
  */
 describe("syncOrderStatusForProcessedRefund", () => {
   let orderGroupId: string | undefined;
+  let riderUserId: string | undefined;
+  let riderProfileId: string | undefined;
 
   afterEach(async () => {
-    if (!orderGroupId) return;
-    await db.orderGroup.delete({ where: { id: orderGroupId } }).catch(() => {});
+    if (orderGroupId) await db.orderGroup.delete({ where: { id: orderGroupId } }).catch(() => {});
+    if (riderProfileId) {
+      // RiderLedgerEntry.riderId is a required FK with no cascade — must go
+      // before deleting the rider, or the delete below is silently blocked.
+      await db.riderLedgerEntry.deleteMany({ where: { riderId: riderProfileId } }).catch(() => {});
+    }
+    // Cascades to the throwaway RiderProfile (see User -> RiderProfile onDelete: Cascade).
+    if (riderUserId) await db.user.delete({ where: { id: riderUserId } }).catch(() => {});
     orderGroupId = undefined;
+    riderUserId = undefined;
+    riderProfileId = undefined;
   });
 
   async function createDeliveredOrderWithRiderEarning() {
@@ -36,7 +46,16 @@ describe("syncOrderStatusForProcessedRefund", () => {
     const customer = await db.user.findUniqueOrThrow({ where: { phone: "+8801700000008" } });
     const address = await db.address.findFirstOrThrow({ where: { userId: customer.id } });
     const zone = await db.deliveryZone.findFirstOrThrow({ where: { neighbourhoodId: address.neighbourhoodId ?? undefined } });
-    const rider = await db.riderProfile.findFirstOrThrow({ where: { isApproved: true } });
+
+    // A dedicated throwaway rider — not a shared fixture — so this test's
+    // balance assertions can never race against another test file
+    // concurrently mutating the same rider's balance.
+    const riderUser = await db.user.create({
+      data: { role: "RIDER", name: "Refund Test Rider", phone: `+881${Date.now()}`, passwordHash: "test" },
+    });
+    riderUserId = riderUser.id;
+    const rider = await db.riderProfile.create({ data: { userId: riderUser.id, isApproved: true } });
+    riderProfileId = rider.id;
 
     const suffix = `REFUND-TEST-${Date.now()}`;
     const orderGroup = await db.orderGroup.create({
