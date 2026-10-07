@@ -4,12 +4,49 @@ import { ProductImage } from "./product-image";
 import { AddToCartButton } from "./add-to-cart-button";
 import { WishlistButton } from "./wishlist-button";
 import { QuickViewButton } from "./quick-view-button";
+import { PlainPackImage } from "./plain-pack-image";
 import { Badge } from "@/components/ui/badge";
 import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { formatBDT } from "@/lib/utils";
 import type { ProductListItem } from "@/lib/catalog/queries";
 
+/**
+ * Age-restricted (cigarettes & smoking accessories) products show name, pack
+ * size, and price only — no vendor name/logo, ratings, discount badge,
+ * wishlist, or quick view, and always the one standard plain pack image
+ * rather than anything the vendor uploaded (they can't upload one — see
+ * product-form.tsx). This is deliberately a completely separate render path
+ * from the regular card below rather than threading conditionals through
+ * it, since "no promotion" here means none of that card's other affordances
+ * should even exist for these products, not just be hidden.
+ */
+function TobaccoProductCard({ product }: { product: ProductListItem }) {
+  const outOfStock = product.availability !== "AVAILABLE" || (product.inventory?.quantityInStock ?? 0) <= 0;
+  const href = `/marketplace/${product.vendor.slug}/${product.slug}`;
+
+  return (
+    <div className="flex flex-col overflow-hidden rounded-card border border-border-brand bg-white shadow-soft">
+      <Link href={href} prefetch={false} className="block aspect-square">
+        <PlainPackImage packSize={product.unit} />
+      </Link>
+      <div className="flex flex-1 flex-col gap-1 p-3">
+        <Link href={href} prefetch={false} className="line-clamp-2 text-sm font-semibold text-brand-dark hover:text-brand-primary">
+          {product.name}
+        </Link>
+        <p className="text-xs text-gray-500">{product.unit}</p>
+        <p className="mt-auto pt-2 font-heading text-base font-bold text-brand-dark">{formatBDT(product.price)}</p>
+        {outOfStock ? (
+          <Badge variant="dark" className="mt-2 w-fit">Out of stock</Badge>
+        ) : (
+          <AddToCartButton productId={product.id} className="mt-2" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ProductCard({ product, isSaved }: { product: ProductListItem; isSaved?: boolean }) {
+  if (product.isAgeRestricted) return <TobaccoProductCard product={product} />;
   const discountPct = product.compareAtPrice
     ? Math.round((1 - Number(product.price) / Number(product.compareAtPrice)) * 100)
     : null;

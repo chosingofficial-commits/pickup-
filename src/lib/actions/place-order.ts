@@ -9,6 +9,7 @@ import { getSelectedCouponCode, setSelectedCouponCode } from "@/lib/cart/coupon-
 import { validateCoupon } from "@/lib/cart/coupon";
 import { groupSubtotal, computeCouponDiscount, getFreeDeliveryReason, round2 } from "@/lib/cart/totals";
 import { getFreeDeliveryPromoSettingsUncached, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
+import { getTobaccoSettings } from "@/lib/tobacco/queries";
 import { toPoisha } from "@/lib/rider/ledger";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
 import { recordAuditLog } from "@/lib/audit";
@@ -22,7 +23,7 @@ import { ensureDefaultVariant } from "@/lib/catalog/variant-sync";
 import type { ActionState } from "./types";
 import type { PaymentProvider } from "@/generated/prisma/client";
 
-export async function placeOrderAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {
+export async function placeOrderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/checkout");
 
@@ -70,22 +71,41 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
     }
   }
 
-  const subtotal = groupSubtotal(
-    groups.flatMap((g) => g.lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal }))),
+  const allLines = groups.flatMap((g) => g.lines);
+  const subtotal = groupSubtotal(allLines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })));
+
+  // Age-restricted items (cigarettes & smoking accessories) are sold at full
+  // price like anything else, but never promoted — they never earn a coupon
+  // discount and their presence in the cart voids free delivery for the
+  // whole order. discountableSubtotal/discountableGroupSub below exclude
+  // them from every discount calculation without changing what the item
+  // itself, its commission, or vendor earnings are based on.
+  const containsAgeRestricted = allLines.some((l) => l.isAgeRestricted);
+  const discountableSubtotal = groupSubtotal(
+    allLines.filter((l) => !l.isAgeRestricted).map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })),
   );
+
+  // Never trust the client on this — re-derived from the cart itself above,
+  // not from whatever the form claims. The checkbox on the review page is
+  // only required/rendered when this is true, but a tampered POST must be
+  // rejected here regardless.
+  const tobaccoSettings = containsAgeRestricted ? await getTobaccoSettings() : null;
+  if (containsAgeRestricted && formData.get("ageConfirmed") !== "1") {
+    return { status: "error", message: "Please confirm your age to order an age-restricted item." };
+  }
 
   const couponCode = await getSelectedCouponCode();
   let totalDiscount = 0;
   let validatedCoupon: Awaited<ReturnType<typeof validateCoupon>> | null = null;
   if (couponCode) {
-    validatedCoupon = await validateCoupon(couponCode, user.id, subtotal);
-    if (validatedCoupon.ok) totalDiscount = computeCouponDiscount(subtotal, validatedCoupon.coupon);
+    validatedCoupon = await validateCoupon(couponCode, user.id, discountableSubtotal);
+    if (validatedCoupon.ok) totalDiscount = computeCouponDiscount(discountableSubtotal, validatedCoupon.coupon);
   }
 
   // Uncached read — this is the actual charge, so it must never lag behind
   // the very latest admin-saved offer settings, even momentarily.
   const [freeDeliveryPromo, isFirstOrder] = await Promise.all([getFreeDeliveryPromoSettingsUncached(), isFirstOrderCustomer(user.id)]);
-  const freeDeliveryReason = getFreeDeliveryReason(subtotal, isFirstOrder, freeDeliveryPromo);
+  const freeDeliveryReason = containsAgeRestricted ? null : getFreeDeliveryReason(subtotal, isFirstOrder, freeDeliveryPromo);
   const deliveryIsFree = freeDeliveryReason !== null;
 
   const zone = address.deliveryZone;
@@ -112,11 +132,17 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
 
       for (const group of groups) {
         const groupSub = groupSubtotal(group.lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })));
+        const discountableGroupSub = groupSubtotal(
+          group.lines.filter((l) => !l.isAgeRestricted).map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })),
+        );
         // Per-zone freeDeliveryThreshold is no longer used — free delivery is
         // decided entirely by the sitewide offers above; the zone only sets
         // the flat per-vendor fee amount when neither offer applies.
         const deliveryFee = deliveryIsFree ? 0 : round2(Number(zone.deliveryFee));
-        const discountShare = subtotal > 0 ? round2((groupSub / subtotal) * totalDiscount) : 0;
+        // Proportioned against the discountable (non-age-restricted) totals
+        // only, so an age-restricted line's own price never gets a share of
+        // the coupon discount.
+        const discountShare = discountableSubtotal > 0 ? round2((discountableGroupSub / discountableSubtotal) * totalDiscount) : 0;
         runningSubtotal += groupSub;
         runningDeliveryFee += deliveryFee;
         orderCreates.push({ vendorId: group.vendorId, group, groupSub, deliveryFee, discountShare });
@@ -168,8 +194,26 @@ export async function placeOrderAction(_prev: ActionState, _formData: FormData):
             standardDeliveryFeePoisha: toPoisha(Number(zone.deliveryFee)),
             scheduledFor,
             freeDeliveryReason: item.deliveryFee === 0 ? freeDeliveryReason : null,
+            containsAgeRestrictedItems: item.group.lines.some((l) => l.isAgeRestricted),
           },
         });
+
+        if (item.group.lines.some((l) => l.isAgeRestricted) && tobaccoSettings) {
+          await tx.ageVerification.create({
+            data: {
+              orderId: order.id,
+              customerId: user.id,
+              // Not a real date of birth (never collected anywhere in this
+              // app) — the latest birthdate consistent with the age the
+              // customer just attested to at checkout, recorded as a
+              // verifiable cutoff rather than fabricating a precise DOB.
+              dateOfBirthOnFile: new Date(Date.now() - tobaccoSettings.minimumAge * 365.25 * 24 * 60 * 60 * 1000),
+              confirmedAtCheckout: true,
+              minimumAgeApplied: tobaccoSettings.minimumAge,
+              result: "VERIFIED",
+            },
+          });
+        }
 
         for (const line of item.group.lines) {
           // Self-heal: a product created by pre-variants code during the

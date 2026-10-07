@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ensureDefaultVariant } from "@/lib/catalog/variant-sync";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
+import { isTobaccoModuleEnabled } from "@/lib/tobacco/queries";
 import type { ActionState } from "./types";
 
 async function requireCartId(nextPath: string): Promise<string> {
@@ -51,7 +52,10 @@ export async function addProductToCartAction(_prev: ActionState, formData: FormD
   const redirectPath = String(formData.get("redirectPath") ?? "/marketplace");
 
   const product = await db.product.findUnique({ where: { id: productId } });
-  if (!product || !product.isPublished || product.isAgeRestricted) {
+  if (!product || !product.isPublished) {
+    return { status: "error", message: "This product is not available." };
+  }
+  if (product.isAgeRestricted && !(await isTobaccoModuleEnabled())) {
     return { status: "error", message: "This product is not available." };
   }
   if (product.availability !== "AVAILABLE") {
@@ -82,7 +86,10 @@ export async function buyNowAction(formData: FormData): Promise<void> {
   const quantity = Math.max(1, Number(formData.get("quantity") ?? 1));
 
   const product = await db.product.findUnique({ where: { id: productId } });
-  if (!product || !product.isPublished || product.isAgeRestricted || product.availability !== "AVAILABLE") {
+  if (!product || !product.isPublished || product.availability !== "AVAILABLE") {
+    redirect(`/marketplace`);
+  }
+  if (product.isAgeRestricted && !(await isTobaccoModuleEnabled())) {
     redirect(`/marketplace`);
   }
 

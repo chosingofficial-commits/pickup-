@@ -9,6 +9,7 @@ import { formatVariantLabel } from "@/lib/catalog/variant-label";
 import { syncProductFromVariants } from "@/lib/catalog/variant-sync";
 import { slugify } from "@/lib/utils";
 import { isTobaccoModuleEnabled } from "@/lib/tobacco/queries";
+import { containsBlockedTobaccoProduct } from "@/lib/tobacco/blocklist";
 import type { ActionState } from "./types";
 import type { ProductAvailability } from "@/generated/prisma/client";
 
@@ -91,6 +92,9 @@ export async function createProductAction(_prev: ActionState, formData: FormData
     for (const [key, value] of Object.entries(parsed.error.flatten().fieldErrors)) if (value) fieldErrors[key] = value;
     return { status: "error", message: "Please fix the errors below.", fieldErrors };
   }
+  if (containsBlockedTobaccoProduct(parsed.data.name) || containsBlockedTobaccoProduct(parsed.data.description ?? "")) {
+    return { status: "error", message: "E-cigarettes, vapes, heated tobacco, and nicotine pouches are never allowed on Pick Up." };
+  }
 
   const restriction = await resolveCategoryRestriction(parsed.data.categoryId);
   if ("error" in restriction) return { status: "error", message: restriction.error };
@@ -99,7 +103,10 @@ export async function createProductAction(_prev: ActionState, formData: FormData
   if ("error" in variantsResult) return { status: "error", message: variantsResult.error };
   const { rows, defaultIndex } = variantsResult;
 
-  const imageUrls = getImageUrls(formData);
+  // Age-restricted products always show the one standard plain pack image —
+  // never whatever the form submitted, even if the vendor's own category
+  // check above somehow let a tampered POST through with photos attached.
+  const imageUrls = restriction.isAgeRestricted ? [] : getImageUrls(formData);
   if (imageUrls.length > MAX_PRODUCT_PHOTOS) return { status: "error", message: `Up to ${MAX_PRODUCT_PHOTOS} photos only.` };
   const baseSlug = slugify(parsed.data.name);
   let slug = baseSlug;
@@ -170,6 +177,9 @@ export async function updateProductAction(_prev: ActionState, formData: FormData
     for (const [key, value] of Object.entries(parsed.error.flatten().fieldErrors)) if (value) fieldErrors[key] = value;
     return { status: "error", message: "Please fix the errors below.", fieldErrors };
   }
+  if (containsBlockedTobaccoProduct(parsed.data.name) || containsBlockedTobaccoProduct(parsed.data.description ?? "")) {
+    return { status: "error", message: "E-cigarettes, vapes, heated tobacco, and nicotine pouches are never allowed on Pick Up." };
+  }
 
   const restriction = await resolveCategoryRestriction(parsed.data.categoryId);
   if ("error" in restriction) return { status: "error", message: restriction.error };
@@ -178,7 +188,10 @@ export async function updateProductAction(_prev: ActionState, formData: FormData
   if ("error" in variantsResult) return { status: "error", message: variantsResult.error };
   const { rows, defaultIndex } = variantsResult;
 
-  const imageUrls = getImageUrls(formData);
+  // Age-restricted products always show the one standard plain pack image —
+  // never whatever the form submitted, even if a vendor somehow still had
+  // photo slots to submit from before the category was made restricted.
+  const imageUrls = restriction.isAgeRestricted ? [] : getImageUrls(formData);
   if (imageUrls.length > MAX_PRODUCT_PHOTOS) {
     return { status: "error", message: `Up to ${MAX_PRODUCT_PHOTOS} photos only — remove ${imageUrls.length - MAX_PRODUCT_PHOTOS} to save.` };
   }

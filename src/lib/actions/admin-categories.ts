@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
 import { slugify } from "@/lib/utils";
 import { optionalText } from "@/lib/validation/form-helpers";
+import { containsBlockedTobaccoProduct } from "@/lib/tobacco/blocklist";
 import type { ActionState } from "./types";
 
 const categorySchema = z.object({
@@ -24,6 +25,9 @@ export async function createCategoryAction(_prev: ActionState, formData: FormDat
     isAgeRestricted: formData.get("isAgeRestricted") === "1",
   });
   if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid input." };
+  if (containsBlockedTobaccoProduct(parsed.data.name)) {
+    return { status: "error", message: "E-cigarettes, vapes, heated tobacco, and nicotine pouches are never allowed on Pick Up." };
+  }
 
   const slug = slugify(parsed.data.name);
   const existing = await db.category.findUnique({ where: { slug } });

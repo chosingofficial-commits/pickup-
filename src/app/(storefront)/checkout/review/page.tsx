@@ -11,6 +11,7 @@ import { getSelectedCouponCode } from "@/lib/cart/coupon-cookie";
 import { validateCoupon } from "@/lib/cart/coupon";
 import { groupSubtotal, computeCouponDiscount, freeDeliveryApplies, round2 } from "@/lib/cart/totals";
 import { getFreeDeliveryPromoSettingsUncached, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
+import { getTobaccoSettings } from "@/lib/tobacco/queries";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 import { getLocale } from "@/lib/i18n/get-dictionary";
@@ -37,20 +38,31 @@ export default async function CheckoutReviewPage() {
   if (groups.length === 0) redirect("/cart");
   if (!address?.deliveryZone) redirect("/checkout");
 
-  const subtotal = groupSubtotal(
-    groups.flatMap((g) => g.lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal }))),
+  const allLines = groups.flatMap((g) => g.lines);
+  const subtotal = groupSubtotal(allLines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })));
+
+  // Age-restricted items (cigarettes & smoking accessories) are never
+  // discounted or eligible for free delivery — see place-order.ts, which
+  // this preview must always agree with exactly.
+  const containsAgeRestricted = allLines.some((l) => l.isAgeRestricted);
+  const discountableSubtotal = groupSubtotal(
+    allLines.filter((l) => !l.isAgeRestricted).map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })),
   );
 
   let discount = 0;
   if (couponCode) {
-    const result = await validateCoupon(couponCode, user.id, subtotal);
-    if (result.ok) discount = computeCouponDiscount(subtotal, result.coupon);
+    const result = await validateCoupon(couponCode, user.id, discountableSubtotal);
+    if (result.ok) discount = computeCouponDiscount(discountableSubtotal, result.coupon);
   }
 
   // Uncached — this is the last preview before a real charge, so it must
   // always agree exactly with placeOrderAction's own uncached read.
-  const [freeDeliveryPromo, isFirstOrder] = await Promise.all([getFreeDeliveryPromoSettingsUncached(), isFirstOrderCustomer(user.id)]);
-  const deliveryIsFree = freeDeliveryApplies(subtotal, isFirstOrder, freeDeliveryPromo);
+  const [freeDeliveryPromo, isFirstOrder, tobaccoSettings] = await Promise.all([
+    getFreeDeliveryPromoSettingsUncached(),
+    isFirstOrderCustomer(user.id),
+    getTobaccoSettings(),
+  ]);
+  const deliveryIsFree = !containsAgeRestricted && freeDeliveryApplies(subtotal, isFirstOrder, freeDeliveryPromo);
 
   // Per-zone freeDeliveryThreshold is no longer used for fee calculations —
   // free delivery is now decided entirely by the sitewide offers above. The
@@ -146,7 +158,11 @@ export default async function CheckoutReviewPage() {
           </dl>
         </div>
 
-        <PlaceOrderButton />
+        <PlaceOrderButton
+          requiresAgeConfirmation={containsAgeRestricted}
+          minimumAge={tobaccoSettings.minimumAge}
+          healthWarningText={tobaccoSettings.healthWarningText}
+        />
       </div>
     </Container>
   );

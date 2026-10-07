@@ -43,6 +43,10 @@ export type NormalizedCartLine = {
   vendorBusinessType: "GROCERY_VENDOR" | "RESTAURANT";
   categorySlug: string | null;
   isWeeklyGrocery: boolean;
+  // Age-restricted items (cigarettes & smoking accessories) never get a
+  // coupon discount or count toward free-delivery eligibility — see
+  // place-order.ts's discountableGroupSub and containsAgeRestricted.
+  isAgeRestricted: boolean;
 };
 
 export async function getFullCart(userId: string) {
@@ -103,6 +107,7 @@ export async function getFullCart(userId: string) {
         vendorBusinessType: item.product.vendor.businessType,
         categorySlug: item.product.category.slug,
         isWeeklyGrocery: item.product.isWeeklyGrocery,
+        isAgeRestricted: item.product.isAgeRestricted,
       });
     } else if (item.menuItem) {
       const selectedAddOns = Array.isArray(item.selectedAddOns)
@@ -130,6 +135,7 @@ export async function getFullCart(userId: string) {
         vendorBusinessType: "RESTAURANT",
         categorySlug: null,
         isWeeklyGrocery: false,
+        isAgeRestricted: false,
       });
     }
   }

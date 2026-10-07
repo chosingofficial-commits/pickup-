@@ -73,11 +73,20 @@ export function ProductForm({
   categories,
   defaults,
 }: {
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; isAgeRestricted: boolean }[];
   defaults?: ProductFormDefaults;
 }) {
   const isEdit = !!defaults?.id;
   const [state, formAction] = useActionState(isEdit ? updateProductAction : createProductAction, initialActionState);
+
+  const [categoryId, setCategoryId] = useState(defaults?.categoryId ?? "");
+  // Age-restricted products (cigarettes & smoking accessories) always show
+  // the one standard plain pack image, never a vendor photo — see
+  // plain-pack-image.tsx and TobaccoProductCard. Hiding the upload fields
+  // here is the vendor-facing half of that; createProductAction/
+  // updateProductAction ignore any imageUrls submitted anyway, so this
+  // can't be bypassed by a tampered POST either.
+  const isAgeRestrictedCategory = categories.find((c) => c.id === categoryId)?.isAgeRestricted ?? false;
 
   // An existing product from before the photo-limit cut may have more than
   // MAX_PRODUCT_PHOTOS saved — show every one of them (not just the first
@@ -136,7 +145,14 @@ export function ProductForm({
 
       <div>
         <Label htmlFor="categoryId">Category</Label>
-        <Select id="categoryId" name="categoryId" defaultValue={defaults?.categoryId ?? ""} required aria-invalid={!!state.fieldErrors?.categoryId}>
+        <Select
+          id="categoryId"
+          name="categoryId"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          required
+          aria-invalid={!!state.fieldErrors?.categoryId}
+        >
           <option value="" disabled>
             Select a category
           </option>
@@ -170,27 +186,37 @@ export function ProductForm({
         </span>
       </label>
 
-      <div>
-        <Label>Product photos (up to {MAX_PRODUCT_PHOTOS})</Label>
-        {existingPhotoCount > MAX_PRODUCT_PHOTOS && (
-          <p className="mb-2 rounded-control bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
-            This product has {existingPhotoCount} photos from before the {MAX_PRODUCT_PHOTOS}-photo limit — remove{" "}
-            {existingPhotoCount - MAX_PRODUCT_PHOTOS} of them (✕ on a photo below) before you can save.
+      {isAgeRestrictedCategory ? (
+        <div className="rounded-control border border-border-brand bg-surface-muted p-3.5 text-sm text-gray-700">
+          <p className="font-medium text-brand-dark">No photos for this category</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Cigarettes & smoking accessories always show the same standard plain pack image, name, and price to
+            customers — vendors can&apos;t upload a product photo for this category.
           </p>
-        )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          {Array.from({ length: photoSlotCount }, (_, i) => (
-            <FileUploadField
-              key={i}
-              fieldId={`imageUrls-${i}`}
-              name="imageUrls"
-              label={i === 0 ? "Photo 1 (primary)" : `Photo ${i + 1}`}
-              folder="products"
-              defaultUrl={defaults?.images?.[i]}
-            />
-          ))}
         </div>
-      </div>
+      ) : (
+        <div>
+          <Label>Product photos (up to {MAX_PRODUCT_PHOTOS})</Label>
+          {existingPhotoCount > MAX_PRODUCT_PHOTOS && (
+            <p className="mb-2 rounded-control bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
+              This product has {existingPhotoCount} photos from before the {MAX_PRODUCT_PHOTOS}-photo limit — remove{" "}
+              {existingPhotoCount - MAX_PRODUCT_PHOTOS} of them (✕ on a photo below) before you can save.
+            </p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {Array.from({ length: photoSlotCount }, (_, i) => (
+              <FileUploadField
+                key={i}
+                fieldId={`imageUrls-${i}`}
+                name="imageUrls"
+                label={i === 0 ? "Photo 1 (primary)" : `Photo ${i + 1}`}
+                folder="products"
+                defaultUrl={defaults?.images?.[i]}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <Label>Sizes / options</Label>
