@@ -96,6 +96,18 @@ export async function advanceOrderStatusAction(_prev: ActionState, formData: For
 
       if (nextStatus === "DELIVERED" && order.delivery?.riderId) {
         await createDeliveryEarningEntry(tx, order, order.delivery.id, order.delivery.riderId);
+        // Gentle nudge to rate the rider — only shown once a rider actually
+        // delivered the order, and only ever created here (not re-sent on
+        // any later status change), so it fires exactly once per delivery.
+        await tx.notification.create({
+          data: {
+            userId: order.customerId,
+            type: "ORDER",
+            title: "How was your delivery?",
+            body: "Your order has arrived. Take a moment to rate your rider.",
+            linkUrl: `/account/orders/${order.id}`,
+          },
+        });
       }
 
       // Neither REFUNDED nor RETURNED reverses the rider's ledger: once a

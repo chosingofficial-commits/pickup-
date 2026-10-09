@@ -19,6 +19,7 @@ export async function getCustomerOrderDetail(userId: string, orderId: string) {
       statusHistory: { orderBy: { createdAt: "asc" } },
       delivery: { include: { rider: { include: { user: { select: { name: true, phone: true } } } } } },
       reviews: true,
+      riderRating: true,
     },
   });
   if (!order || order.customerId !== userId) return null;

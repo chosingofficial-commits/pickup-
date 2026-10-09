@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { setRiderApprovalAction, updateRiderOfficeVerificationAction } from "@/lib/actions/admin-riders";
 import { initialActionState } from "@/lib/actions/types";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,8 @@ export type RiderCardData = {
   deliveryCount?: number;
   balancePoisha?: number;
   todayCollectedPoisha?: number;
+  ratingAvg?: number;
+  ratingCount?: number;
 };
 
 function formatTk(poisha: number): string {
@@ -57,6 +60,12 @@ export function RiderCard({ rider, mode }: { rider: RiderCardData; mode: "pendin
             {rider.phone} · {rider.vehicleType ?? "No vehicle set"}
             {mode === "approved" && ` · ${rider.deliveryCount ?? 0} deliveries`}
           </p>
+          {mode === "approved" && (
+            <p className="flex items-center gap-1 text-xs text-gray-500">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
+              {rider.ratingCount ? `${(rider.ratingAvg ?? 0).toFixed(1)} (${rider.ratingCount})` : "No ratings yet"}
+            </p>
+          )}
           <p className="text-xs text-gray-500">NID: {rider.nationalIdNo ?? "—"}</p>
           {mode === "approved" && rider.balancePoisha != null && (
             <div className="mt-1.5 flex flex-wrap items-center gap-2">

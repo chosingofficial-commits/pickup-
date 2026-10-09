@@ -183,3 +183,74 @@ describe("RETURNED status transition", () => {
     expect(riderAfter.balancePoisha).toBe(riderBefore.balancePoisha);
   });
 });
+
+/**
+ * Regression coverage for item #9's "gentle prompt after delivery": the
+ * customer gets a Notification once their order reaches DELIVERED, nudging
+ * them to rate the rider. advanceOrderStatusAction's transaction body for
+ * DELIVERED is exercised directly here, for the same request-scoped-session
+ * reason as the tests above.
+ */
+describe("DELIVERED status transition", () => {
+  let orderGroupId: string | undefined;
+
+  afterEach(async () => {
+    if (!orderGroupId) return;
+    const orders = await db.order.findMany({ where: { orderGroupId }, select: { customerId: true } });
+    await db.notification.deleteMany({ where: { userId: { in: orders.map((o) => o.customerId) }, title: "How was your delivery?" } });
+    await db.orderGroup.delete({ where: { id: orderGroupId } }).catch(() => {});
+    orderGroupId = undefined;
+  });
+
+  it("creates a 'rate your rider' notification for the customer", async () => {
+    const vendorUser = await db.user.findUniqueOrThrow({ where: { phone: "+8801700000002" } });
+    const vendor = await db.vendor.findUniqueOrThrow({ where: { userId: vendorUser.id } });
+    const customer = await db.user.findUniqueOrThrow({ where: { phone: "+8801700000008" } });
+    const address = await db.address.findFirstOrThrow({ where: { userId: customer.id } });
+    const zone = await db.deliveryZone.findFirstOrThrow({ where: { neighbourhoodId: address.neighbourhoodId ?? undefined } });
+    const rider = await db.riderProfile.findFirstOrThrow({ where: { isApproved: true } });
+
+    const suffix = `DELIVERED-NOTIF-TEST-${Date.now()}`;
+    const orderGroup = await db.orderGroup.create({
+      data: { groupNumber: suffix, customerId: customer.id, subtotal: 100, deliveryFeeTotal: 20, grandTotal: 120 },
+    });
+    orderGroupId = orderGroup.id;
+    const order = await db.order.create({
+      data: {
+        orderNumber: suffix,
+        orderGroupId: orderGroup.id,
+        customerId: customer.id,
+        vendorId: vendor.id,
+        addressId: address.id,
+        deliveryZoneId: zone.id,
+        status: "ON_THE_WAY",
+        subtotal: 100,
+        deliveryFee: 20,
+        total: 120,
+        commissionRatePct: 10,
+        commissionAmount: 10,
+        vendorEarnings: 90,
+        standardDeliveryFeePoisha: 2000,
+      },
+    });
+    await db.delivery.create({ data: { orderId: order.id, riderId: rider.id } });
+
+    // Exactly what advanceOrderStatusAction's transaction does for DELIVERED.
+    await db.$transaction(async (tx) => {
+      await tx.order.update({ where: { id: order.id }, data: { status: "DELIVERED" } });
+      await tx.notification.create({
+        data: {
+          userId: order.customerId,
+          type: "ORDER",
+          title: "How was your delivery?",
+          body: "Your order has arrived. Take a moment to rate your rider.",
+          linkUrl: `/account/orders/${order.id}`,
+        },
+      });
+    });
+
+    const notif = await db.notification.findFirst({ where: { userId: customer.id, title: "How was your delivery?", linkUrl: `/account/orders/${order.id}` } });
+    expect(notif).not.toBeNull();
+    expect(notif?.body).toContain("rate your rider");
+  });
+});

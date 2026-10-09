@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { db } from "@/lib/db";
 import { getRiderBalance, getRiderLedger, formatCollectedLabel, fromPoisha } from "@/lib/rider/ledger";
 import { RiderHandoverForm, RiderPayoutForm, RiderAdjustmentForm, RiderCommissionRateForm, RiderMarkPaidAction } from "@/components/admin/rider-ledger-forms";
@@ -23,7 +24,16 @@ export default async function AdminRiderDetailPage({ params }: { params: Promise
   const rider = await db.riderProfile.findUnique({ where: { id: riderId }, include: { user: { select: { name: true, phone: true } } } });
   if (!rider) notFound();
 
-  const [balancePoisha, ledger] = await Promise.all([getRiderBalance(riderId), getRiderLedger(riderId)]);
+  const [balancePoisha, ledger, recentRatings] = await Promise.all([
+    getRiderBalance(riderId),
+    getRiderLedger(riderId),
+    db.riderRating.findMany({
+      where: { riderId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { id: true, rating: true, comment: true, createdAt: true, customer: { select: { name: true } } },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -41,6 +51,33 @@ export default async function AdminRiderDetailPage({ params }: { params: Promise
           <RiderBalanceBadge balancePoisha={balancePoisha} />
           <RiderMarkPaidAction riderId={riderId} riderName={rider.user.name} balancePoisha={balancePoisha} />
         </div>
+      </div>
+
+      <div className="rounded-card border border-border-brand bg-white p-4">
+        <p className="text-xs text-gray-500">Rating</p>
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-brand-dark">
+          <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden />
+          {rider.ratingCount > 0 ? `${Number(rider.ratingAvg).toFixed(1)} (${rider.ratingCount} rating${rider.ratingCount === 1 ? "" : "s"})` : "No ratings yet"}
+        </p>
+        {recentRatings.length > 0 && (
+          <div className="mt-3 space-y-2 border-t border-border-brand pt-3">
+            {recentRatings.map((r) => (
+              <div key={r.id} className="text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`h-3 w-3 ${i < r.rating ? "fill-amber-400 text-amber-400" : "text-gray-200"}`} />
+                    ))}
+                  </span>
+                  <span className="text-gray-500">
+                    {r.customer.name} · {r.createdAt.toLocaleDateString("en-BD", { dateStyle: "medium" })}
+                  </span>
+                </div>
+                {r.comment && <p className="mt-0.5 text-gray-600">&ldquo;{r.comment}&rdquo;</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <RiderCommissionRateForm riderId={riderId} currentRatePct={Number(rider.commissionRatePct)} />

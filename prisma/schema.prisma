@@ -237,6 +237,7 @@ model User {
   statusChanges    DeliveryStatusHistory[] @relation("StatusChangedBy")
   ageVerifications AgeVerification[]
   createdRiderLedgerEntries RiderLedgerEntry[]
+  riderRatingsGiven RiderRating[]
 
   @@index([role])
 }
@@ -285,6 +286,7 @@ model RiderProfile {
   locationUpdates  RiderLocationUpdate[]
   restrictedLogs   RestrictedDeliveryLog[]
   ledgerEntries    RiderLedgerEntry[]
+  ratings          RiderRating[]
 }
 
 // ---------------------------------------------------------------------------
@@ -973,6 +975,7 @@ model Order {
   commissionEntry CommissionEntry?
   ageVerification AgeVerification?
   refunds         Refund[]
+  riderRating     RiderRating?
 
   @@index([customerId])
   @@index([vendorId, status])
@@ -1226,6 +1229,26 @@ model Review {
 
   @@index([productId])
   @@index([vendorId])
+}
+
+/// A customer's rating of the rider who delivered their order — separate
+/// from Review (which is about the Vendor/product, not the delivery).
+/// orderId is a full @@unique (not a partial index): a Delivery has exactly
+/// one rider, so every RiderRating row IS a rider rating, unlike Refund's
+/// Order link which only sometimes applies.
+model RiderRating {
+  id         String       @id @default(cuid())
+  orderId    String       @unique
+  order      Order        @relation(fields: [orderId], references: [id])
+  customerId String
+  customer   User         @relation(fields: [customerId], references: [id])
+  riderId    String
+  rider      RiderProfile @relation(fields: [riderId], references: [id])
+  rating     Int
+  comment    String?
+  createdAt  DateTime     @default(now())
+
+  @@index([riderId])
 }
 
 // ---------------------------------------------------------------------------

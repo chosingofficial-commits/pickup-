@@ -77,6 +77,8 @@ export default async function AdminRidersPage({ searchParams }: { searchParams: 
                 deliveryCount: rider._count.deliveries,
                 balancePoisha: rider.balancePoisha,
                 todayCollectedPoisha: todayCollectedFor(rider.id),
+                ratingAvg: Number(rider.ratingAvg),
+                ratingCount: rider.ratingCount,
               }}
             />
           ))}

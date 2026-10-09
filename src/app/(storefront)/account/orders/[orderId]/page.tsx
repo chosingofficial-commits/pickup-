@@ -6,6 +6,7 @@ import { WaitBanner } from "@/components/orders/wait-banner";
 import { OrderStatusPoller } from "@/components/orders/order-status-poller";
 import { CustomerTrackingPanel } from "@/components/orders/customer-tracking-panel";
 import { OrderReviewForm } from "@/components/orders/order-review-form";
+import { RiderRatingForm } from "@/components/orders/rider-rating-form";
 import { CancelOrderButton } from "@/components/orders/cancel-order-button";
 import { RequestRefundForm } from "@/components/orders/request-refund-form";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ export default async function AccountOrderDetailPage({ params }: { params: Promi
   const canReview = order.status === "DELIVERED" && order.reviews.length === 0;
   const canRequestRefund = order.status === "DELIVERED" || order.status === "CANCELLED" || order.status === "FAILED_DELIVERY";
   const rider = order.delivery?.rider;
+  const canRateRider = order.status === "DELIVERED" && !!rider && !order.riderRating;
 
   return (
     <div className="space-y-6">
@@ -86,6 +88,14 @@ export default async function AccountOrderDetailPage({ params }: { params: Promi
               <CardContent className="pt-5">
                 <CardTitle className="mb-3">Leave a review</CardTitle>
                 <OrderReviewForm orderId={order.id} />
+              </CardContent>
+            </Card>
+          )}
+
+          {canRateRider && (
+            <Card>
+              <CardContent className="pt-5">
+                <RiderRatingForm orderId={order.id} />
               </CardContent>
             </Card>
           )}
