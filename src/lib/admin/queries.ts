@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { getDaysAgoDhakaMidnight, getDhakaDateKey } from "@/lib/date/period";
 
 export async function getAdminOverviewStats() {
   const [
@@ -64,10 +65,11 @@ export async function getRecentAuditLogs(limit = 15) {
   });
 }
 
+/** Asia/Dhaka has no DST, so each successive calendar day is exactly 24h later in UTC terms. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export async function getDailySalesSeries(days = 14) {
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-  since.setHours(0, 0, 0, 0);
+  const since = getDaysAgoDhakaMidnight(days);
 
   const orders = await db.order.findMany({
     where: { status: "DELIVERED", updatedAt: { gte: since } },
@@ -76,12 +78,10 @@ export async function getDailySalesSeries(days = 14) {
 
   const byDay = new Map<string, number>();
   for (let i = 0; i < days; i++) {
-    const d = new Date(since);
-    d.setDate(d.getDate() + i);
-    byDay.set(d.toISOString().slice(0, 10), 0);
+    byDay.set(getDhakaDateKey(new Date(since.getTime() + i * DAY_MS)), 0);
   }
   for (const order of orders) {
-    const key = order.updatedAt.toISOString().slice(0, 10);
+    const key = getDhakaDateKey(order.updatedAt);
     byDay.set(key, (byDay.get(key) ?? 0) + Number(order.total));
   }
 

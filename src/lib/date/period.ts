@@ -58,3 +58,21 @@ export function getPeriodStart(period: PeriodKey, now = new Date()): Date | unde
 
   return dhakaMidnightInstant(year, month, 1);
 }
+
+/**
+ * The Dhaka-midnight instant `daysAgo` full Dhaka calendar days before
+ * `now`'s Dhaka calendar day — e.g. `getDaysAgoDhakaMidnight(14)` is the
+ * start of a 14-day reporting window ending today, Dhaka-anchored. Safe to
+ * step by exact 24h increments from this instant (see DAY_MS below) since
+ * Asia/Dhaka has no DST.
+ */
+export function getDaysAgoDhakaMidnight(daysAgo: number, now = new Date()): Date {
+  const { year, month, day } = getDhakaDateParts(now);
+  return new Date(dhakaMidnightInstant(year, month, day).getTime() - daysAgo * DAY_MS);
+}
+
+/** `date`'s calendar day in Asia/Dhaka, as "YYYY-MM-DD" — for bucketing a UTC timestamp by the Dhaka day it actually falls on, not the server/UTC day. */
+export function getDhakaDateKey(date: Date): string {
+  const { year, month, day } = getDhakaDateParts(date);
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
