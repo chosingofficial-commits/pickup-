@@ -8,6 +8,20 @@ import { computeCouponDiscount } from "./totals";
  * Integration tests against the seeded demo database (see prisma/seed.ts),
  * which ships WELCOME50 (FIXED Tk 50, min Tk 300) and SAVE10 (PERCENTAGE 10%,
  * max Tk 100, min Tk 500) as platform-wide coupons, and a demo customer.
+ *
+ * These two coupons are real, admin-editable rows — prisma/seed.ts
+ * deliberately upserts them with `update: {}` (same convention as most other
+ * demo data) so a reseed never stomps whatever an admin has changed since.
+ * That means anyone exploring the admin coupon-management UI (e.g. toggling
+ * "active" off to see what the storefront does) permanently leaves these
+ * coupons in that state for every future test run — which is exactly what
+ * had happened here: both were flipped to isActive=false during unrelated
+ * manual QA, well before this test file ever ran, and `validateCoupon` was
+ * correctly rejecting them the whole time. Not a logic bug. The fix is to
+ * stop trusting ambient seeded state and instead make this suite restore
+ * both coupons to their documented canonical values up front, the same way
+ * the "cancelled/failed orders" describe block below already controls its
+ * own throwaway coupon state instead of relying on what's already there.
  */
 describe("validateCoupon", () => {
   let customerId: string;
@@ -15,6 +29,28 @@ describe("validateCoupon", () => {
   beforeAll(async () => {
     const customer = await db.user.findUniqueOrThrow({ where: { phone: "+8801700000008" } });
     customerId = customer.id;
+
+    const canonical = {
+      isActive: true,
+      startsAt: new Date(Date.now() - 86400000),
+      endsAt: new Date(Date.now() + 86400000 * 365),
+      usageLimit: null,
+    };
+    await db.coupon.update({
+      where: { code: "WELCOME50" },
+      data: { ...canonical, type: "FIXED", value: 50, minOrderAmount: 300, maxDiscountAmount: null, perCustomerLimit: 1 },
+    });
+    await db.coupon.update({
+      where: { code: "SAVE10" },
+      data: { ...canonical, type: "PERCENTAGE", value: 10, minOrderAmount: 500, maxDiscountAmount: 100, perCustomerLimit: 3 },
+    });
+
+    // Same reasoning for perCustomerLimit: clear any redemptions this demo
+    // customer has racked up against these two coupons from unrelated manual
+    // QA, so "accepts a coupon" tests never start pre-exhausted either.
+    await db.couponRedemption.deleteMany({
+      where: { coupon: { code: { in: ["WELCOME50", "SAVE10"] } }, order: { customerId } },
+    });
   });
 
   it("rejects an unknown coupon code", async () => {
