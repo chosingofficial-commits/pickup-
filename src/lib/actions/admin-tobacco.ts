@@ -11,8 +11,21 @@ export async function updateTobaccoSettingsAction(_prev: ActionState, formData: 
   const admin = await requireAdmin();
 
   const tobaccoSalesEnabled = formData.get("tobaccoSalesEnabled") === "1";
-  const minimumAge = Math.max(18, Number(formData.get("minimumAge") ?? 18));
-  const exclusionRadiusMeters = Math.max(10, Number(formData.get("exclusionRadiusMeters") ?? 100));
+
+  const minimumAgeRaw = String(formData.get("minimumAge") ?? "");
+  const minimumAgeInput = Number(minimumAgeRaw);
+  if (minimumAgeRaw.trim() !== "" && !Number.isFinite(minimumAgeInput)) {
+    return { status: "error", message: "Enter a valid minimum age." };
+  }
+  const minimumAge = Math.max(18, minimumAgeRaw.trim() === "" ? 18 : minimumAgeInput);
+
+  const radiusRaw = String(formData.get("exclusionRadiusMeters") ?? "");
+  const radiusInput = Number(radiusRaw);
+  if (radiusRaw.trim() !== "" && !Number.isFinite(radiusInput)) {
+    return { status: "error", message: "Enter a valid exclusion radius in meters." };
+  }
+  const exclusionRadiusMeters = Math.max(10, radiusRaw.trim() === "" ? 100 : radiusInput);
+
   const healthWarningText = String(formData.get("healthWarningText") ?? "").trim();
 
   if (tobaccoSalesEnabled && !serverEnv.TOBACCO_SALES_ENABLED) {

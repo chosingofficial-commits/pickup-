@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSiteSettings, SITE_SETTING_KEYS } from "@/lib/settings";
 import { rotateByHour } from "./availability";
 import { syncAdCampaignLifecycle, syncAdCampaignLifecycleThrottled } from "./lifecycle";
+import { getVisitorHash, AD_DEDUPE_WINDOW_MS } from "./visitor-fingerprint";
 import type { PlacementOption } from "@/components/advertise/advertisement-request-form";
 import type { AdPlacementCode } from "@/generated/prisma/client";
 
@@ -34,14 +35,47 @@ export async function getActiveCampaignsForPlacement(code: AdPlacementCode) {
   return rotateByHour(campaigns, now);
 }
 
-/** One INSERT for every campaign shown in a single page render, instead of one per campaign. */
+/**
+ * One INSERT for every campaign shown in a single page render that this
+ * visitor hasn't already been counted for in the last
+ * AD_DEDUPE_WINDOW_MS — so reloading the page (or a carousel rotating
+ * through the same ads) can't keep inflating view counts. The visitorHash
+ * param is only ever overridden by tests; real callers always go through
+ * recordAdImpressions, which derives it from the actual request.
+ */
+export async function recordAdImpressionsForVisitor(campaignIds: string[], visitorHash: string) {
+  if (campaignIds.length === 0) return;
+  const since = new Date(Date.now() - AD_DEDUPE_WINDOW_MS);
+  const alreadyCounted = await db.adImpression.findMany({
+    where: { campaignId: { in: campaignIds }, visitorHash, occurredAt: { gte: since } },
+    select: { campaignId: true },
+    distinct: ["campaignId"],
+  });
+  const alreadyCountedIds = new Set(alreadyCounted.map((row) => row.campaignId));
+  const toInsert = campaignIds.filter((id) => !alreadyCountedIds.has(id));
+  if (toInsert.length === 0) return;
+  await db.adImpression.createMany({ data: toInsert.map((campaignId) => ({ campaignId, visitorHash })) });
+}
+
 export async function recordAdImpressions(campaignIds: string[]) {
   if (campaignIds.length === 0) return;
-  await db.adImpression.createMany({ data: campaignIds.map((campaignId) => ({ campaignId })) });
+  await recordAdImpressionsForVisitor(campaignIds, await getVisitorHash());
+}
+
+/**
+ * Only records a click if this visitor hasn't already clicked this same
+ * campaign within AD_DEDUPE_WINDOW_MS — so reloading /go/ad/[campaignId]
+ * can't inflate click counts. Same visitorHash-injection note as above.
+ */
+export async function recordAdClickForVisitor(campaignId: string, visitorHash: string) {
+  const since = new Date(Date.now() - AD_DEDUPE_WINDOW_MS);
+  const recent = await db.adClick.findFirst({ where: { campaignId, visitorHash, occurredAt: { gte: since } } });
+  if (recent) return;
+  await db.adClick.create({ data: { campaignId, visitorHash } });
 }
 
 export async function recordAdClick(campaignId: string) {
-  await db.adClick.create({ data: { campaignId } });
+  await recordAdClickForVisitor(campaignId, await getVisitorHash());
 }
 
 /**

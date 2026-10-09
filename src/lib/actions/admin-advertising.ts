@@ -359,28 +359,52 @@ export async function updateAdCampaignDatesAction(_prev: ActionState, formData: 
   return { status: "success", message: "Dates updated." };
 }
 
-export async function updateAdPricingAction(formData: FormData): Promise<void> {
+export async function updateAdPricingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const pricingId = String(formData.get("pricingId") ?? "");
-  const price = Number(formData.get("price"));
-  if (!pricingId || !Number.isInteger(price) || price < 0) return;
+  if (!pricingId) return { status: "error", message: "Pricing row not found." };
+
+  const raw = String(formData.get("price") ?? "");
+  const price = Number(raw);
+  if (raw.trim() === "" || !Number.isFinite(price)) {
+    return { status: "error", message: "Enter a valid price in Tk." };
+  }
+  if (!Number.isInteger(price)) {
+    return { status: "error", message: "Price must be a whole number of Tk (no decimals)." };
+  }
+  if (price < 0) {
+    return { status: "error", message: "Price can't be negative." };
+  }
 
   await db.adPricing.update({ where: { id: pricingId }, data: { price } });
   await recordAuditLog({ actorUserId: admin.id, action: "AD_PRICING_UPDATED", entityType: "AdPricing", entityId: pricingId, metadata: { price } });
   revalidatePath("/admin/advertising/placements");
   revalidatePath("/advertise");
+  return { status: "success", message: "Price updated." };
 }
 
-export async function updateAdPlacementMaxAdsAction(formData: FormData): Promise<void> {
+export async function updateAdPlacementMaxAdsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const placementId = String(formData.get("placementId") ?? "");
-  const maxConcurrentAds = Number(formData.get("maxConcurrentAds"));
-  if (!placementId || !Number.isInteger(maxConcurrentAds) || maxConcurrentAds < 1) return;
+  if (!placementId) return { status: "error", message: "Placement not found." };
+
+  const raw = String(formData.get("maxConcurrentAds") ?? "");
+  const maxConcurrentAds = Number(raw);
+  if (raw.trim() === "" || !Number.isFinite(maxConcurrentAds)) {
+    return { status: "error", message: "Enter a valid number of ads." };
+  }
+  if (!Number.isInteger(maxConcurrentAds)) {
+    return { status: "error", message: "Must be a whole number." };
+  }
+  if (maxConcurrentAds < 1) {
+    return { status: "error", message: "Must be at least 1." };
+  }
 
   await db.adPlacement.update({ where: { id: placementId }, data: { maxConcurrentAds } });
   await recordAuditLog({ actorUserId: admin.id, action: "AD_PLACEMENT_MAX_ADS_UPDATED", entityType: "AdPlacement", entityId: placementId, metadata: { maxConcurrentAds } });
   revalidatePath("/admin/advertising/placements");
   revalidatePath("/advertise");
+  return { status: "success", message: "Updated." };
 }
 
 export async function toggleAdPlacementActiveAction(formData: FormData): Promise<void> {

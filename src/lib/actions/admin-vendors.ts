@@ -24,15 +24,22 @@ export async function toggleVendorSuspensionAction(formData: FormData): Promise<
   revalidatePath("/admin/vendors");
 }
 
-export async function updateVendorCommissionAction(formData: FormData): Promise<void> {
+export async function updateVendorCommissionAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const vendorId = String(formData.get("vendorId") ?? "");
-  const rate = Number(formData.get("commissionRatePct"));
-  if (!Number.isFinite(rate) || rate < 0 || rate > 100) return;
+  const raw = String(formData.get("commissionRatePct") ?? "");
+  const rate = Number(raw);
+  if (raw.trim() === "" || !Number.isFinite(rate)) {
+    return { status: "error", message: "Enter a valid commission percentage." };
+  }
+  if (rate < 0 || rate > 100) {
+    return { status: "error", message: "Commission rate must be between 0 and 100." };
+  }
 
   await db.vendor.update({ where: { id: vendorId }, data: { commissionRatePct: rate } });
   await recordAuditLog({ actorUserId: admin.id, action: "VENDOR_COMMISSION_UPDATED", entityType: "Vendor", entityId: vendorId, metadata: { rate } });
   revalidatePath("/admin/vendors");
+  return { status: "success", message: "Commission rate updated." };
 }
 
 const shopDetailsSchema = z.object({

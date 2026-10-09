@@ -332,7 +332,7 @@ const updateZoneSchema = z
  * that's the name customers actually see in the location picker — leaving
  * it out of sync would make a rename invisible to customers.
  */
-export async function updateDeliveryZoneAction(formData: FormData): Promise<void> {
+export async function updateDeliveryZoneAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const parsed = updateZoneSchema.safeParse({
     zoneId: formData.get("zoneId"),
@@ -342,15 +342,24 @@ export async function updateDeliveryZoneAction(formData: FormData): Promise<void
     estimatedMinutesMin: formData.get("estimatedMinutesMin"),
     estimatedMinutesMax: formData.get("estimatedMinutesMax"),
   });
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    const fieldError = parsed.error.issues[0];
+    const field = fieldError?.path[0];
+    if (field === "deliveryFee") return { status: "error", message: "Enter a valid delivery fee in Tk (0 or more)." };
+    if (field === "estimatedMinutesMin" || field === "estimatedMinutesMax") {
+      return { status: "error", message: "Delivery time estimates must be whole minutes, 1 or more, with min ≤ max." };
+    }
+    if (field === "name") return { status: "error", message: "Zone name is required (at least 2 characters)." };
+    return { status: "error", message: "Please check the zone details and try again." };
+  }
 
   const zone = await db.deliveryZone.findUnique({ where: { id: parsed.data.zoneId } });
-  if (!zone) return;
+  if (!zone) return { status: "error", message: "This delivery zone no longer exists." };
 
   const duplicate = await db.deliveryZone.findFirst({
     where: { serviceAreaId: zone.serviceAreaId, name: { equals: parsed.data.name, mode: "insensitive" }, id: { not: zone.id } },
   });
-  if (duplicate) return;
+  if (duplicate) return { status: "error", message: `A zone named "${parsed.data.name}" already exists in this town.` };
 
   await db.deliveryZone.update({
     where: { id: zone.id },
@@ -368,6 +377,7 @@ export async function updateDeliveryZoneAction(formData: FormData): Promise<void
   await recordAuditLog({ actorUserId: admin.id, action: "DELIVERY_ZONE_UPDATED", entityType: "DeliveryZone", entityId: zone.id });
   revalidatePath("/admin/locations");
   revalidateTag("locations", "minutes");
+  return { status: "success", message: "Zone updated." };
 }
 
 export async function toggleDeliveryZoneActiveAction(formData: FormData): Promise<void> {

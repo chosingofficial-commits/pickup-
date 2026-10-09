@@ -1421,8 +1421,13 @@ model AdImpression {
   campaignId String
   campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   occurredAt DateTime   @default(now())
+  // Salted HMAC of (IP + User-Agent) — never the raw IP — so the same
+  // visitor reloading the page can't inflate view counts. Null for rows
+  // recorded before this existed. See lib/ads/visitor-fingerprint.ts.
+  visitorHash String?
 
   @@index([campaignId, occurredAt])
+  @@index([campaignId, visitorHash, occurredAt])
 }
 
 model AdClick {
@@ -1430,8 +1435,13 @@ model AdClick {
   campaignId String
   campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   occurredAt DateTime   @default(now())
+  // Salted HMAC of (IP + User-Agent) — never the raw IP — so reloading
+  // /go/ad/[campaignId] can't inflate click counts. Null for rows recorded
+  // before this existed. See lib/ads/visitor-fingerprint.ts.
+  visitorHash String?
 
   @@index([campaignId, occurredAt])
+  @@index([campaignId, visitorHash, occurredAt])
 }
 
 // ---------------------------------------------------------------------------

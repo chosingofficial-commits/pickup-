@@ -39,12 +39,24 @@ export async function updateWeeklyHoursAction(_prev: ActionState, formData: Form
 export async function updateRestaurantSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const restaurant = await requireRestaurant();
 
-  const preparationTimeMinutes = Math.max(5, Number(formData.get("preparationTimeMinutes") ?? 20));
+  const prepRaw = String(formData.get("preparationTimeMinutes") ?? "");
+  const preparationTimeMinutesInput = Number(prepRaw);
+  if (prepRaw.trim() !== "" && !Number.isFinite(preparationTimeMinutesInput)) {
+    return { status: "error", message: "Enter a valid preparation time in minutes." };
+  }
+  const preparationTimeMinutes = Math.max(5, prepRaw.trim() === "" ? 20 : preparationTimeMinutesInput);
+
   const isManuallyClosed = formData.get("isManuallyClosed") === "1";
   const scheduledOrderingEnabled = formData.get("scheduledOrderingEnabled") === "1";
   const temporaryClosureUntilRaw = String(formData.get("temporaryClosureUntil") ?? "");
   const temporaryClosureUntil = temporaryClosureUntilRaw ? new Date(temporaryClosureUntilRaw) : null;
-  const minimumOrderAmount = Math.max(0, Number(formData.get("minimumOrderAmount") ?? 0));
+
+  const minAmountRaw = String(formData.get("minimumOrderAmount") ?? "");
+  const minimumOrderAmountInput = Number(minAmountRaw);
+  if (minAmountRaw.trim() !== "" && !Number.isFinite(minimumOrderAmountInput)) {
+    return { status: "error", message: "Enter a valid minimum order amount in Tk." };
+  }
+  const minimumOrderAmount = Math.max(0, minAmountRaw.trim() === "" ? 0 : minimumOrderAmountInput);
 
   await db.restaurant.update({
     where: { id: restaurant.id },

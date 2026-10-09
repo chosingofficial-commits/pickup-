@@ -16,6 +16,11 @@ export function RestaurantSettingsForm({
   return (
     <form action={formAction} className="space-y-4">
       {state.status === "success" && <p className="text-sm text-brand-primary">{state.message}</p>}
+      {state.status === "error" && (
+        <p role="alert" className="text-sm text-red-600">
+          {state.message}
+        </p>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="preparationTimeMinutes">Preparation time (minutes)</Label>
