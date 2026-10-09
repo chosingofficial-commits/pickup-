@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import { ArrowRight, Clock, ShieldCheck, Truck } from "lucide-react";
 import { Container } from "@/components/ui/container";
 
@@ -16,8 +16,34 @@ export function HeroSection({
   cta: string;
   imageUrl?: string | null;
 }) {
+  // Measured with Lighthouse (5 runs each, median): plain `priority` shaves
+  // ~55ms off desktop LCP (729ms -> 674ms) but, since this container is
+  // CSS-hidden below `lg` (not absent from the DOM), it ALSO forces an
+  // unconditional <link rel=preload> that fetches a ~1600px image on every
+  // mobile visit where it's never shown (confirmed via Lighthouse's network
+  // log: 0/5 baseline runs fetched it, 5/5 `priority` runs did). Adding only
+  // `fetchPriority="high"` without `priority` doesn't help desktop at all
+  // (746ms, within noise of baseline) — the win comes from the preload link
+  // itself, not fetch-priority ordering. So: render the real <Image> exactly
+  // like the no-priority baseline (mobile stays at zero fetched bytes), and
+  // separately emit our OWN preload link gated with `media`, which Next's
+  // own `priority` prop can't do — the browser simply ignores a preload
+  // whose media query doesn't match the current viewport.
+  const preloadProps = imageUrl ? getImageProps({ src: imageUrl, alt: "", fill: true, sizes: "50vw" }).props : null;
+
   return (
     <section className="bg-gradient-to-b from-brand-bg to-white">
+      {preloadProps && (
+        <link
+          rel="preload"
+          as="image"
+          href={preloadProps.srcSet ? undefined : preloadProps.src}
+          imageSrcSet={preloadProps.srcSet}
+          imageSizes={preloadProps.sizes}
+          media="(min-width: 1024px)"
+          fetchPriority="high"
+        />
+      )}
       <Container className="grid gap-8 py-10 sm:py-14 lg:grid-cols-2 lg:items-center lg:py-20">
         <div>
           {areaLabel && (
@@ -66,7 +92,7 @@ export function HeroSection({
 
         <div className="relative hidden aspect-square items-center justify-center overflow-hidden rounded-card bg-gradient-to-br from-brand-accent/40 to-brand-bg lg:flex">
           {imageUrl ? (
-            <Image src={imageUrl} alt="Pick Up" fill sizes="50vw" className="object-cover" priority />
+            <Image src={imageUrl} alt="Pick Up" fill sizes="50vw" className="object-cover" />
           ) : (
             <span className="text-[10rem] leading-none" aria-hidden>
               🛵
