@@ -21,8 +21,15 @@ export async function generateMetadata({ params }: { params: Promise<{ vendorSlu
   return { title: vendor.businessName, description: vendor.description ?? undefined };
 }
 
-export default async function RestaurantMenuPage({ params }: { params: Promise<{ vendorSlug: string }> }) {
+export default async function RestaurantMenuPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ vendorSlug: string }>;
+  searchParams: Promise<{ item?: string }>;
+}) {
   const { vendorSlug } = await params;
+  const { item: openItemId } = await searchParams;
   const vendor = await getRestaurantBySlug(vendorSlug);
   if (!vendor || !vendor.restaurant) notFound();
 
@@ -108,6 +115,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
                   <MenuItemCard
                     key={item.id}
                     canOrder={canOrder}
+                    defaultOpen={item.id === openItemId}
                     item={{
                       id: item.id,
                       name: item.name,

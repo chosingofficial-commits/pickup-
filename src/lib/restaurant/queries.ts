@@ -3,6 +3,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { MAX_MENU_ITEM_PHOTOS } from "@/lib/validation/menu-item";
+import { getRestaurantStatus } from "@/lib/restaurant/status";
 import type { Prisma } from "@/generated/prisma/client";
 
 const activeVendorFilter = { isApproved: true, isSuspended: false, deletedAt: null } as const;
@@ -72,6 +73,77 @@ export const getRestaurantBySlug = cache(async (slug: string) => {
     },
   });
 });
+
+const MAX_MATCHING_DISHES_PER_RESTAURANT = 4;
+
+/**
+ * Restaurant search ("Search restaurants or dishes") — separate from
+ * getRestaurantsList so the default, unsearched browse view (cuisine pills
+ * + full unpaginated grid) is completely untouched. A vendor matches if its
+ * own name matches, OR it has at least one matching dish; either way, only
+ * the dishes that actually matched are returned under it (sold-out ones
+ * last, capped per restaurant — the full menu is still one tap away on the
+ * restaurant's own page).
+ */
+export async function searchRestaurantsAndDishes(q: string, opts: { page?: number; pageSize?: number } = {}) {
+  const pageSize = opts.pageSize ?? 10;
+  const page = Math.max(1, opts.page ?? 1);
+
+  const dishMatch: Prisma.MenuItemWhereInput = {
+    deletedAt: null,
+    OR: [{ name: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }],
+  };
+
+  const where: Prisma.VendorWhereInput = {
+    businessType: "RESTAURANT",
+    ...activeVendorFilter,
+    restaurant: { isNot: null },
+    OR: [
+      { businessName: { contains: q, mode: "insensitive" } },
+      { restaurantMenus: { some: { items: { some: dishMatch } } } },
+    ],
+  };
+
+  const all = await db.vendor.findMany({
+    where,
+    orderBy: { ratingAvg: "desc" },
+    include: {
+      restaurant: { include: { weeklyHours: true } },
+      restaurantMenus: {
+        where: { isActive: true },
+        select: {
+          items: {
+            where: dishMatch,
+            select: { id: true, name: true, price: true, imageUrl: true, isAvailable: true },
+          },
+        },
+      },
+    },
+  });
+
+  const total = all.length;
+  const start = (page - 1) * pageSize;
+  const pageVendors = all.slice(start, start + pageSize);
+
+  const items = pageVendors.map((vendor) => {
+    const dishes = vendor.restaurantMenus.flatMap((m) => m.items);
+    // Stable sort: available first, sold-out last.
+    dishes.sort((a, b) => Number(!a.isAvailable) - Number(!b.isAvailable));
+    return {
+      vendor,
+      status: getRestaurantStatus(vendor.restaurant!),
+      matchingDishes: dishes.slice(0, MAX_MATCHING_DISHES_PER_RESTAURANT).map((d) => ({
+        id: d.id,
+        name: d.name,
+        price: d.price.toString(),
+        imageUrl: d.imageUrl,
+        isAvailable: d.isAvailable,
+      })),
+    };
+  });
+
+  return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
 
 export const listCuisines = cache(async (): Promise<string[]> => {
   const restaurants = await db.restaurant.findMany({ select: { cuisineTags: true } });

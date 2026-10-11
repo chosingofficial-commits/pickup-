@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getDaysAgoDhakaMidnight } from "@/lib/date/period";
 import { getFreeDeliveryPromoSettings } from "@/lib/promotions/free-delivery";
 import { getRestaurantStatus, type RestaurantStatus } from "@/lib/restaurant/status";
+import { SHOP_TYPES, SHOP_TYPE_LABELS } from "./shop-type";
 import type { Prisma, ShopType } from "@/generated/prisma/client";
 
 /**
@@ -208,10 +209,24 @@ export async function getAllShops(filters: ShopListFilters, customerLatLng?: { l
   const pageSize = filters.pageSize ?? 20;
   const page = Math.max(1, filters.page ?? 1);
 
+  // Shop type isn't free-text in the DB — a typed query like "bakery" is
+  // matched against SHOP_TYPE_LABELS first, then OR'd in alongside a plain
+  // businessName match.
+  const matchedShopTypes: ShopType[] = filters.q
+    ? SHOP_TYPES.filter((t) => SHOP_TYPE_LABELS[t].toLowerCase().includes(filters.q!.toLowerCase()))
+    : [];
+
   const where: Prisma.VendorWhereInput = {
     ...activeShopFilter,
     ...(filters.shopType ? { shopType: filters.shopType } : {}),
-    ...(filters.q ? { businessName: { contains: filters.q, mode: "insensitive" } } : {}),
+    ...(filters.q
+      ? {
+          OR: [
+            { businessName: { contains: filters.q, mode: "insensitive" } },
+            ...(matchedShopTypes.length > 0 ? [{ shopType: { in: matchedShopTypes } }] : []),
+          ],
+        }
+      : {}),
   };
 
   const all = await db.vendor.findMany({ where, select: SHOP_CARD_SELECT });

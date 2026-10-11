@@ -24,8 +24,8 @@ export type MenuItemWithDetail = {
   suggestions: SuggestionItem[];
 };
 
-export function MenuItemCard({ item, canOrder }: { item: MenuItemWithDetail; canOrder: boolean }) {
-  const [open, setOpen] = useState(false);
+export function MenuItemCard({ item, canOrder, defaultOpen = false }: { item: MenuItemWithDetail; canOrder: boolean; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const soldOut = !item.isAvailable;
 
   return (

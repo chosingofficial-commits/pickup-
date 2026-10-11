@@ -162,7 +162,21 @@ export async function getMarketplaceProducts(filters: MarketplaceFilters) {
     ...NOT_AGE_RESTRICTED,
     category: categoryFilter,
     vendor: vendorFilter,
-    ...(filters.q ? { name: { contains: filters.q, mode: "insensitive" } } : {}),
+    // Matches name, description, both category-name locales, and the
+    // legacy free-text Product.unit field — the one place a size label like
+    // "1 L" actually exists as searchable text (variant size labels are
+    // computed on the fly, never stored, so they can't be `contains`-matched).
+    ...(filters.q
+      ? {
+          OR: [
+            { name: { contains: filters.q, mode: "insensitive" } },
+            { description: { contains: filters.q, mode: "insensitive" } },
+            { unit: { contains: filters.q, mode: "insensitive" } },
+            { category: { name: { contains: filters.q, mode: "insensitive" } } },
+            { category: { nameBn: { contains: filters.q, mode: "insensitive" } } },
+          ],
+        }
+      : {}),
     ...(filters.minPrice != null || filters.maxPrice != null
       ? {
           price: {
@@ -199,7 +213,18 @@ export async function getMarketplaceProducts(filters: MarketplaceFilters) {
     db.product.count({ where }),
   ]);
 
-  return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+  // Sold-out items sorted after available ones, within this page only — a
+  // search result shouldn't lead with things you can't actually buy.
+  // Applied only while searching, not the default browse order.
+  const sortedItems = filters.q
+    ? [...items].sort((a, b) => Number(isOutOfStock(a)) - Number(isOutOfStock(b)))
+    : items;
+
+  return { items: sortedItems, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+function isOutOfStock(product: { availability: string; inventory: { quantityInStock: number } | null }): boolean {
+  return product.availability !== "AVAILABLE" || (product.inventory?.quantityInStock ?? 0) <= 0;
 }
 
 export const getProductBySlug = cache(async (vendorSlug: string, productSlug: string) => {
