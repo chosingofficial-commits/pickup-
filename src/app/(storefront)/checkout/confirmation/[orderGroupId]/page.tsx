@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { getCurrentUser } from "@/lib/auth/session";
+import { canViewOrderGroup } from "@/lib/orders/access";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ export default async function CheckoutConfirmationPage({ params }: { params: Pro
     include: { orders: { include: { vendor: true } }, payment: true },
   });
 
-  if (!orderGroup || orderGroup.customerId !== user.id) notFound();
+  if (!orderGroup || !canViewOrderGroup(orderGroup, user)) notFound();
 
   const payment = orderGroup.payment;
   const isPaid = payment?.status === "PAID" || payment?.provider === "COD";

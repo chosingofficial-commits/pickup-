@@ -17,5 +17,8 @@ export const publicEnv = {
   // Web Push's applicationServerKey — safe to expose (it's the whole point
   // of the "public" half of a VAPID keypair). Empty string when unset, which
   // the subscribe flow treats as "push isn't configured on this deploy yet".
-  vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
+  // Trimmed: a value pasted into a host's env var UI (or copied via
+  // Set-Clipboard, which can append a trailing newline) can pick up
+  // leading/trailing whitespace that silently breaks base64url decoding.
+  vapidPublicKey: (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").trim(),
 } as const;

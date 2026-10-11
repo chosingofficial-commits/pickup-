@@ -341,9 +341,16 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
     await clearCheckoutState();
     await recordAuditLog({ actorUserId: user.id, action: "ORDER_PLACED", entityType: "OrderGroup", entityId: orderGroup.id, metadata: { grandTotal } });
 
-    // Fire-and-forget-ish: awaited so errors are logged (never uncaught),
-    // but sendPushToUser never throws, so this can never fail checkout.
-    for (const push of vendorPushes) await sendPushToUser(push.userId, push.payload);
+    // True fire-and-forget: NOT awaited. sendPushToUser() internally
+    // catches everything (including its own DB query) and its returned
+    // promise can never reject, so there's no unhandled-rejection risk —
+    // but awaiting it here would still add push-service latency to every
+    // checkout's response time for no benefit, since the order is already
+    // fully committed above regardless of how long the push send takes.
+    // This process stays alive long enough for it to finish in the
+    // background (standard Node server, not a serverless/edge function
+    // that gets frozen the instant the response is sent).
+    for (const push of vendorPushes) void sendPushToUser(push.userId, push.payload);
 
     const adapter = getPaymentAdapter(paymentMethod);
     const confirmationUrl = `${publicEnv.appUrl}/checkout/confirmation/${orderGroup.id}`;

@@ -105,8 +105,11 @@ const serverEnvSchema = z.object({
   // Web Push (vendor/rider order alerts) — see src/lib/push/send.ts. Optional:
   // sendPushToUser() no-ops (logged once) when unset, so a deploy without
   // these configured yet keeps working exactly as before, just without push.
-  VAPID_PRIVATE_KEY: z.string().optional(),
-  VAPID_SUBJECT: z.string().default("mailto:support@pickupn.com"),
+  // Trimmed: a value pasted into a host's env var UI (or copied via
+  // Set-Clipboard, which can append a trailing newline) can pick up
+  // leading/trailing whitespace that silently breaks base64url decoding.
+  VAPID_PRIVATE_KEY: z.string().trim().optional(),
+  VAPID_SUBJECT: z.string().trim().default("mailto:information@pickupn.com"),
 });
 
 const parsed = serverEnvSchema.safeParse(process.env);

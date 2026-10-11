@@ -253,7 +253,7 @@ Vendors get a push when a new order comes in; riders get one when a vendor click
 2. Set three env vars (see `.env.example`):
    - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — **inlined into the client bundle at build time.** Set this in your hosting provider's environment variables *before* running the build/deploy, not after — changing it later requires a rebuild, not just a restart.
    - `VAPID_PRIVATE_KEY` — server-only, signs every push. Never commit a real value; treat it like any other secret.
-   - `VAPID_SUBJECT` — a `mailto:` contact address push services may use to reach you about delivery problems (defaults to `mailto:support@pickupn.com`).
+   - `VAPID_SUBJECT` — a `mailto:` contact address push services may use to reach you about delivery problems (defaults to `mailto:information@pickupn.com`).
 3. That's it — no other service/account needed. If these three vars are unset, `sendPushToUser()` (`src/lib/push/send.ts`) silently no-ops (logging one warning) so the rest of the app keeps working exactly as before.
 
 **How it works:**

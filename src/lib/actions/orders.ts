@@ -199,19 +199,29 @@ export async function findRiderAction(_prev: ActionState, formData: FormData): P
   // use for real once someone actually accepts. Shared tag: re-clicking
   // "Find rider" before anyone accepts replaces each rider's existing
   // notification for this order instead of stacking a second one.
-  const areaName = order.address.neighbourhood?.name ?? "your area";
-  const standardFeePoisha = order.standardDeliveryFeePoisha ?? toPoisha(Number(order.deliveryFee));
-  await Promise.all(
-    eligibleRiders.map((r) => {
+  // sendPushToUser itself never throws, but the per-rider earning math run
+  // here in the caller (outside that guard) still could on bad input — a
+  // broadcast's whole point is best-effort delivery, so nothing in this
+  // block may ever fail the action the vendor is waiting on. The try/catch
+  // guards the synchronous construction below (computeDeliveryEarning
+  // etc, which runs immediately inside .map()); the sends themselves are
+  // true fire-and-forget — not awaited, so a slow push service never adds
+  // latency to the vendor's "Find rider" click.
+  try {
+    const areaName = order.address.neighbourhood?.name ?? "your area";
+    const standardFeePoisha = order.standardDeliveryFeePoisha ?? toPoisha(Number(order.deliveryFee));
+    for (const r of eligibleRiders) {
       const { riderEarningPoisha } = computeDeliveryEarning(standardFeePoisha, Number(r.commissionRatePct));
-      return sendPushToUser(r.userId, {
+      void sendPushToUser(r.userId, {
         title: "New delivery available",
         body: `${areaName} · ${formatBDT(fromPoisha(riderEarningPoisha))}`,
         url: "/rider",
         tag: `delivery:${orderId}`,
       });
-    }),
-  );
+    }
+  } catch (err) {
+    console.error(`[push] find-rider broadcast failed for order ${orderId}:`, err);
+  }
 
   revalidatePath(`/vendor/orders/${orderId}`);
   revalidatePath("/vendor/orders");

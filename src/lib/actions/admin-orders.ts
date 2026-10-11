@@ -116,7 +116,10 @@ export async function adminAssignRiderAction(_prev: ActionState, formData: FormD
     });
   });
 
-  await sendPushToUser(rider.user.id, {
+  // Fire-and-forget — see place-order.ts's identical comment on why this
+  // is never awaited (sendPushToUser can't reject, and awaiting it would
+  // only add push-service latency to the admin's response for no benefit).
+  void sendPushToUser(rider.user.id, {
     title: "New delivery assigned",
     body: `Order ${order.orderNumber} — tap to view`,
     url: "/rider/deliveries",
