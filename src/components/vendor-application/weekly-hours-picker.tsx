@@ -19,15 +19,23 @@ export type DayHours = { dayOfWeek: number; opensAt: string; closesAt: string; i
  * data into "same every day" unless it genuinely already is that).
  */
 export function WeeklyHoursPicker({ defaultHours }: { defaultHours?: DayHours[] }) {
-  const initialPerDay =
-    defaultHours ?? Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, opensAt: "10:00", closesAt: "22:00", isClosed: false }));
+  // A grocery vendor with no VendorWeeklyHours rows yet (every shop, until
+  // it sets real hours — see getRestaurantStatus's empty-weeklyHours branch)
+  // passes `defaultHours={[]}`, not undefined. `[] ?? fallback` never falls
+  // back (an empty array isn't null/undefined), so this must explicitly
+  // treat "no rows" the same as "no defaultHours prop at all" — otherwise
+  // every day-indexed lookup below silently has nothing to find.
+  const hasExistingHours = !!defaultHours && defaultHours.length > 0;
+  const initialPerDay = hasExistingHours
+    ? defaultHours!
+    : Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, opensAt: "10:00", closesAt: "22:00", isClosed: false }));
   // Detect whether the incoming hours already happen to be identical every
   // day, so re-opening an already-"same every day" schedule starts in that
   // view instead of always defaulting to the per-day editor.
   const openDays = initialPerDay.filter((d) => !d.isClosed);
   const alreadyUniform = openDays.length > 0 && openDays.every((d) => d.opensAt === openDays[0]!.opensAt && d.closesAt === openDays[0]!.closesAt);
 
-  const [sameEveryDay, setSameEveryDay] = useState(defaultHours ? alreadyUniform : true);
+  const [sameEveryDay, setSameEveryDay] = useState(hasExistingHours ? alreadyUniform : true);
   const [opensAt, setOpensAt] = useState(openDays[0]?.opensAt ?? "10:00");
   const [closesAt, setClosesAt] = useState(openDays[0]?.closesAt ?? "22:00");
   const [closedDays, setClosedDays] = useState<Set<number>>(new Set(initialPerDay.filter((d) => d.isClosed).map((d) => d.dayOfWeek)));
@@ -63,12 +71,12 @@ export function WeeklyHoursPicker({ defaultHours }: { defaultHours?: DayHours[] 
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs text-gray-500">Opens</label>
-              <input type="time" value={opensAt} onChange={(e) => setOpensAt(e.target.value)} className="h-10 w-full rounded-control border border-border-brand px-2.5 text-sm" />
+              <label htmlFor="weekly-hours-opens" className="mb-1 block text-xs text-gray-500">Opens</label>
+              <input id="weekly-hours-opens" type="time" value={opensAt} onChange={(e) => setOpensAt(e.target.value)} className="h-10 w-full rounded-control border border-border-brand px-2.5 text-sm" />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-500">Closes</label>
-              <input type="time" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} className="h-10 w-full rounded-control border border-border-brand px-2.5 text-sm" />
+              <label htmlFor="weekly-hours-closes" className="mb-1 block text-xs text-gray-500">Closes</label>
+              <input id="weekly-hours-closes" type="time" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} className="h-10 w-full rounded-control border border-border-brand px-2.5 text-sm" />
             </div>
           </div>
           <div>
@@ -91,7 +99,11 @@ export function WeeklyHoursPicker({ defaultHours }: { defaultHours?: DayHours[] 
       ) : (
         <div className="space-y-2">
           {DAY_NAMES.map((name, day) => {
-            const d = perDay.find((p) => p.dayOfWeek === day)!;
+            // Defensive fallback, not just the initial-state fix above — if
+            // perDay is ever missing a day (a bug elsewhere, or state from
+            // before this fix), render a sane default row instead of
+            // crashing the whole page on a null-dereference.
+            const d = perDay.find((p) => p.dayOfWeek === day) ?? { dayOfWeek: day, opensAt: "10:00", closesAt: "22:00", isClosed: false };
             return (
               <div key={day} className="grid grid-cols-[88px_1fr_1fr_auto] items-center gap-2 text-sm">
                 <span className="text-xs font-medium text-brand-dark">{name}</span>
