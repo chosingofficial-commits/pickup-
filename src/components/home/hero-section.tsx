@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image, { getImageProps } from "next/image";
 import { ArrowRight, Clock, ShieldCheck, Truck } from "lucide-react";
 import { Container } from "@/components/ui/container";
+import { isRenderableImageUrl } from "@/lib/image-url";
 
 export function HeroSection({
   areaLabel,
@@ -29,7 +30,14 @@ export function HeroSection({
   // separately emit our OWN preload link gated with `media`, which Next's
   // own `priority` prop can't do — the browser simply ignores a preload
   // whose media query doesn't match the current viewport.
-  const preloadProps = imageUrl ? getImageProps({ src: imageUrl, alt: "", fill: true, sizes: "50vw" }).props : null;
+  // A stored imageUrl that's stale/malformed (e.g. an old local-storage
+  // http://localhost path, or a URL next/image otherwise can't optimize)
+  // must never reach getImageProps/<Image> — both throw synchronously for
+  // a src outside next.config.mjs's remotePatterns, which would crash this
+  // whole section (and the homepage with it) instead of just hiding the
+  // image. See src/lib/image-url.ts.
+  const showImage = isRenderableImageUrl(imageUrl);
+  const preloadProps = showImage ? getImageProps({ src: imageUrl, alt: "", fill: true, sizes: "50vw" }).props : null;
 
   return (
     <section className="bg-gradient-to-b from-brand-bg to-white">
@@ -91,8 +99,8 @@ export function HeroSection({
         </div>
 
         <div className="relative hidden aspect-square items-center justify-center overflow-hidden rounded-card bg-gradient-to-br from-brand-accent/40 to-brand-bg lg:flex">
-          {imageUrl ? (
-            <Image src={imageUrl} alt="Pick Up" fill sizes="50vw" className="object-cover" />
+          {showImage ? (
+            <Image src={imageUrl!} alt="Pick Up" fill sizes="50vw" className="object-cover" />
           ) : (
             <span className="text-[10rem] leading-none" aria-hidden>
               🛵

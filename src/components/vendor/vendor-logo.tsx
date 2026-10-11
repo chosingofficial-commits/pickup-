@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { isRenderableImageUrl } from "@/lib/image-url";
 
 /**
  * Circular vendor/restaurant logo. Falls back to a crop of the cover photo
@@ -19,7 +20,7 @@ export function VendorLogo({
   size?: number;
   className?: string;
 }) {
-  const imageUrl = logoUrl ?? coverImageUrl;
+  const imageUrl = [logoUrl, coverImageUrl].find(isRenderableImageUrl);
   if (imageUrl) {
     return (
       <div

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { isRenderableImageUrl } from "@/lib/image-url";
 
 /**
  * Renders a real photo when `src` is set, otherwise a category-tinted
@@ -41,7 +42,7 @@ export function ProductImage({
   className?: string;
   emoji?: string;
 }) {
-  if (src) {
+  if (isRenderableImageUrl(src)) {
     return (
       <div className={cn("relative overflow-hidden bg-surface-muted", className)}>
         <Image src={src} alt={alt} fill sizes="(min-width: 1024px) 25vw, 50vw" className="object-cover" />
