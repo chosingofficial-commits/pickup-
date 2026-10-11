@@ -3,12 +3,15 @@
 import { useActionState } from "react";
 import { updateVendorShopDetailsAction } from "@/lib/actions/admin-vendors";
 import { initialActionState } from "@/lib/actions/types";
-import { Input, Label, FieldError, Textarea } from "@/components/ui/input";
+import { Input, Label, FieldError, Textarea, Select } from "@/components/ui/input";
 import { FileUploadField } from "@/components/forms/file-upload-field";
 import { SubmitButton } from "@/components/forms/submit-button";
+import { SHOP_TYPES, SHOP_TYPE_LABELS } from "@/lib/shops/shop-type";
+import type { ShopType } from "@/generated/prisma/client";
 
 export function VendorEditForm({
   defaults,
+  isGroceryVendor,
 }: {
   defaults: {
     vendorId: string;
@@ -17,9 +20,11 @@ export function VendorEditForm({
     phone: string;
     addressText: string;
     commissionRatePct: number;
+    shopType: ShopType | null;
     logoUrl: string | null;
     coverImageUrl: string | null;
   };
+  isGroceryVendor: boolean;
 }) {
   const [state, formAction] = useActionState(updateVendorShopDetailsAction, initialActionState);
 
@@ -45,6 +50,19 @@ export function VendorEditForm({
         <Label htmlFor="description">Description</Label>
         <Textarea id="description" name="description" rows={3} defaultValue={defaults.description} />
       </div>
+      {isGroceryVendor && (
+        <div>
+          <Label htmlFor="shopType">Shop type</Label>
+          <Select id="shopType" name="shopType" defaultValue={defaults.shopType ?? ""}>
+            <option value="">Not set</option>
+            {SHOP_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {SHOP_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="phone">Phone</Label>

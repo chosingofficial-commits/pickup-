@@ -26,7 +26,9 @@ export default async function VendorProfilePage() {
               phone: vendor.phone,
               email: vendor.email,
               addressText: vendor.addressText,
+              shopType: vendor.shopType,
             }}
+            isGroceryVendor={vendor.businessType === "GROCERY_VENDOR"}
           />
         </CardContent>
       </Card>

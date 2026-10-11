@@ -98,9 +98,11 @@ export default async function AdminVendorDetailPage({ params }: { params: Promis
                   phone: vendor.phone,
                   addressText: vendor.addressText,
                   commissionRatePct: Number(vendor.commissionRatePct),
+                  shopType: vendor.shopType,
                   logoUrl: vendor.logoUrl,
                   coverImageUrl: vendor.coverImageUrl,
                 }}
+                isGroceryVendor={!isRestaurant}
               />
             </CardContent>
           </Card>

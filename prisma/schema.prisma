@@ -33,6 +33,25 @@ enum BusinessType {
   RESTAURANT
 }
 
+/// What kind of shop a GROCERY_VENDOR is, shown on the /marketplace "Shops"
+/// tab (filters, shop cards). Optional — set by the vendor on their business
+/// profile, or by admin on the vendor detail page. Never set for RESTAURANT
+/// vendors (those use Restaurant.cuisineTags instead).
+enum ShopType {
+  GROCERY
+  FRESH_MARKET
+  BAKERY
+  PHARMACY
+  CONVENIENCE
+  HEALTH_BEAUTY
+  ELECTRONICS
+  HOME_GIFTS
+  CLOTHING
+  FLOWERS
+  DRINKS
+  OTHER
+}
+
 enum ApplicationStatus {
   DRAFT
   SUBMITTED
@@ -523,6 +542,8 @@ model Vendor {
   businessName      String
   slug              String       @unique
   businessType      BusinessType
+  /// Only ever set for GROCERY_VENDOR — see ShopType's own doc comment.
+  shopType          ShopType?
   logoUrl           String?
   coverImageUrl     String?
   description       String?

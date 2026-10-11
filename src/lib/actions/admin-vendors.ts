@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
 import { optionalText } from "@/lib/validation/form-helpers";
+import { SHOP_TYPES } from "@/lib/shops/shop-type";
 import type { ActionState } from "./types";
 
 export async function toggleVendorSuspensionAction(formData: FormData): Promise<void> {
@@ -49,6 +50,7 @@ const shopDetailsSchema = z.object({
   phone: z.string().trim().min(6).max(20),
   addressText: z.string().trim().min(5),
   commissionRatePct: z.coerce.number().min(0).max(100),
+  shopType: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.enum(SHOP_TYPES).optional()),
   logoUrl: optionalText(z.string().url()),
   coverImageUrl: optionalText(z.string().url()),
 });
@@ -63,6 +65,7 @@ export async function updateVendorShopDetailsAction(_prev: ActionState, formData
     phone: formData.get("phone"),
     addressText: formData.get("addressText"),
     commissionRatePct: formData.get("commissionRatePct"),
+    shopType: formData.get("shopType"),
     logoUrl: formData.get("logoUrl"),
     coverImageUrl: formData.get("coverImageUrl"),
   });
@@ -83,6 +86,7 @@ export async function updateVendorShopDetailsAction(_prev: ActionState, formData
       phone: parsed.data.phone,
       addressText: parsed.data.addressText,
       commissionRatePct: parsed.data.commissionRatePct,
+      shopType: parsed.data.shopType ?? null,
       logoUrl: parsed.data.logoUrl || undefined,
       coverImageUrl: parsed.data.coverImageUrl || undefined,
     },

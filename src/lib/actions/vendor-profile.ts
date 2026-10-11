@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { optionalText } from "@/lib/validation/form-helpers";
+import { SHOP_TYPES } from "@/lib/shops/shop-type";
 import type { ActionState } from "./types";
 
 const businessProfileSchema = z.object({
@@ -13,6 +14,10 @@ const businessProfileSchema = z.object({
   phone: z.string().trim().min(6).max(20),
   email: z.string().trim().email(),
   addressText: z.string().trim().min(5),
+  // Only meaningful for GROCERY_VENDOR — ignored for restaurants (see
+  // ShopType's schema doc comment). "" (the form's "Not set" option) means
+  // "clear it" -> undefined below -> null in the db.vendor.update data.
+  shopType: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.enum(SHOP_TYPES).optional()),
   logoUrl: optionalText(z.string().url()),
   coverImageUrl: optionalText(z.string().url()),
 });
@@ -27,6 +32,7 @@ export async function updateVendorProfileAction(_prev: ActionState, formData: Fo
     phone: formData.get("phone"),
     email: formData.get("email"),
     addressText: formData.get("addressText"),
+    shopType: formData.get("shopType"),
     logoUrl: formData.get("logoUrl"),
     coverImageUrl: formData.get("coverImageUrl"),
   });
@@ -45,6 +51,7 @@ export async function updateVendorProfileAction(_prev: ActionState, formData: Fo
         phone: parsed.data.phone,
         email: parsed.data.email,
         addressText: parsed.data.addressText,
+        shopType: parsed.data.shopType ?? null,
         logoUrl: parsed.data.logoUrl || undefined,
         coverImageUrl: parsed.data.coverImageUrl || undefined,
       },
