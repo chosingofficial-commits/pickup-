@@ -257,6 +257,7 @@ model User {
   ageVerifications AgeVerification[]
   createdRiderLedgerEntries RiderLedgerEntry[]
   riderRatingsGiven RiderRating[]
+  pushSubscriptions PushSubscription[]
 
   @@index([role])
 }
@@ -1324,6 +1325,28 @@ model Notification {
   createdAt DateTime         @default(now())
 
   @@index([userId, isRead])
+}
+
+/// One row per browser/device push subscription (a user can have several —
+/// phone + desktop, or two browsers). `endpoint` is globally unique per the
+/// Push API spec, which is also what makes "remove dead subscriptions"
+/// correct: a 404/410 from the push service means that exact endpoint is
+/// gone, never implicating any of the user's other devices. p256dh/auth are
+/// the subscription's own encryption keys (required to encrypt a push
+/// payload for it) — never the VAPID keypair, which is one fixed server-side
+/// secret shared across every subscription, stored only in VAPID_PRIVATE_KEY.
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model SupportTicket {

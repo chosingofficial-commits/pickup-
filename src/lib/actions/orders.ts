@@ -6,7 +6,9 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canTransition, TRANSITION_ACTOR } from "@/lib/orders/status-flow";
 import { recordAuditLog } from "@/lib/audit";
-import { computeDeliveryEarning, toPoisha } from "@/lib/rider/ledger";
+import { computeDeliveryEarning, toPoisha, fromPoisha } from "@/lib/rider/ledger";
+import { sendPushToUser } from "@/lib/push/send";
+import { formatBDT } from "@/lib/utils";
 import type { ActionState } from "./types";
 import type { OrderStatus } from "@/generated/prisma/client";
 
@@ -153,7 +155,10 @@ export async function findRiderAction(_prev: ActionState, formData: FormData): P
   if (!user?.vendorProfile) return { status: "error", message: "You are not authorized to do this." };
 
   const orderId = String(formData.get("orderId") ?? "");
-  const order = await db.order.findUnique({ where: { id: orderId }, include: { vendor: true, delivery: true } });
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: { vendor: true, delivery: true, address: { include: { neighbourhood: true } } },
+  });
   if (!order || order.vendorId !== user.vendorProfile.id) return { status: "error", message: "Order not found." };
   if (order.delivery?.riderId) return { status: "error", message: "A rider has already accepted this order." };
 
@@ -168,7 +173,7 @@ export async function findRiderAction(_prev: ActionState, formData: FormData): P
       isOnline: true,
       deliveries: { none: { order: { status: { in: ["RIDER_ASSIGNED", "PICKED_UP", "ON_THE_WAY"] } } } },
     },
-    select: { userId: true },
+    select: { userId: true, commissionRatePct: true },
   });
 
   await db.$transaction(async (tx) => {
@@ -187,6 +192,26 @@ export async function findRiderAction(_prev: ActionState, formData: FormData): P
   });
 
   await recordAuditLog({ actorUserId: user.id, action: "FIND_RIDER_BROADCAST", entityType: "Order", entityId: orderId, metadata: { eligibleRiderCount: eligibleRiders.length } });
+
+  // Each rider has their own commission rate, so their earning for this
+  // exact delivery is computed per-rider rather than shown as one
+  // one-size-fits-all figure — same math createDeliveryEarningEntry will
+  // use for real once someone actually accepts. Shared tag: re-clicking
+  // "Find rider" before anyone accepts replaces each rider's existing
+  // notification for this order instead of stacking a second one.
+  const areaName = order.address.neighbourhood?.name ?? "your area";
+  const standardFeePoisha = order.standardDeliveryFeePoisha ?? toPoisha(Number(order.deliveryFee));
+  await Promise.all(
+    eligibleRiders.map((r) => {
+      const { riderEarningPoisha } = computeDeliveryEarning(standardFeePoisha, Number(r.commissionRatePct));
+      return sendPushToUser(r.userId, {
+        title: "New delivery available",
+        body: `${areaName} · ${formatBDT(fromPoisha(riderEarningPoisha))}`,
+        url: "/rider",
+        tag: `delivery:${orderId}`,
+      });
+    }),
+  );
 
   revalidatePath(`/vendor/orders/${orderId}`);
   revalidatePath("/vendor/orders");

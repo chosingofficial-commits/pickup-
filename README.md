@@ -22,6 +22,7 @@ This is a demonstration/portfolio build: the architecture, database schema, and 
 - [Google Maps setup](#google-maps-setup)
 - [Object storage](#object-storage)
 - [Background jobs](#background-jobs)
+- [Web Push notifications](#web-push-notifications)
 - [Replacing mock services with live ones](#replacing-mock-services-with-live-ones)
 - [Deployment](#deployment)
   - [Hostinger Node.js Web App](#hostinger-nodejs-web-app-hosting)
@@ -242,6 +243,30 @@ Not implemented as running schedulers in this build (no queue/cron infra is assu
 - **Ad campaign expiry**: `AdCampaign` rows past their `endDate` should transition to `EXPIRED`. The homepage ad slot query already filters by date range regardless of the stored `status`, so a stale `ACTIVE` row never actually renders — but a scheduled job should still update the field for accurate reporting.
 
 Wire either one up with `CRON_SECRET`-protected API routes and Hostinger's cron feature (or an external scheduler like GitHub Actions/cron-job.org hitting the route on a schedule).
+
+## Web Push notifications
+
+Vendors get a push when a new order comes in; riders get one when a vendor clicks "Find rider" (to every eligible online rider) and when an order is directly assigned to them (e.g. by an admin). Standard Web Push (VAPID) — no third-party push service, no SMS, no native app. The site is also installable as a PWA (`src/app/manifest.ts`, `public/sw.js`) on the main domain and on the vendor/rider subdomains alike, since manifest/service-worker scope is per-origin and each subdomain registers its own.
+
+**Setup:**
+1. Generate a VAPID keypair — either `npx web-push generate-vapid-keys`, or ask Claude to generate one into your local `.env` without ever printing the private key.
+2. Set three env vars (see `.env.example`):
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — **inlined into the client bundle at build time.** Set this in your hosting provider's environment variables *before* running the build/deploy, not after — changing it later requires a rebuild, not just a restart.
+   - `VAPID_PRIVATE_KEY` — server-only, signs every push. Never commit a real value; treat it like any other secret.
+   - `VAPID_SUBJECT` — a `mailto:` contact address push services may use to reach you about delivery problems (defaults to `mailto:support@pickupn.com`).
+3. That's it — no other service/account needed. If these three vars are unset, `sendPushToUser()` (`src/lib/push/send.ts`) silently no-ops (logging one warning) so the rest of the app keeps working exactly as before.
+
+**How it works:**
+- `PushSubscription` (additive table, one row per browser/device a user has enabled alerts on) stores each subscription's endpoint + encryption keys, scoped by `userId`. A 404/410 from the push service means that endpoint is gone for good — the row is deleted automatically, never retried.
+- `src/components/push/push-alerts-card.tsx` is the "Turn on order alerts" card on the vendor and rider dashboards — reads `Notification.permission` and `PushManager.getSubscription()` directly (no server round-trip needed for status), and includes step-by-step Android/iPhone instructions plus a "Send me a test alert" button.
+- Every push carries a `tag` scoped to the thing it's about (e.g. `order:<id>`, `delivery:<id>`) — a fresh push with the same tag replaces the old one instead of stacking, so re-clicking "Find rider" for the same order doesn't spam every online rider with duplicates.
+- The service worker (`public/sw.js`) is deliberately minimal — push + notification-click only, no page/API caching (a caching SW here risks a vendor seeing a stale order list, or a stale logged-out state after sign-out). Before showing a system notification, it checks for a visible, focused tab first (`clients.matchAll()` + `visibilityState`) and skips if one exists — the vendor/rider dashboards already ring with an in-page sound alert while open (`IncomingOrderAlert`/`IncomingDeliveryAlert`, polling every few seconds), so a system notification on top of that would double-alert for the same event.
+
+**Honest limits, worth knowing before relying on this for anything time-critical:**
+- **iPhone (Safari) only delivers push to an installed PWA** — "Add to Home Screen" first, then open the app from that icon (not the Safari tab) to enable alerts. A regular Safari browser tab cannot receive Web Push at all, by Apple's design, regardless of anything this app does.
+- **Android (Chrome) works in a normal browser tab**, installed or not — "Add to Home Screen" is a convenience there, not a requirement.
+- **Closed-browser delivery is not guaranteed on either platform.** Push can arrive while the browser process is fully closed on both Android and (for an installed PWA) iOS, but OS battery optimization/Low Power Mode, Data Saver, or the app being force-closed can all delay or drop a notification. This is a real notification, not a phone call — there is no ringing/urgent-interruption behavior, only whatever your OS's standard notification sound/banner does, and the OS's Do Not Disturb/Focus settings apply to it like any other app's notification.
+- None of this replaces the existing in-page sound alert for a vendor/rider actively working with the dashboard open — that stays instant and reliable regardless of push, by design (see "How it works" above).
 
 ## Replacing mock services with live ones
 

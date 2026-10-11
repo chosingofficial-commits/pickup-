@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ShoppingBag, TrendingUp, Percent, Wallet, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
+import { PushAlertsCard } from "@/components/push/push-alerts-card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorDashboardStats, getVendorOrders } from "@/lib/vendor/queries";
 import { statusLabel } from "@/lib/orders/status-flow";
@@ -34,6 +35,8 @@ export default async function VendorDashboardPage() {
           </Link>
         </div>
       )}
+
+      <PushAlertsCard role="vendor" />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard icon={ShoppingBag} label="Total orders" value={String(stats.totalOrders)} href="/vendor/orders?status=ACTIVE" />

@@ -7,6 +7,7 @@ import { recordAuditLog } from "@/lib/audit";
 import { isTerminal, getOrderFlow } from "@/lib/orders/status-flow";
 import { syncProductFromVariants } from "@/lib/catalog/variant-sync";
 import { reverseDeliveryEarningEntry } from "./orders";
+import { sendPushToUser } from "@/lib/push/send";
 import type { ActionState } from "./types";
 
 /**
@@ -113,6 +114,13 @@ export async function adminAssignRiderAction(_prev: ActionState, formData: FormD
     await tx.notification.create({
       data: { userId: rider.user.id, type: "DELIVERY", title: "New delivery assigned", body: `You've been assigned order ${order.orderNumber}.`, linkUrl: "/rider/deliveries" },
     });
+  });
+
+  await sendPushToUser(rider.user.id, {
+    title: "New delivery assigned",
+    body: `Order ${order.orderNumber} — tap to view`,
+    url: "/rider/deliveries",
+    tag: `delivery:${orderId}`,
   });
 
   await recordAuditLog({ actorUserId: admin.id, action: "ADMIN_RIDER_ASSIGNED", entityType: "Order", entityId: orderId, metadata: { riderId, riderName: rider.user.name } });

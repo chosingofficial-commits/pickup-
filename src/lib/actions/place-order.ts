@@ -12,6 +12,7 @@ import { getFreeDeliveryPromoSettingsUncached, isFirstOrderCustomer } from "@/li
 import { getTobaccoSettings } from "@/lib/tobacco/queries";
 import { toPoisha } from "@/lib/rider/ledger";
 import { getRestaurantStatus } from "@/lib/restaurant/status";
+import { sendPushToUser, type PushPayload } from "@/lib/push/send";
 import { recordAuditLog } from "@/lib/audit";
 import { getPaymentAdapter } from "@/lib/payments/registry";
 import { isPaymentMethodEnabled } from "@/lib/payments/method-settings";
@@ -124,12 +125,16 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
   }
 
   try {
-    const { orderGroup, payment, grandTotal } = await db.$transaction(async (tx) => {
+    const { orderGroup, payment, grandTotal, vendorPushes } = await db.$transaction(async (tx) => {
       const orderGroupNumber = `PU-${Date.now()}`;
 
       let runningSubtotal = 0;
       let runningDeliveryFee = 0;
       const orderCreates: { vendorId: string; group: (typeof groups)[number]; groupSub: number; deliveryFee: number; discountShare: number }[] = [];
+      // Collected here, sent after the transaction commits — push is a
+      // network call to an external service and must never hold a DB
+      // transaction open while it's in flight.
+      const vendorPushes: { userId: string; payload: PushPayload }[] = [];
 
       for (const group of groups) {
         const groupSub = groupSubtotal(group.lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, addOnsTotal: l.addOnsTotal })));
@@ -301,6 +306,15 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
             linkUrl: `/vendor/orders/${order.id}`,
           },
         });
+        vendorPushes.push({
+          userId: vendor.userId,
+          payload: {
+            title: `New order ${order.orderNumber}`,
+            body: `Tk ${orderTotal.toFixed(2)} · ${item.group.lines.length} item${item.group.lines.length === 1 ? "" : "s"}`,
+            url: `/vendor/orders/${order.id}`,
+            tag: `order:${order.id}`,
+          },
+        });
 
         if (item.discountShare > 0 && validatedCoupon?.ok) {
           await tx.couponRedemption.create({
@@ -320,12 +334,16 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
 
       await tx.cartItem.deleteMany({ where: { cart: { userId: user.id } } });
 
-      return { orderGroup: createdOrderGroup, payment, grandTotal };
+      return { orderGroup: createdOrderGroup, payment, grandTotal, vendorPushes };
     });
 
     await setSelectedCouponCode(null);
     await clearCheckoutState();
     await recordAuditLog({ actorUserId: user.id, action: "ORDER_PLACED", entityType: "OrderGroup", entityId: orderGroup.id, metadata: { grandTotal } });
+
+    // Fire-and-forget-ish: awaited so errors are logged (never uncaught),
+    // but sendPushToUser never throws, so this can never fail checkout.
+    for (const push of vendorPushes) await sendPushToUser(push.userId, push.payload);
 
     const adapter = getPaymentAdapter(paymentMethod);
     const confirmationUrl = `${publicEnv.appUrl}/checkout/confirmation/${orderGroup.id}`;

@@ -14,4 +14,8 @@ export const publicEnv = {
   defaultLocale: (process.env.NEXT_PUBLIC_DEFAULT_LOCALE as "en" | "bn") ?? "en",
   whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+8801700000000",
   brandName: process.env.NEXT_PUBLIC_BRAND_NAME ?? "Pick Up",
+  // Web Push's applicationServerKey — safe to expose (it's the whole point
+  // of the "public" half of a VAPID keypair). Empty string when unset, which
+  // the subscribe flow treats as "push isn't configured on this deploy yet".
+  vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
 } as const;

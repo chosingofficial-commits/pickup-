@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Package, MapPin, CheckCircle2, Wallet, Star } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
+import { PushAlertsCard } from "@/components/push/push-alerts-card";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getAvailableAssignments, getRiderDeliveryStats } from "@/lib/rider/queries";
@@ -38,6 +39,8 @@ export default async function RiderAvailablePage() {
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold text-brand-dark">Welcome back, {user.name.split(" ")[0]}</h1>
+
+      <PushAlertsCard role="rider" />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard icon={Package} label="Total deliveries" value={String(stats.deliveredTotal)} href="/rider/history" />

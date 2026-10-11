@@ -3,6 +3,7 @@ import "./globals.css";
 import { getFontVariables } from "@/lib/fonts";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { LocaleProvider } from "@/components/providers/locale-provider";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { publicEnv } from "@/lib/env/public";
 
 export const metadata: Metadata = {
@@ -23,6 +24,14 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/favicon.ico",
+  },
+  // iOS Safari only respects a web app manifest's display/theme once these
+  // are also present — the manifest alone (app/manifest.ts) isn't enough
+  // there, unlike Android Chrome.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Pick Up",
   },
 };
 
@@ -45,6 +54,7 @@ export default async function RootLayout({
         <LocaleProvider locale={locale} dict={dict}>
           {children}
         </LocaleProvider>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

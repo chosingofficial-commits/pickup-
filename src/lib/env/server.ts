@@ -101,6 +101,12 @@ const serverEnvSchema = z.object({
   WHATSAPP_NUMBER: z.string().default("+8801700000000"),
 
   CRON_SECRET: z.string().optional(),
+
+  // Web Push (vendor/rider order alerts) — see src/lib/push/send.ts. Optional:
+  // sendPushToUser() no-ops (logged once) when unset, so a deploy without
+  // these configured yet keeps working exactly as before, just without push.
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default("mailto:support@pickupn.com"),
 });
 
 const parsed = serverEnvSchema.safeParse(process.env);
