@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getStorageAdapter } from "@/lib/storage/registry";
+import { missingDocumentResponse } from "@/lib/storage/missing-document-response";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ riderId: string }> }) {
   const user = await getCurrentUser();
@@ -11,11 +12,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ riderId
   const { riderId } = await params;
   const riderProfile = await db.riderProfile.findUnique({ where: { id: riderId }, select: { nationalIdDocKey: true } });
   const key = riderProfile?.nationalIdDocKey;
-  if (!key) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!key) return missingDocumentResponse("rider");
 
   const adapter = getStorageAdapter();
   const object = await adapter.getObject(key, { private: true });
-  if (!object) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!object) return missingDocumentResponse("rider");
 
   return new NextResponse(new Uint8Array(object.body), {
     headers: {

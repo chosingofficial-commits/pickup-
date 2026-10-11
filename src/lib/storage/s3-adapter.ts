@@ -68,8 +68,15 @@ export class S3StorageAdapter implements StorageAdapter {
       const bytes = await result.Body.transformToByteArray();
       return { body: Buffer.from(bytes), contentType: result.ContentType ?? "application/octet-stream" };
     } catch (err) {
-      if (err instanceof Error && (err.name === "NoSuchKey" || err.name === "NotFound")) return null;
-      throw err;
+      // Any failure to fetch this one object — missing key, a malformed
+      // legacy reference that was never a real S3 key (e.g. a stale
+      // pre-migration URL stored in a doc-key column), or a transient
+      // storage error — means the caller should treat it as "not found"
+      // and degrade gracefully. Never let one broken document reference
+      // surface as an uncaught exception on an admin page. Logged so a
+      // real storage outage is still visible in server logs.
+      console.error(`[storage] getObject failed for key "${key}":`, err);
+      return null;
     }
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getStorageAdapter } from "@/lib/storage/registry";
+import { missingDocumentResponse } from "@/lib/storage/missing-document-response";
 
 const DOC_FIELDS = {
   "trade-license": "tradeLicenseDocKey",
@@ -25,11 +26,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const field = DOC_FIELDS[type];
   const application = await db.vendorApplication.findUnique({ where: { id }, select: { [field]: true } });
   const key = application?.[field];
-  if (!key) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!key) return missingDocumentResponse("vendor");
 
   const adapter = getStorageAdapter();
   const object = await adapter.getObject(key, { private: true });
-  if (!object) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!object) return missingDocumentResponse("vendor");
 
   return new NextResponse(new Uint8Array(object.body), {
     headers: {
