@@ -7,7 +7,7 @@
  * in directly once the real values are available.
  */
 export const LEGAL_INFO = {
-  registeredBusinessName: null as string | null,
+  registeredBusinessName: "Pick Up (pickupn.com)" as string | null,
   tradeLicenceNumber: null as string | null,
-  lastUpdated: null as string | null,
+  lastUpdated: "October 11, 2026" as string | null,
 };
