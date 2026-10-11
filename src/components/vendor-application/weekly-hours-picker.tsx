@@ -8,19 +8,30 @@ const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export type DayHours = { dayOfWeek: number; opensAt: string; closesAt: string; isClosed: boolean };
 
 /**
- * Structured replacement for the old free-text "typical opening hours"
- * field — writes a 7-entry { dayOfWeek, opensAt, closesAt, isClosed }[] into
- * a hidden `weeklyHoursJson` input, the exact shape RestaurantWeeklyHours
- * rows need, so approval can create them directly with no parsing.
+ * Structured hours picker — writes a 7-entry
+ * { dayOfWeek, opensAt, closesAt, isClosed }[] into a hidden
+ * `weeklyHoursJson` input, the exact shape both RestaurantWeeklyHours and
+ * VendorWeeklyHours rows need (see lib/restaurant/weekly-hours-form-data.ts,
+ * the one place that parses this back out). Used for the vendor-application
+ * wizard (no `defaultHours` — starts blank) and for editing existing hours
+ * in the vendor dashboard / admin vendor detail page (`defaultHours` passed
+ * in, starting in the full per-day view so it never silently collapses real
+ * data into "same every day" unless it genuinely already is that).
  */
-export function WeeklyHoursPicker() {
-  const [sameEveryDay, setSameEveryDay] = useState(true);
-  const [opensAt, setOpensAt] = useState("10:00");
-  const [closesAt, setClosesAt] = useState("22:00");
-  const [closedDays, setClosedDays] = useState<Set<number>>(new Set());
-  const [perDay, setPerDay] = useState<DayHours[]>(
-    Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, opensAt: "10:00", closesAt: "22:00", isClosed: false })),
-  );
+export function WeeklyHoursPicker({ defaultHours }: { defaultHours?: DayHours[] }) {
+  const initialPerDay =
+    defaultHours ?? Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, opensAt: "10:00", closesAt: "22:00", isClosed: false }));
+  // Detect whether the incoming hours already happen to be identical every
+  // day, so re-opening an already-"same every day" schedule starts in that
+  // view instead of always defaulting to the per-day editor.
+  const openDays = initialPerDay.filter((d) => !d.isClosed);
+  const alreadyUniform = openDays.length > 0 && openDays.every((d) => d.opensAt === openDays[0]!.opensAt && d.closesAt === openDays[0]!.closesAt);
+
+  const [sameEveryDay, setSameEveryDay] = useState(defaultHours ? alreadyUniform : true);
+  const [opensAt, setOpensAt] = useState(openDays[0]?.opensAt ?? "10:00");
+  const [closesAt, setClosesAt] = useState(openDays[0]?.closesAt ?? "22:00");
+  const [closedDays, setClosedDays] = useState<Set<number>>(new Set(initialPerDay.filter((d) => d.isClosed).map((d) => d.dayOfWeek)));
+  const [perDay, setPerDay] = useState<DayHours[]>(initialPerDay);
 
   const hours: DayHours[] = sameEveryDay
     ? Array.from({ length: 7 }, (_, dayOfWeek) => ({ dayOfWeek, opensAt, closesAt, isClosed: closedDays.has(dayOfWeek) }))

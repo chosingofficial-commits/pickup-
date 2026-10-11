@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import { parseWeeklyHoursFormData } from "@/lib/restaurant/weekly-hours-form-data";
 import type { ActionState } from "./types";
-
-const DAY_COUNT = 7;
 
 async function requireRestaurant() {
   const user = await getCurrentUser();
@@ -19,21 +18,62 @@ async function requireRestaurant() {
 
 export async function updateWeeklyHoursAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const restaurant = await requireRestaurant();
+  const days = parseWeeklyHoursFormData(formData);
+  if (!days) return { status: "error", message: "Please set hours for all 7 days." };
 
-  for (let day = 0; day < DAY_COUNT; day++) {
-    const isClosed = formData.get(`closed-${day}`) === "1";
-    const opensAt = String(formData.get(`opens-${day}`) ?? "10:00");
-    const closesAt = String(formData.get(`closes-${day}`) ?? "22:00");
-
+  for (const d of days) {
     await db.restaurantWeeklyHours.upsert({
-      where: { restaurantId_dayOfWeek: { restaurantId: restaurant.id, dayOfWeek: day } },
-      create: { restaurantId: restaurant.id, dayOfWeek: day, opensAt, closesAt, isClosed },
-      update: { opensAt, closesAt, isClosed },
+      where: { restaurantId_dayOfWeek: { restaurantId: restaurant.id, dayOfWeek: d.dayOfWeek } },
+      create: { restaurantId: restaurant.id, ...d },
+      update: { opensAt: d.opensAt, closesAt: d.closesAt, isClosed: d.isClosed },
     });
   }
 
   revalidatePath("/vendor/hours");
   return { status: "success", message: "Opening hours updated." };
+}
+
+async function requireGroceryVendor() {
+  const user = await getCurrentUser();
+  if (!user?.vendorProfile) redirect("/login?next=/vendor/hours");
+  if (user.vendorProfile.businessType !== "GROCERY_VENDOR") redirect("/vendor");
+  return user.vendorProfile;
+}
+
+/** Grocery-shop equivalent of updateWeeklyHoursAction, writing to VendorWeeklyHours instead of RestaurantWeeklyHours — see Vendor.isManuallyClosed's schema doc comment for why these are separate tables. */
+export async function updateShopWeeklyHoursAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const vendor = await requireGroceryVendor();
+  const days = parseWeeklyHoursFormData(formData);
+  if (!days) return { status: "error", message: "Please set hours for all 7 days." };
+
+  for (const d of days) {
+    await db.vendorWeeklyHours.upsert({
+      where: { vendorId_dayOfWeek: { vendorId: vendor.id, dayOfWeek: d.dayOfWeek } },
+      create: { vendorId: vendor.id, ...d },
+      update: { opensAt: d.opensAt, closesAt: d.closesAt, isClosed: d.isClosed },
+    });
+  }
+
+  revalidatePath("/vendor/hours");
+  return { status: "success", message: "Opening hours updated." };
+}
+
+/** Grocery-shop equivalent of updateRestaurantSettingsAction, minus the restaurant-only prep-time/minimum-order fields. */
+export async function updateShopHoursSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const vendor = await requireGroceryVendor();
+
+  const isManuallyClosed = formData.get("isManuallyClosed") === "1";
+  const scheduledOrderingEnabled = formData.get("scheduledOrderingEnabled") === "1";
+  const temporaryClosureUntilRaw = String(formData.get("temporaryClosureUntil") ?? "");
+  const temporaryClosureUntil = temporaryClosureUntilRaw ? new Date(temporaryClosureUntilRaw) : null;
+
+  await db.vendor.update({
+    where: { id: vendor.id },
+    data: { isManuallyClosed, scheduledOrderingEnabled, temporaryClosureUntil },
+  });
+
+  revalidatePath("/vendor/hours");
+  return { status: "success", message: "Settings updated." };
 }
 
 export async function updateRestaurantSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

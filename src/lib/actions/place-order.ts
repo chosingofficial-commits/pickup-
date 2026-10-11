@@ -57,15 +57,16 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
     }
   }
 
-  // Restaurant availability gate — closed restaurants only accept orders
-  // when the customer explicitly scheduled for later and the restaurant
-  // supports scheduled ordering.
+  // Vendor availability gate — closed vendors (restaurant or grocery shop)
+  // only accept orders when the customer explicitly scheduled for later and
+  // the vendor supports scheduled ordering.
+  const isScheduled = !!checkoutState.scheduledFor;
   for (const group of groups) {
-    if (group.vendorBusinessType !== "RESTAURANT") continue;
-    const restaurant = await db.restaurant.findUnique({ where: { vendorId: group.vendorId }, include: { weeklyHours: true } });
-    if (!restaurant) continue;
-    const status = getRestaurantStatus(restaurant);
-    const isScheduled = !!checkoutState.scheduledFor;
+    const status =
+      group.vendorBusinessType === "RESTAURANT"
+        ? await db.restaurant.findUnique({ where: { vendorId: group.vendorId }, include: { weeklyHours: true } }).then((r) => (r ? getRestaurantStatus(r) : null))
+        : await db.vendor.findUnique({ where: { id: group.vendorId }, include: { weeklyHours: true } }).then((v) => (v ? getRestaurantStatus(v) : null));
+    if (!status) continue;
     if (!status.isOpenNow && !(isScheduled && status.canAcceptScheduledOrders)) {
       return { status: "error", message: `${group.vendorBusinessName} is currently closed and isn't accepting orders right now.` };
     }

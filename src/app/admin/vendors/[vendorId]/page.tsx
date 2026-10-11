@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { CommissionRateEditor } from "@/components/admin/commission-rate-editor";
 import { VendorEditForm } from "@/components/admin/vendor-edit-form";
 import { AdminWeeklyHoursForm } from "@/components/admin/admin-weekly-hours-form";
-import { toggleVendorSuspensionAction } from "@/lib/actions/admin-vendors";
+import { toggleVendorSuspensionAction, adminUpdateWeeklyHoursAction, adminUpdateShopWeeklyHoursAction } from "@/lib/actions/admin-vendors";
 import { getVendorDashboardStats } from "@/lib/vendor/queries";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
@@ -24,6 +24,7 @@ export default async function AdminVendorDetailPage({ params }: { params: Promis
       user: { select: { name: true, email: true, phone: true, createdAt: true } },
       application: { select: { id: true, tradeLicenseNo: true, tradeLicenseDocKey: true, nationalIdNo: true, nationalIdDocKey: true } },
       restaurant: { include: { weeklyHours: { orderBy: { dayOfWeek: "asc" } } } },
+      weeklyHours: { orderBy: { dayOfWeek: "asc" } },
       _count: { select: { products: true, orders: true } },
     },
   });
@@ -111,7 +112,21 @@ export default async function AdminVendorDetailPage({ params }: { params: Promis
             <Card>
               <CardContent className="pt-5">
                 <CardTitle className="mb-4">Opening hours</CardTitle>
-                <AdminWeeklyHoursForm vendorId={vendor.id} defaults={vendor.restaurant.weeklyHours} />
+                <AdminWeeklyHoursForm vendorId={vendor.id} defaults={vendor.restaurant.weeklyHours} action={adminUpdateWeeklyHoursAction} />
+              </CardContent>
+            </Card>
+          )}
+
+          {!isRestaurant && (
+            <Card>
+              <CardContent className="pt-5">
+                <CardTitle className="mb-4">Opening hours</CardTitle>
+                {vendor.weeklyHours.length === 0 && (
+                  <p className="mb-4 rounded-control bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
+                    This shop is currently open 24/7 by default — no hours have been set yet.
+                  </p>
+                )}
+                <AdminWeeklyHoursForm vendorId={vendor.id} defaults={vendor.weeklyHours} action={adminUpdateShopWeeklyHoursAction} />
               </CardContent>
             </Card>
           )}

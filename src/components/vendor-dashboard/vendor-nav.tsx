@@ -30,7 +30,10 @@ export function VendorNav({ businessType }: { businessType: BusinessType }) {
           { href: "/vendor/menu", label: "Menu", icon: UtensilsCrossed },
           { href: "/vendor/hours", label: "Opening hours", icon: Clock },
         ]
-      : [{ href: "/vendor/products", label: "Products", icon: Package }]),
+      : [
+          { href: "/vendor/products", label: "Products", icon: Package },
+          { href: "/vendor/hours", label: "Opening hours", icon: Clock },
+        ]),
     { href: "/vendor/orders", label: "Orders", icon: ClipboardList },
     { href: "/vendor/coupons", label: "Coupons", icon: Ticket },
     { href: "/vendor/reviews", label: "Reviews", icon: Star },

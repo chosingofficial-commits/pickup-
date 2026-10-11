@@ -559,6 +559,18 @@ model Vendor {
   suspensionReason  String?
   ratingAvg         Decimal      @default(0) @db.Decimal(2, 1)
   ratingCount       Int          @default(0)
+  // Opening hours for GROCERY_VENDOR shops only — RESTAURANT vendors keep
+  // using their own Restaurant.isManuallyClosed/temporaryClosureUntil/
+  // scheduledOrderingEnabled + RestaurantWeeklyHours, untouched. Shares the
+  // exact same shape and the exact same status function (getRestaurantStatus
+  // in lib/restaurant/status.ts) so there's no duplicated open/closed logic,
+  // just two data sources feeding the same pure function. A grocery vendor
+  // with zero VendorWeeklyHours rows is treated as open 24/7 (see that
+  // function's empty-array branch) — the default for every existing shop
+  // the day this ships, and for any new shop until it sets real hours.
+  isManuallyClosed         Boolean   @default(false)
+  temporaryClosureUntil    DateTime?
+  scheduledOrderingEnabled Boolean   @default(false)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   deletedAt         DateTime?
@@ -572,6 +584,7 @@ model Vendor {
   commissionEntries CommissionEntry[]
   restaurantMenus  RestaurantMenu[]
   favoritedBy      FavoriteVendor[]
+  weeklyHours      VendorWeeklyHours[]
 
   @@index([businessType])
   @@index([isApproved, isSuspended])
@@ -606,6 +619,21 @@ model RestaurantWeeklyHours {
   isClosed     Boolean    @default(false)
 
   @@unique([restaurantId, dayOfWeek])
+}
+
+/// Same shape as RestaurantWeeklyHours, keyed by Vendor directly — see
+/// Vendor's own doc comment on isManuallyClosed for why this is a separate
+/// table rather than a merge into RestaurantWeeklyHours.
+model VendorWeeklyHours {
+  id        String  @id @default(cuid())
+  vendorId  String
+  vendor    Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  dayOfWeek Int // 0 = Sunday .. 6 = Saturday
+  opensAt   String // "10:00"
+  closesAt  String // "22:00"
+  isClosed  Boolean @default(false)
+
+  @@unique([vendorId, dayOfWeek])
 }
 
 // ---------------------------------------------------------------------------

@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Clock, Bike } from "lucide-react";
 import { ProductImage } from "@/components/product/product-image";
 import { VendorLogo } from "@/components/vendor/vendor-logo";
+import { Badge } from "@/components/ui/badge";
 import { OfferBadge } from "./offer-badge";
 import { SHOP_TYPE_LABELS, formatEtaRange } from "@/lib/shops/shop-type";
+import { formatOpenStatusBadge } from "@/lib/restaurant/status";
 import type { ShopCardData, ShopWithOffers } from "@/lib/shops/queries";
 
 type EtaInfo = { etaMin?: number; etaMax?: number; deliveryFee?: string; isCovered?: boolean };
@@ -30,6 +32,7 @@ export function ShopCardCompact({ shop, eta }: { shop: ShopCardData; eta: EtaInf
       />
       <span className="line-clamp-2 text-xs font-semibold text-brand-dark group-hover:text-brand-primary">{shop.businessName}</span>
       {etaLabel && <span className="text-[11px] text-gray-500">{etaLabel}</span>}
+      <span className={`text-[11px] ${shop.status.isOpenNow ? "text-brand-primary" : "text-gray-400"}`}>{formatOpenStatusBadge(shop.status)}</span>
     </Link>
   );
 }
@@ -53,6 +56,9 @@ export function ShopCardDeal({ shop, eta }: { shop: ShopWithOffers; eta: EtaInfo
     >
       <div className="relative aspect-[16/9]">
         <ProductImage src={shop.coverImageUrl} alt={shop.businessName} categorySlug="vendor" className="h-full w-full" />
+        <div className="absolute left-2 top-2">
+          <Badge variant={shop.status.isOpenNow ? "brand" : "dark"}>{formatOpenStatusBadge(shop.status)}</Badge>
+        </div>
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3.5">
         <div className="-mt-7 flex items-end gap-2">
@@ -100,6 +106,9 @@ export function ShopCardGrid({ shop, eta }: { shop: ShopWithOffers; eta: EtaInfo
     >
       <div className="relative hidden aspect-[16/9] sm:block">
         <ProductImage src={shop.coverImageUrl} alt={shop.businessName} categorySlug="vendor" className="h-full w-full" />
+        <div className="absolute left-2 top-2">
+          <Badge variant={shop.status.isOpenNow ? "brand" : "dark"}>{formatOpenStatusBadge(shop.status)}</Badge>
+        </div>
       </div>
       <div className="shrink-0 sm:hidden">
         <VendorLogo logoUrl={shop.logoUrl} coverImageUrl={shop.coverImageUrl} businessName={shop.businessName} size={56} className="text-lg" />
@@ -111,6 +120,9 @@ export function ShopCardGrid({ shop, eta }: { shop: ShopWithOffers; eta: EtaInfo
         </div>
         <h3 className="truncate font-heading text-base font-bold text-brand-dark group-hover:text-brand-primary">{shop.businessName}</h3>
         {shop.shopType && <p className="text-xs text-gray-500">{SHOP_TYPE_LABELS[shop.shopType]}</p>}
+        <span className={`text-xs font-medium sm:hidden ${shop.status.isOpenNow ? "text-brand-primary" : "text-gray-400"}`}>
+          {formatOpenStatusBadge(shop.status)}
+        </span>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
           {etaLabel && (
             <span className="flex items-center gap-1">

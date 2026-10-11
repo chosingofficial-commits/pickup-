@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth/rbac";
 import { recordAuditLog } from "@/lib/audit";
 import { optionalText } from "@/lib/validation/form-helpers";
 import { SHOP_TYPES } from "@/lib/shops/shop-type";
+import { parseWeeklyHoursFormData } from "@/lib/restaurant/weekly-hours-form-data";
 import type { ActionState } from "./types";
 
 export async function toggleVendorSuspensionAction(formData: FormData): Promise<void> {
@@ -108,28 +109,64 @@ export async function updateVendorShopDetailsAction(_prev: ActionState, formData
   return { status: "success", message: "Shop details updated." };
 }
 
-const DAY_COUNT = 7;
-
 /** Admin editing a restaurant's opening hours on its behalf — same effect as the restaurant's own /vendor/hours, audited since it's on their behalf. */
 export async function adminUpdateWeeklyHoursAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const vendorId = String(formData.get("vendorId") ?? "");
   const restaurant = await db.restaurant.findUnique({ where: { vendorId } });
   if (!restaurant) return { status: "error", message: "Restaurant not found." };
+  const days = parseWeeklyHoursFormData(formData);
+  if (!days) return { status: "error", message: "Please set hours for all 7 days." };
 
-  for (let day = 0; day < DAY_COUNT; day++) {
-    const isClosed = formData.get(`closed-${day}`) === "1";
-    const opensAt = String(formData.get(`opens-${day}`) ?? "10:00");
-    const closesAt = String(formData.get(`closes-${day}`) ?? "22:00");
-
+  for (const d of days) {
     await db.restaurantWeeklyHours.upsert({
-      where: { restaurantId_dayOfWeek: { restaurantId: restaurant.id, dayOfWeek: day } },
-      create: { restaurantId: restaurant.id, dayOfWeek: day, opensAt, closesAt, isClosed },
-      update: { opensAt, closesAt, isClosed },
+      where: { restaurantId_dayOfWeek: { restaurantId: restaurant.id, dayOfWeek: d.dayOfWeek } },
+      create: { restaurantId: restaurant.id, ...d },
+      update: { opensAt: d.opensAt, closesAt: d.closesAt, isClosed: d.isClosed },
     });
   }
 
   await recordAuditLog({ actorUserId: admin.id, action: "VENDOR_HOURS_UPDATED", entityType: "Vendor", entityId: vendorId });
   revalidatePath(`/admin/vendors/${vendorId}`);
   return { status: "success", message: "Opening hours updated." };
+}
+
+/** Admin equivalent of adminUpdateWeeklyHoursAction for GROCERY_VENDOR shops — writes to VendorWeeklyHours instead of RestaurantWeeklyHours. */
+export async function adminUpdateShopWeeklyHoursAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const vendorId = String(formData.get("vendorId") ?? "");
+  const vendor = await db.vendor.findUnique({ where: { id: vendorId } });
+  if (!vendor) return { status: "error", message: "Shop not found." };
+  const days = parseWeeklyHoursFormData(formData);
+  if (!days) return { status: "error", message: "Please set hours for all 7 days." };
+
+  for (const d of days) {
+    await db.vendorWeeklyHours.upsert({
+      where: { vendorId_dayOfWeek: { vendorId, dayOfWeek: d.dayOfWeek } },
+      create: { vendorId, ...d },
+      update: { opensAt: d.opensAt, closesAt: d.closesAt, isClosed: d.isClosed },
+    });
+  }
+
+  await recordAuditLog({ actorUserId: admin.id, action: "VENDOR_HOURS_UPDATED", entityType: "Vendor", entityId: vendorId });
+  revalidatePath(`/admin/vendors/${vendorId}`);
+  return { status: "success", message: "Opening hours updated." };
+}
+
+/** Admin equivalent of updateShopHoursSettingsAction, acting on behalf of a grocery vendor. */
+export async function adminUpdateShopHoursSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const vendorId = String(formData.get("vendorId") ?? "");
+  const vendor = await db.vendor.findUnique({ where: { id: vendorId } });
+  if (!vendor) return { status: "error", message: "Shop not found." };
+
+  const isManuallyClosed = formData.get("isManuallyClosed") === "1";
+  const scheduledOrderingEnabled = formData.get("scheduledOrderingEnabled") === "1";
+  const temporaryClosureUntilRaw = String(formData.get("temporaryClosureUntil") ?? "");
+  const temporaryClosureUntil = temporaryClosureUntilRaw ? new Date(temporaryClosureUntilRaw) : null;
+
+  await db.vendor.update({ where: { id: vendorId }, data: { isManuallyClosed, scheduledOrderingEnabled, temporaryClosureUntil } });
+  await recordAuditLog({ actorUserId: admin.id, action: "VENDOR_HOURS_SETTINGS_UPDATED", entityType: "Vendor", entityId: vendorId });
+  revalidatePath(`/admin/vendors/${vendorId}`);
+  return { status: "success", message: "Settings updated." };
 }

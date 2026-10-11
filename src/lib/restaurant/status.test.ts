@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { getRestaurantStatus, type WeeklyHour } from "./status";
+import { getRestaurantStatus, formatOpenStatusBadge, formatClosedNote, type WeeklyHour } from "./status";
 
 // All instants below are UTC — Asia/Dhaka is a fixed UTC+6 offset (no DST),
 // so "Dhaka local time" = UTC + 6 hours throughout.
@@ -124,5 +124,67 @@ describe("getRestaurantStatus — nextOpen", () => {
     const resumeAt = new Date("2024-01-05T08:30:00Z"); // Fri 14:30 Dhaka
     const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: resumeAt, scheduledOrderingEnabled: false, weeklyHours: regularHours });
     expect(status.nextOpen).toEqual({ label: "on Jan 5", time: "2:30 PM" });
+  });
+});
+
+// Grocery/essentials shops have no VendorWeeklyHours rows at all until the
+// vendor sets real hours — existing shops on deploy, and new ones before
+// their first visit to /vendor/hours, must stay open 24/7 rather than
+// silently showing as closed. Restaurants always have 7 rows from approval
+// onward, so this branch never actually triggers for them in practice.
+describe("getRestaurantStatus — empty weeklyHours defaults to open 24/7", () => {
+  it("is open at any time of day when no weekly hours are configured", () => {
+    vi.setSystemTime(WEDNESDAY_23_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: [] });
+    expect(status.isOpenNow).toBe(true);
+    expect(status.canAcceptImmediateOrders).toBe(true);
+    expect(status.reason).toBeUndefined();
+  });
+
+  it("is still open at 1am Dhaka with no weekly hours configured", () => {
+    vi.setSystemTime(THURSDAY_01_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: [] });
+    expect(status.isOpenNow).toBe(true);
+  });
+
+  it("manual pause still overrides the 24/7 default", () => {
+    vi.setSystemTime(WEDNESDAY_14_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: true, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: [] });
+    expect(status.isOpenNow).toBe(false);
+    expect(status.reason).toBe("manually_closed");
+  });
+});
+
+describe("formatOpenStatusBadge", () => {
+  it("says 'Open now' when open", () => {
+    vi.setSystemTime(WEDNESDAY_14_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(formatOpenStatusBadge(status)).toBe("Open now");
+  });
+
+  it("shows the next-open label and time when closed with a known reopen time", () => {
+    vi.setSystemTime(WEDNESDAY_23_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(formatOpenStatusBadge(status)).toBe("Closed · Opens tomorrow at 10:00 PM");
+  });
+
+  it("falls back to plain 'Closed' for a manual pause with no nextOpen", () => {
+    vi.setSystemTime(WEDNESDAY_14_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: true, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(formatOpenStatusBadge(status)).toBe("Closed");
+  });
+});
+
+describe("formatClosedNote", () => {
+  it("includes the custom label and next-open time", () => {
+    vi.setSystemTime(WEDNESDAY_23_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: false, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(formatClosedNote(status, "Shop closed")).toBe("Shop closed · Opens tomorrow at 10:00 PM");
+  });
+
+  it("falls back to the plain label when there's no nextOpen", () => {
+    vi.setSystemTime(WEDNESDAY_14_00_DHAKA);
+    const status = getRestaurantStatus({ isManuallyClosed: true, temporaryClosureUntil: null, scheduledOrderingEnabled: false, weeklyHours: regularHours });
+    expect(formatClosedNote(status, "Shop closed")).toBe("Shop closed");
   });
 });

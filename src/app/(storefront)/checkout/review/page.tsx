@@ -112,9 +112,10 @@ export default async function CheckoutReviewPage() {
           {groups.map((group) => (
             <div key={group.vendorId} className="mb-3 last:mb-0">
               <p className="text-xs font-semibold text-gray-500">{group.vendorBusinessName}</p>
-              {group.restaurantStatus && !group.restaurantStatus.isOpenNow && (
+              {group.openStatus && !group.openStatus.isOpenNow && (
                 <p className="mb-1 rounded-control bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900">
-                  Closed now — prepared once they open{group.restaurantStatus.nextOpen ? ` ${group.restaurantStatus.nextOpen.label} at ${group.restaurantStatus.nextOpen.time}` : ""}.
+                  Closed now — {group.vendorBusinessType === "RESTAURANT" ? "prepared" : "packed"} once they open
+                  {group.openStatus.nextOpen ? ` ${group.openStatus.nextOpen.label} at ${group.openStatus.nextOpen.time}` : ""}.
                 </p>
               )}
               {group.lines.map((line) => (

@@ -9,7 +9,7 @@ import { FavoriteVendorButton } from "@/components/restaurant/favorite-vendor-bu
 import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getRestaurantBySlug } from "@/lib/restaurant/queries";
-import { getRestaurantStatus } from "@/lib/restaurant/status";
+import { getRestaurantStatus, formatOpenStatusBadge } from "@/lib/restaurant/status";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
@@ -86,15 +86,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
           <div className="flex items-center gap-2">
             <FavoriteVendorButton vendorId={vendor.id} isFavorited={isFavorited} className="border border-border-brand" />
             <Badge variant={status.isOpenNow ? "brand" : "dark"} className="text-sm">
-              {status.isOpenNow
-                ? "Open now"
-                : status.nextOpen
-                  ? `Closed · Opens ${status.nextOpen.label} at ${status.nextOpen.time}`
-                  : status.reason === "manually_closed"
-                    ? "Closed"
-                    : status.reason === "temporarily_closed"
-                      ? "Temporarily closed"
-                      : "Closed"}
+              {formatOpenStatusBadge(status)}
             </Badge>
           </div>
         </div>

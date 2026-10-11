@@ -12,6 +12,7 @@ import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { getProductBySlug, getRelatedProducts } from "@/lib/catalog/queries";
 import { getSelectedLocation } from "@/lib/location/cookie";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getRestaurantStatus, formatClosedNote } from "@/lib/restaurant/status";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 import { ensureDefaultVariant } from "@/lib/catalog/variant-sync";
@@ -60,6 +61,9 @@ export default async function ProductDetailPage({
   const isSaved = user
     ? !!(await db.wishlistItem.findFirst({ where: { productId: product.id, wishlist: { userId: user.id } } }))
     : false;
+
+  const shopStatus = getRestaurantStatus(product.vendor);
+  const canOrder = shopStatus.isOpenNow || shopStatus.canAcceptScheduledOrders;
 
   const discountPct = product.compareAtPrice
     ? Math.round((1 - Number(product.price) / Number(product.compareAtPrice)) * 100)
@@ -155,6 +159,13 @@ export default async function ProductDetailPage({
             </div>
           )}
 
+          {!shopStatus.isOpenNow && (
+            <p className="mt-3 rounded-control bg-amber-50 px-3.5 py-2.5 text-sm text-amber-900">
+              {formatClosedNote(shopStatus, "Shop closed")}
+              {shopStatus.canAcceptScheduledOrders && " — this shop accepts scheduled orders, so you can still order and it'll be delivered once they reopen."}
+            </p>
+          )}
+
           <div className="mt-4">
             <PurchasePanel
               productId={product.id}
@@ -162,6 +173,7 @@ export default async function ProductDetailPage({
               productUnit={product.unit}
               variants={purchaseVariants}
               isSaved={isSaved}
+              canOrder={canOrder}
             />
           </div>
 

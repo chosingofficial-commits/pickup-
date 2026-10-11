@@ -8,6 +8,7 @@ import { PlainPackImage } from "./plain-pack-image";
 import { Badge } from "@/components/ui/badge";
 import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { formatBDT } from "@/lib/utils";
+import { getRestaurantStatus, formatClosedNote } from "@/lib/restaurant/status";
 import type { ProductListItem } from "@/lib/catalog/queries";
 
 /**
@@ -23,6 +24,8 @@ import type { ProductListItem } from "@/lib/catalog/queries";
 function TobaccoProductCard({ product }: { product: ProductListItem }) {
   const outOfStock = product.availability !== "AVAILABLE" || (product.inventory?.quantityInStock ?? 0) <= 0;
   const href = `/marketplace/${product.vendor.slug}/${product.slug}`;
+  const status = getRestaurantStatus(product.vendor);
+  const canOrder = status.isOpenNow || status.canAcceptScheduledOrders;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-card border border-border-brand bg-white shadow-soft">
@@ -35,10 +38,13 @@ function TobaccoProductCard({ product }: { product: ProductListItem }) {
         </Link>
         <p className="text-xs text-gray-500">{product.unit}</p>
         <p className="mt-auto pt-2 font-heading text-base font-bold text-brand-dark">{formatBDT(product.price)}</p>
+        {!status.isOpenNow && <p className="text-xs text-amber-700">{formatClosedNote(status, "Shop closed")}</p>}
         {outOfStock ? (
           <Badge variant="dark" className="mt-2 w-fit">Out of stock</Badge>
-        ) : (
+        ) : canOrder ? (
           <AddToCartButton productId={product.id} className="mt-2" />
+        ) : (
+          <Badge variant="dark" className="mt-2 w-fit">Shop closed</Badge>
         )}
       </div>
     </div>
@@ -56,6 +62,8 @@ export function ProductCard({ product, isSaved }: { product: ProductListItem; is
   const outOfStock = product.availability !== "AVAILABLE" || (product.inventory?.quantityInStock ?? 0) <= 0;
   const hasMultipleOptions = product._count.variants > 1;
   const href = `/marketplace/${product.vendor.slug}/${product.slug}`;
+  const status = getRestaurantStatus(product.vendor);
+  const canOrder = status.isOpenNow || status.canAcceptScheduledOrders;
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-card border border-border-brand bg-white shadow-soft transition-shadow hover:shadow-lifted">
@@ -120,7 +128,8 @@ export function ProductCard({ product, isSaved }: { product: ProductListItem; is
           </div>
         </div>
 
-        {!outOfStock && <AddToCartButton productId={product.id} className="mt-2" />}
+        {!status.isOpenNow && <p className="text-xs text-amber-700">{formatClosedNote(status, "Shop closed")}</p>}
+        {!outOfStock && (canOrder ? <AddToCartButton productId={product.id} className="mt-2" /> : <Badge variant="dark" className="mt-2 w-fit">Shop closed</Badge>)}
       </div>
     </div>
   );

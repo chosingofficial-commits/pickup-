@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { FavoriteVendorButton } from "@/components/restaurant/favorite-vendor-button";
 import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { formatBDT } from "@/lib/utils";
-import { getRestaurantStatus } from "@/lib/restaurant/status";
+import { getRestaurantStatus, formatOpenStatusBadge } from "@/lib/restaurant/status";
 import type { Vendor, Restaurant, RestaurantWeeklyHours } from "@/generated/prisma/client";
 
 type RestaurantCardVendor = Vendor & { restaurant: (Restaurant & { weeklyHours: RestaurantWeeklyHours[] }) | null };
@@ -21,9 +21,7 @@ export function RestaurantCard({ vendor, isFavorited }: { vendor: RestaurantCard
         <div className="relative aspect-[16/9]">
           <ProductImage src={vendor.coverImageUrl} alt={vendor.businessName} categorySlug="restaurant" className="h-full w-full" />
           <div className="absolute left-2 top-2">
-            <Badge variant={status.isOpenNow ? "brand" : "dark"}>
-              {status.isOpenNow ? "Open now" : status.nextOpen ? `Closed · Opens ${status.nextOpen.label} at ${status.nextOpen.time}` : "Closed"}
-            </Badge>
+            <Badge variant={status.isOpenNow ? "brand" : "dark"}>{formatOpenStatusBadge(status)}</Badge>
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-1.5 p-3.5">

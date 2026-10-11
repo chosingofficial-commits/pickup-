@@ -88,7 +88,24 @@ function formatTemporaryResume(resumeAt: Date): NextOpen {
   return { label: `on ${label}`, time };
 }
 
+/** Shared "Open now" / "Closed · Opens tomorrow at 9:00 AM" badge text — used by restaurant and shop cards/pages alike so the copy never drifts between them. */
+export function formatOpenStatusBadge(status: RestaurantStatus): string {
+  if (status.isOpenNow) return "Open now";
+  if (status.nextOpen) return `Closed · Opens ${status.nextOpen.label} at ${status.nextOpen.time}`;
+  if (status.reason === "temporarily_closed") return "Temporarily closed";
+  return "Closed";
+}
+
+/** Shorter closed-note text for product cards/pages, e.g. "Shop closed · Opens tomorrow at 9:00 AM". `label` lets callers say "Shop closed" vs. "Restaurant closed" etc. */
+export function formatClosedNote(status: RestaurantStatus, label = "Closed"): string {
+  if (status.nextOpen) return `${label} · Opens ${status.nextOpen.label} at ${status.nextOpen.time}`;
+  return label;
+}
+
 export function getRestaurantStatus(input: RestaurantOperatingInput): RestaurantStatus {
+  // Manual pause and a future temporary-closure date both override
+  // everything else, including "no hours configured" below — a vendor can
+  // still pause orders even while otherwise open 24/7.
   if (input.isManuallyClosed) {
     // A vendor-flipped "closed now" switch has no schedule to reference —
     // there's genuinely nothing to tell the customer about when it reopens.
@@ -102,6 +119,13 @@ export function getRestaurantStatus(input: RestaurantOperatingInput): Restaurant
       reason: "temporarily_closed",
       nextOpen: formatTemporaryResume(input.temporaryClosureUntil),
     };
+  }
+  if (input.weeklyHours.length === 0) {
+    // No weekly hours configured at all — grocery/essentials shops are open
+    // 24/7 by default until they set real hours (see VendorWeeklyHours' doc
+    // comment). Restaurants always have 7 rows from approval onward, so
+    // this branch never actually triggers for them.
+    return { isOpenNow: true, canAcceptImmediateOrders: true, canAcceptScheduledOrders: input.scheduledOrderingEnabled };
   }
 
   const { dayOfWeek, time } = nowInDhaka();

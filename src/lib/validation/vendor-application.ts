@@ -2,7 +2,10 @@ import { z } from "zod";
 import { bdPhoneSchema } from "./phone";
 import { optionalText } from "./form-helpers";
 
-const dayHoursSchema = z.object({
+// Exported for reuse wherever else a WeeklyHoursPicker's weeklyHoursJson
+// hidden input needs parsing — the vendor-dashboard and admin hours forms
+// for both restaurants and grocery shops (see lib/restaurant/weekly-hours-form-data.ts).
+export const dayHoursSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6),
   opensAt: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time"),
   closesAt: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time"),

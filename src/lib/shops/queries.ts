@@ -3,6 +3,7 @@ import { cache } from "react";
 import { db } from "@/lib/db";
 import { getDaysAgoDhakaMidnight } from "@/lib/date/period";
 import { getFreeDeliveryPromoSettings } from "@/lib/promotions/free-delivery";
+import { getRestaurantStatus, type RestaurantStatus } from "@/lib/restaurant/status";
 import type { Prisma, ShopType } from "@/generated/prisma/client";
 
 /**
@@ -39,12 +40,25 @@ const SHOP_CARD_SELECT = {
   ratingAvg: true,
   ratingCount: true,
   createdAt: true,
+  isManuallyClosed: true,
+  temporaryClosureUntil: true,
+  scheduledOrderingEnabled: true,
+  weeklyHours: true,
 } as const;
 
-export type ShopCardData = Prisma.VendorGetPayload<{ select: typeof SHOP_CARD_SELECT }>;
+type ShopCardRow = Prisma.VendorGetPayload<{ select: typeof SHOP_CARD_SELECT }>;
+export type ShopCardData = Omit<ShopCardRow, "isManuallyClosed" | "temporaryClosureUntil" | "scheduledOrderingEnabled" | "weeklyHours"> & {
+  status: RestaurantStatus;
+};
 
 export type ShopOffer = { kind: "coupon" | "discount" | "freeDelivery"; label: string };
 export type ShopWithOffers = ShopCardData & { offers: ShopOffer[] };
+
+/** Strips the raw hours fields down to a computed `status`, so every shop-card component works off the same RestaurantStatus shape restaurants use. */
+function withShopStatus(row: ShopCardRow): ShopCardData {
+  const { isManuallyClosed, temporaryClosureUntil, scheduledOrderingEnabled, weeklyHours, ...rest } = row;
+  return { ...rest, status: getRestaurantStatus({ isManuallyClosed, temporaryClosureUntil, scheduledOrderingEnabled, weeklyHours }) };
+}
 
 /** Popular = most DELIVERED orders in the last 30 days (Asia/Dhaka), falling back to newest shops when there isn't enough order history yet. */
 export async function getPopularShops(limit = 10): Promise<ShopCardData[]> {
@@ -62,9 +76,9 @@ export async function getPopularShops(limit = 10): Promise<ShopCardData[]> {
   // findMany({ where: { id: { in } } }) doesn't preserve the `in` array's
   // order, so re-sort by the actual order-count ranking.
   const byId = new Map(ranked.map((v) => [v.id, v]));
-  const orderedRanked = rankedIds.map((id) => byId.get(id)).filter((v): v is ShopCardData => !!v);
+  const orderedRanked = rankedIds.map((id) => byId.get(id)).filter((v): v is ShopCardRow => !!v);
 
-  if (orderedRanked.length >= limit) return orderedRanked;
+  if (orderedRanked.length >= limit) return orderedRanked.map(withShopStatus);
 
   const fillers = await db.vendor.findMany({
     where: { ...activeShopFilter, ...hasPromotableCatalog, id: { notIn: rankedIds } },
@@ -72,7 +86,7 @@ export async function getPopularShops(limit = 10): Promise<ShopCardData[]> {
     take: limit - orderedRanked.length,
     select: SHOP_CARD_SELECT,
   });
-  return [...orderedRanked, ...fillers];
+  return [...orderedRanked, ...fillers].map(withShopStatus);
 }
 
 /**
@@ -149,7 +163,7 @@ export async function getShopsWithDeals(limit = 10): Promise<ShopWithOffers[]> {
   });
 
   const offersMap = await computeOffersForVendors(vendors.map((v) => v.id), freeDeliverySettings.allOrders.enabled);
-  return vendors.map((v) => ({ ...v, offers: offersMap.get(v.id) ?? [] }));
+  return vendors.map((v) => ({ ...withShopStatus(v), offers: offersMap.get(v.id) ?? [] }));
 }
 
 function haversineKm(a: { lat: number; lng: number }, bLat: number, bLng: number): number {
@@ -168,12 +182,6 @@ export type ShopSort = "popular" | "nearest" | "az";
 export type ShopListFilters = {
   shopType?: ShopType;
   hasOffers?: boolean;
-  // Grocery/essentials vendors have no opening-hours concept in this app —
-  // see Restaurant's own doc comment ("ordinary grocery/essentials vendors
-  // ... sell 24/7 ... with no opening-hours concept"). Every shop is
-  // therefore always "open", so this currently has no effect on results;
-  // kept as a real filter field (not just UI) so it takes effect for free
-  // the day grocery operating-hours tracking is added.
   openNow?: boolean;
   q?: string;
   sort?: ShopSort;
@@ -215,8 +223,9 @@ export async function getAllShops(filters: ShopListFilters, customerLatLng?: { l
     freeDeliverySettings.allOrders.enabled,
   );
 
-  let candidates: ShopWithOffers[] = all.map((v) => ({ ...v, offers: offersMap.get(v.id) ?? [] }));
+  let candidates: ShopWithOffers[] = all.map((v) => ({ ...withShopStatus(v), offers: offersMap.get(v.id) ?? [] }));
   if (filters.hasOffers) candidates = candidates.filter((v) => v.offers.some((o) => o.kind !== "freeDelivery"));
+  if (filters.openNow) candidates = candidates.filter((v) => v.status.isOpenNow);
 
   if (filters.sort === "popular") {
     const since = getDaysAgoDhakaMidnight(30);

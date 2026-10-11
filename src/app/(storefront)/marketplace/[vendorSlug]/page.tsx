@@ -6,10 +6,12 @@ import { ProductImage } from "@/components/product/product-image";
 import { ProductCard } from "@/components/product/product-card";
 import { VendorLogo } from "@/components/vendor/vendor-logo";
 import { FavoriteVendorButton } from "@/components/restaurant/favorite-vendor-button";
+import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { getVendorBySlug, getMarketplaceProducts } from "@/lib/catalog/queries";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getSelectedLocation } from "@/lib/location/cookie";
+import { getRestaurantStatus, formatOpenStatusBadge } from "@/lib/restaurant/status";
 import { db } from "@/lib/db";
 import { SHOP_TYPE_LABELS, formatEtaRange } from "@/lib/shops/shop-type";
 
@@ -47,6 +49,7 @@ export default async function ShopPage({
     ? !!(await db.favoriteVendor.findUnique({ where: { userId_vendorId: { userId: user.id, vendorId: vendor.id } } }))
     : false;
   const etaLabel = formatEtaRange(selectedLocation?.etaMin, selectedLocation?.etaMax);
+  const status = getRestaurantStatus(vendor);
 
   const qParam = q ? `&q=${encodeURIComponent(q)}` : "";
 
@@ -61,7 +64,10 @@ export default async function ShopPage({
           <div className="flex items-start gap-3">
             <VendorLogo logoUrl={vendor.logoUrl} coverImageUrl={vendor.coverImageUrl} businessName={vendor.businessName} size={56} className="-mt-10 text-xl" />
             <div>
-              <h1 className="font-heading text-2xl font-bold text-brand-dark sm:text-3xl">{vendor.businessName}</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-heading text-2xl font-bold text-brand-dark sm:text-3xl">{vendor.businessName}</h1>
+                <Badge variant={status.isOpenNow ? "brand" : "dark"}>{formatOpenStatusBadge(status)}</Badge>
+              </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
                 {vendor.shopType && <span>{SHOP_TYPE_LABELS[vendor.shopType]}</span>}
                 {etaLabel && (
@@ -81,6 +87,14 @@ export default async function ShopPage({
           </div>
           <FavoriteVendorButton vendorId={vendor.id} isFavorited={isFavorited} />
         </div>
+
+        {!status.isOpenNow && (
+          <p className="mt-3 rounded-control bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {status.canAcceptScheduledOrders
+              ? "This shop is closed right now, but accepts scheduled orders — you can order and it'll be delivered once they reopen."
+              : "This shop is closed right now and is not accepting orders."}
+          </p>
+        )}
 
         {/* Sticky on mobile so it stays reachable while scrolling a long catalog. */}
         <form method="GET" className="sticky top-[60px] z-10 mt-5 bg-white py-2 sm:static sm:bg-transparent sm:py-0">

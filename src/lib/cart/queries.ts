@@ -57,7 +57,7 @@ export async function getFullCart(userId: string) {
         include: {
           product: {
             include: {
-              vendor: true,
+              vendor: { include: { weeklyHours: true } },
               category: true,
               images: { take: 1 },
               _count: { select: { variants: { where: { isActive: true } } } },
@@ -140,21 +140,27 @@ export async function getFullCart(userId: string) {
     }
   }
 
-  // Captured alongside the lines loop above (only menu-item lines carry a
-  // restaurant) so each restaurant group can tell the customer "this will be
-  // delivered once X opens" rather than silently allowing a closed-but-
-  // scheduling restaurant's item to sit in the cart with no explanation.
-  const restaurantStatusByVendorId = new Map<string, RestaurantStatus>();
+  // Captured alongside the lines loop above so each vendor group can tell
+  // the customer "this will be delivered once X opens" rather than silently
+  // allowing a closed-but-scheduling vendor's item to sit in the cart with
+  // no explanation — restaurants read their own Restaurant record, grocery
+  // shops read the equivalent fields directly on Vendor (same status fn,
+  // see getRestaurantStatus's own doc comment on why these are separate
+  // tables rather than a merge).
+  const openStatusByVendorId = new Map<string, RestaurantStatus>();
   for (const item of cart?.items ?? []) {
     const restaurant = item.menuItem?.menu.vendor.restaurant;
-    if (restaurant && !restaurantStatusByVendorId.has(item.menuItem!.menu.vendorId)) {
-      restaurantStatusByVendorId.set(item.menuItem!.menu.vendorId, getRestaurantStatus(restaurant));
+    if (restaurant && !openStatusByVendorId.has(item.menuItem!.menu.vendorId)) {
+      openStatusByVendorId.set(item.menuItem!.menu.vendorId, getRestaurantStatus(restaurant));
+    }
+    if (item.product && !openStatusByVendorId.has(item.product.vendorId)) {
+      openStatusByVendorId.set(item.product.vendorId, getRestaurantStatus(item.product.vendor));
     }
   }
 
   const groups = new Map<
     string,
-    { vendorId: string; vendorSlug: string; vendorBusinessName: string; vendorBusinessType: string; restaurantStatus: RestaurantStatus | null; lines: NormalizedCartLine[] }
+    { vendorId: string; vendorSlug: string; vendorBusinessName: string; vendorBusinessType: string; openStatus: RestaurantStatus | null; lines: NormalizedCartLine[] }
   >();
   for (const line of lines) {
     const existing = groups.get(line.vendorId);
@@ -166,7 +172,7 @@ export async function getFullCart(userId: string) {
         vendorSlug: line.vendorSlug,
         vendorBusinessName: line.vendorBusinessName,
         vendorBusinessType: line.vendorBusinessType,
-        restaurantStatus: restaurantStatusByVendorId.get(line.vendorId) ?? null,
+        openStatus: openStatusByVendorId.get(line.vendorId) ?? null,
         lines: [line],
       });
     }

@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorDashboardStats, getVendorOrders } from "@/lib/vendor/queries";
 import { statusLabel } from "@/lib/orders/status-flow";
 import { formatBDT } from "@/lib/utils";
+import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Vendor dashboard" };
 
@@ -14,14 +15,25 @@ export default async function VendorDashboardPage() {
   const user = await getCurrentUser();
   if (!user?.vendorProfile) return null;
 
-  const [stats, recentOrders] = await Promise.all([
+  const isGroceryVendor = user.vendorProfile.businessType === "GROCERY_VENDOR";
+  const [stats, recentOrders, weeklyHoursCount] = await Promise.all([
     getVendorDashboardStats(user.vendorProfile.id),
     getVendorOrders(user.vendorProfile.id).then((o) => o.slice(0, 8)),
+    isGroceryVendor ? db.vendorWeeklyHours.count({ where: { vendorId: user.vendorProfile.id } }) : Promise.resolve(0),
   ]);
 
   return (
     <div className="space-y-6">
       <h1 className="font-heading text-2xl font-bold text-brand-dark">Welcome back, {user.name.split(" ")[0]}</h1>
+
+      {isGroceryVendor && weeklyHoursCount === 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-control bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span>Your shop is currently open 24/7 by default. Set your opening hours if that&apos;s not right.</span>
+          <Link href="/vendor/hours" className="shrink-0 font-semibold text-brand-primary hover:underline">
+            Set your opening hours
+          </Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard icon={ShoppingBag} label="Total orders" value={String(stats.totalOrders)} href="/vendor/orders?status=ACTIVE" />

@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { db } from "@/lib/db";
 import { serverEnv } from "@/lib/env/server";
+import { PRODUCT_CARD_INCLUDE } from "@/lib/catalog/queries";
 
 /**
  * The only query path allowed to return age-restricted (tobacco) products.
@@ -49,12 +50,6 @@ export const getCigaretteProducts = cache(async () => {
       vendor: activeVendorFilter,
     },
     orderBy: { createdAt: "desc" },
-    include: {
-      images: { take: 1 },
-      category: true,
-      vendor: { select: { businessName: true, slug: true, logoUrl: true } },
-      inventory: { select: { quantityInStock: true } },
-      _count: { select: { variants: { where: { isActive: true } } } },
-    },
+    include: PRODUCT_CARD_INCLUDE,
   });
 });

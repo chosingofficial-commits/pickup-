@@ -51,7 +51,7 @@ export async function addProductToCartAction(_prev: ActionState, formData: FormD
   const quantity = Math.max(1, Number(formData.get("quantity") ?? 1));
   const redirectPath = String(formData.get("redirectPath") ?? "/marketplace");
 
-  const product = await db.product.findUnique({ where: { id: productId } });
+  const product = await db.product.findUnique({ where: { id: productId }, include: { vendor: { include: { weeklyHours: true } } } });
   if (!product || !product.isPublished) {
     return { status: "error", message: "This product is not available." };
   }
@@ -60,6 +60,14 @@ export async function addProductToCartAction(_prev: ActionState, formData: FormD
   }
   if (product.availability !== "AVAILABLE") {
     return { status: "error", message: "This product is currently out of stock." };
+  }
+
+  // Re-checked here, not just hidden client-side — a shop can close between
+  // page load and this request, and the UI's "Add to cart" button is only a
+  // courtesy (see addMenuItemToCartAction's equivalent restaurant check).
+  const shopStatus = getRestaurantStatus(product.vendor);
+  if (!shopStatus.isOpenNow && !shopStatus.canAcceptScheduledOrders) {
+    return { status: "error", message: `${product.vendor.businessName} is closed right now and isn't accepting orders.` };
   }
 
   const resolved = await resolveVariant(productId, requestedVariantId);
@@ -85,12 +93,16 @@ export async function buyNowAction(formData: FormData): Promise<void> {
   const requestedVariantId = formData.get("variantId") ? String(formData.get("variantId")) : null;
   const quantity = Math.max(1, Number(formData.get("quantity") ?? 1));
 
-  const product = await db.product.findUnique({ where: { id: productId } });
+  const product = await db.product.findUnique({ where: { id: productId }, include: { vendor: { include: { weeklyHours: true } } } });
   if (!product || !product.isPublished || product.availability !== "AVAILABLE") {
     redirect(`/marketplace`);
   }
   if (product.isAgeRestricted && !(await isTobaccoModuleEnabled())) {
     redirect(`/marketplace`);
+  }
+  const shopStatus = getRestaurantStatus(product.vendor);
+  if (!shopStatus.isOpenNow && !shopStatus.canAcceptScheduledOrders) {
+    redirect(`/marketplace/${product.vendor.slug}/${product.slug}`);
   }
 
   const resolved = await resolveVariant(productId, requestedVariantId);

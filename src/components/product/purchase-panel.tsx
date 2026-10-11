@@ -29,6 +29,7 @@ export function PurchasePanel({
   productUnit,
   variants,
   isSaved,
+  canOrder = true,
 }: {
   productId: string;
   productName: string;
@@ -39,6 +40,8 @@ export function PurchasePanel({
   productUnit: string;
   variants: PurchaseVariant[];
   isSaved?: boolean;
+  /** False when the shop is closed and isn't accepting scheduled orders either — disables both buttons, the server action would refuse anyway. */
+  canOrder?: boolean;
 }) {
   const { locale } = useLocale();
   const pathname = usePathname();
@@ -141,7 +144,7 @@ export function PurchasePanel({
           <input type="hidden" name="redirectPath" value={pathname} />
           <button
             type="submit"
-            disabled={pending || allSoldOut || selected.stockQty <= 0}
+            disabled={pending || allSoldOut || selected.stockQty <= 0 || !canOrder}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-control bg-brand-primary font-semibold text-white hover:bg-brand-primary-hover disabled:opacity-60"
           >
             <ShoppingCart className="h-4 w-4" aria-hidden />
@@ -155,7 +158,7 @@ export function PurchasePanel({
           <input type="hidden" name="quantity" value={quantity} />
           <button
             type="submit"
-            disabled={allSoldOut || selected.stockQty <= 0}
+            disabled={allSoldOut || selected.stockQty <= 0 || !canOrder}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-control border-2 border-brand-primary font-semibold text-brand-primary hover:bg-brand-bg disabled:opacity-60"
           >
             <Zap className="h-4 w-4" aria-hidden />

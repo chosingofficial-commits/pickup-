@@ -52,7 +52,17 @@ const activeVendorFilter = { isApproved: true, isSuspended: false, deletedAt: nu
 export const PRODUCT_CARD_INCLUDE = {
   images: { take: 1 },
   category: true,
-  vendor: { select: { businessName: true, slug: true, logoUrl: true } },
+  vendor: {
+    select: {
+      businessName: true,
+      slug: true,
+      logoUrl: true,
+      isManuallyClosed: true,
+      temporaryClosureUntil: true,
+      scheduledOrderingEnabled: true,
+      weeklyHours: true,
+    },
+  },
   inventory: { select: { quantityInStock: true } },
   _count: { select: { variants: { where: { isActive: true } } } },
 } as const;
@@ -206,7 +216,7 @@ export const getProductBySlug = cache(async (vendorSlug: string, productSlug: st
       images: { orderBy: { sortOrder: "asc" }, take: MAX_PRODUCT_PHOTOS },
       variants: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
       category: true,
-      vendor: true,
+      vendor: { include: { weeklyHours: true } },
       inventory: true,
       reviews: { include: { customer: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 10 },
     },
@@ -230,6 +240,6 @@ export const getRelatedProducts = cache(async (categoryId: string, excludeProduc
 export const getVendorBySlug = cache(async (slug: string) => {
   return db.vendor.findFirst({
     where: { slug, ...activeVendorFilter },
-    include: { restaurant: true },
+    include: { restaurant: true, weeklyHours: true },
   });
 });

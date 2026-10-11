@@ -76,6 +76,26 @@ export async function approveVendorApplicationAction(_prev: ActionState, formDat
       }
     }
 
+    if (application.businessType === "GROCERY_VENDOR") {
+      // Same weeklyHoursJson pipeline as the restaurant branch above (shared
+      // WeeklyHoursPicker/schema) — writes to VendorWeeklyHours instead of
+      // RestaurantWeeklyHours. Unlike restaurants, a grocery application with
+      // no submitted hours creates no rows at all, so the shop stays open
+      // 24/7 by default (see getRestaurantStatus's empty-weeklyHours branch)
+      // until the vendor sets real hours from their dashboard.
+      const submittedHours = Array.isArray(application.weeklyHoursJson)
+        ? (application.weeklyHoursJson as unknown as { dayOfWeek: number; opensAt: string; closesAt: string; isClosed: boolean }[])
+        : null;
+
+      if (submittedHours) {
+        for (const h of submittedHours) {
+          await tx.vendorWeeklyHours.create({
+            data: { vendorId: vendor.id, dayOfWeek: h.dayOfWeek, opensAt: h.opensAt, closesAt: h.closesAt, isClosed: h.isClosed },
+          });
+        }
+      }
+    }
+
     await tx.user.update({ where: { id: application.applicantUserId! }, data: { role: "VENDOR" } });
     await tx.vendorApplication.update({
       where: { id: application.id },

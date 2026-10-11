@@ -86,14 +86,14 @@ export default async function CartPage() {
             <div key={group.vendorId} className="rounded-card border border-border-brand bg-white p-4">
               <div className="mb-1 flex items-center justify-between">
                 <h2 className="font-heading text-sm font-bold text-brand-dark">{group.vendorBusinessName}</h2>
-                <span className="text-xs text-gray-500">{group.vendorBusinessType === "RESTAURANT" ? "Restaurant" : "Vendor"}</span>
+                <span className="text-xs text-gray-500">{group.vendorBusinessType === "RESTAURANT" ? "Restaurant" : "Shop"}</span>
               </div>
-              {group.restaurantStatus && !group.restaurantStatus.isOpenNow && (
+              {group.openStatus && !group.openStatus.isOpenNow && (
                 <p className="mb-2 rounded-control bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   {group.vendorBusinessName} is closed right now —{" "}
-                  {group.restaurantStatus.nextOpen
-                    ? `this will be prepared once they open ${group.restaurantStatus.nextOpen.label} at ${group.restaurantStatus.nextOpen.time}.`
-                    : "this will be prepared once they reopen."}
+                  {group.openStatus.nextOpen
+                    ? `this will be ${group.vendorBusinessType === "RESTAURANT" ? "prepared" : "packed"} once they open ${group.openStatus.nextOpen.label} at ${group.openStatus.nextOpen.time}.`
+                    : `this will be ${group.vendorBusinessType === "RESTAURANT" ? "prepared" : "packed"} once they reopen.`}
                 </p>
               )}
               <div>

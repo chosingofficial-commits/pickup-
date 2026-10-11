@@ -31,7 +31,7 @@ export function VendorApplicationWizard({
   const isRestaurant = businessType === "RESTAURANT";
   const steps = isRestaurant
     ? ["Business type", "Address", "Cuisine", "Hours", "Documents", "Payment", "Review"]
-    : ["Business type", "Address", "Categories", "Documents", "Payment", "Review"];
+    : ["Business type", "Address", "Categories", "Hours", "Documents", "Payment", "Review"];
   const lastStep = steps.length - 1;
 
   function next() {
@@ -41,21 +41,16 @@ export function VendorApplicationWizard({
     setStep((s) => Math.max(0, s - 1));
   }
 
-  // Maps the visible wizard step index to a stable section key so restaurant/vendor
-  // flows (which have a different number of steps) show the right fields.
+  // Both business types now have the same step layout (categories/cuisine,
+  // then hours, then documents) — kept as a lookup rather than inlined
+  // indices so a future flow with a different step count stays easy to add.
   const sectionForStep = (i: number): "type" | "address" | "categories" | "hours" | "documents" | "payment" | "review" => {
     if (i === 0) return "type";
     if (i === 1) return "address";
-    if (isRestaurant) {
-      if (i === 2) return "categories";
-      if (i === 3) return "hours";
-      if (i === 4) return "documents";
-      if (i === 5) return "payment";
-      return "review";
-    }
     if (i === 2) return "categories";
-    if (i === 3) return "documents";
-    if (i === 4) return "payment";
+    if (i === 3) return "hours";
+    if (i === 4) return "documents";
+    if (i === 5) return "payment";
     return "review";
   };
   const activeSection = sectionForStep(step);
@@ -157,7 +152,7 @@ export function VendorApplicationWizard({
           >
             <input type="radio" className="sr-only" checked={businessType === "GROCERY_VENDOR"} onChange={() => setBusinessType("GROCERY_VENDOR")} />
             <span className="block font-semibold text-brand-dark">Grocery / retail shop</span>
-            <span className="block text-xs text-gray-500">Sell groceries, essentials, household, or personal care products, available 24/7.</span>
+            <span className="block text-xs text-gray-500">Sell groceries, essentials, household, or personal care products, with your own opening hours.</span>
           </label>
           <label
             className={cn(
@@ -226,13 +221,13 @@ export function VendorApplicationWizard({
         <FieldError>{state.fieldErrors?.productCategories?.[0]}</FieldError>
       </div>
 
-      {isRestaurant && (
-        <div className={cn("space-y-4 rounded-card border border-border-brand bg-white p-5", activeSection !== "hours" && "hidden")}>
-          <h2 className="font-heading text-base font-bold text-brand-dark">Operating hours</h2>
-          <WeeklyHoursPicker />
-          <p className="text-xs text-gray-500">You can change these any time after approval, in your restaurant dashboard.</p>
-        </div>
-      )}
+      <div className={cn("space-y-4 rounded-card border border-border-brand bg-white p-5", activeSection !== "hours" && "hidden")}>
+        <h2 className="font-heading text-base font-bold text-brand-dark">Operating hours</h2>
+        <WeeklyHoursPicker />
+        <p className="text-xs text-gray-500">
+          You can change these any time after approval, in your {isRestaurant ? "restaurant" : "shop"} dashboard.
+        </p>
+      </div>
 
       <div className={cn("space-y-4 rounded-card border border-border-brand bg-white p-5", activeSection !== "documents" && "hidden")}>
         <h2 className="font-heading text-base font-bold text-brand-dark">Documents & banking</h2>
