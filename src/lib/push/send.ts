@@ -46,6 +46,34 @@ export function getPushConfigStatus(): PushConfigStatus {
   return { configured: true };
 }
 
+// TEMPORARY — admin-only debugging aid for the "hPanel has the var set but
+// the app still says it's missing" report. Shows presence + LENGTH only,
+// never a value, for each of the 3 VAPID env vars, read two ways: straight
+// off `process.env` (what this exact Node process actually received at
+// startup) and through the parsed serverEnv/publicEnv singletons (what the
+// app's code actually uses). Also lists any OTHER process.env key containing
+// "VAPID" case-insensitively — catches a typo'd var NAME (trailing space,
+// wrong case, stray character) that would make `process.env.VAPID_PRIVATE_KEY`
+// read as undefined even though hPanel shows a very-similar-looking var as
+// set. Remove this export (and its one caller in admin/settings/page.tsx)
+// once the real cause is found.
+export function getVapidEnvDiagnostics() {
+  const names = ["VAPID_PRIVATE_KEY", "VAPID_SUBJECT", "NEXT_PUBLIC_VAPID_PUBLIC_KEY"] as const;
+  const fromProcessEnv = names.map((name) => {
+    const raw = process.env[name];
+    return { name, presentInProcessEnv: raw !== undefined, rawLength: raw?.length ?? 0 };
+  });
+  const otherVapidLikeKeys = Object.keys(process.env)
+    .filter((key) => key.toUpperCase().includes("VAPID") && !(names as readonly string[]).includes(key))
+    .map((key) => ({ key, length: process.env[key]?.length ?? 0 }));
+  const fromParsedEnv = [
+    { name: "VAPID_PRIVATE_KEY (serverEnv)", length: serverEnv.VAPID_PRIVATE_KEY?.length ?? 0 },
+    { name: "VAPID_SUBJECT (serverEnv)", length: serverEnv.VAPID_SUBJECT?.length ?? 0 },
+    { name: "NEXT_PUBLIC_VAPID_PUBLIC_KEY (publicEnv.vapidPublicKey)", length: publicEnv.vapidPublicKey.length },
+  ];
+  return { fromProcessEnv, otherVapidLikeKeys, fromParsedEnv };
+}
+
 let vapidDetailsSet = false;
 let warnedUnconfigured = false;
 
