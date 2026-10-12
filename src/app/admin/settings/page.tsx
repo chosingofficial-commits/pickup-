@@ -10,13 +10,13 @@ import { getPushConfigStatus, getVapidEnvDiagnostics } from "@/lib/push/send";
 
 export const metadata: Metadata = { title: "Settings" };
 
-function ProcessEnvTable({ rows }: { rows: { name: string; presentInProcessEnv: boolean; rawLength: number }[] }) {
+function ProcessEnvTable({ rows }: { rows: { name: string; status: "unset" | "blank" | "set"; rawLength: number }[] }) {
   return (
     <table className="w-full text-left">
       <thead>
         <tr>
           <th className="pr-3 font-medium">Var</th>
-          <th className="pr-3 font-medium">In process.env?</th>
+          <th className="pr-3 font-medium">process.env status</th>
           <th className="font-medium">Length</th>
         </tr>
       </thead>
@@ -24,7 +24,7 @@ function ProcessEnvTable({ rows }: { rows: { name: string; presentInProcessEnv: 
         {rows.map((row) => (
           <tr key={row.name}>
             <td className="pr-3">{row.name}</td>
-            <td className="pr-3">{row.presentInProcessEnv ? "yes" : "no"}</td>
+            <td className="pr-3">{row.status}</td>
             <td>{row.rawLength}</td>
           </tr>
         ))}

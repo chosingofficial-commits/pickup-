@@ -132,27 +132,38 @@ const serverEnvSchema = z.object({
   VAPID_SUBJECT: z.string().trim().default("mailto:information@pickupn.com"),
 });
 
+// A plain `??` (or zod's own `.default(...)`) only falls back when a var is
+// genuinely absent (null/undefined) — a host env-var UI can also leave a
+// var present-but-blank ("" or whitespace), which neither of those treats
+// as missing, silently producing an empty value instead of the intended
+// default. Every fallback below goes through this first so blank counts
+// the same as unset.
+function blankToUndefined(value: string | undefined): string | undefined {
+  return value !== undefined && value.trim() !== "" ? value : undefined;
+}
+
 // A few fields are given production-safe fallbacks here, in front of
 // safeParse, rather than as a plain zod .default(...) — because the
-// fallback must apply ONLY when the real var is genuinely absent, and in
-// APP_URL's case the fallback is computed FROM another env var, not a
-// constant. Keeping this in one place (rather than scattering `??` fallbacks
-// across every file that reads these) is also what let each of these stop
-// needing its own line in hPanel.
+// fallback must apply ONLY when the real var is genuinely absent (or
+// blank — see blankToUndefined), and in APP_URL's case the fallback is
+// computed FROM another env var, not a constant. Keeping this in one place
+// (rather than scattering fallbacks across every file that reads these) is
+// also what let each of these stop needing its own line in hPanel.
 const isProduction = process.env.NODE_ENV === "production";
 const rawEnv = {
   ...process.env,
   // One URL to set (NEXT_PUBLIC_APP_URL, which is build-time inlined
   // anyway) instead of two kept in sync by hand.
-  APP_URL: process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
+  APP_URL: blankToUndefined(process.env.APP_URL) ?? blankToUndefined(process.env.NEXT_PUBLIC_APP_URL),
   // Matches this deploy's actual Supabase Storage setup — see the
   // STORAGE_PROVIDER doc comment above. Only applied in production so
   // local dev's deliberate "local" default (see .env.example) is untouched.
-  STORAGE_PROVIDER: process.env.STORAGE_PROVIDER ?? (isProduction ? "s3" : undefined),
-  S3_REGION: process.env.S3_REGION ?? "ap-south-1",
-  S3_BUCKET: process.env.S3_BUCKET ?? "pickup-uploads",
-  S3_PRIVATE_BUCKET: process.env.S3_PRIVATE_BUCKET ?? "pickup_documents",
-  S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE ?? "true",
+  STORAGE_PROVIDER: blankToUndefined(process.env.STORAGE_PROVIDER) ?? (isProduction ? "s3" : undefined),
+  S3_REGION: blankToUndefined(process.env.S3_REGION) ?? "ap-south-1",
+  S3_BUCKET: blankToUndefined(process.env.S3_BUCKET) ?? "pickup-uploads",
+  S3_PRIVATE_BUCKET: blankToUndefined(process.env.S3_PRIVATE_BUCKET) ?? "pickup_documents",
+  S3_FORCE_PATH_STYLE: blankToUndefined(process.env.S3_FORCE_PATH_STYLE) ?? "true",
+  VAPID_SUBJECT: blankToUndefined(process.env.VAPID_SUBJECT),
 };
 
 const parsed = serverEnvSchema.safeParse(rawEnv);

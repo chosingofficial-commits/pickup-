@@ -5,6 +5,15 @@
 // still overrides it when set (e.g. for a deploy using a different keypair).
 const DEFAULT_VAPID_PUBLIC_KEY = "BDfRJjvVrcEwZ8Y_90B2DJQsrhPJdVBddanfdqV-ofbcRNxHSDNjcXvjC6NnI5ORaSU2bqX1r8snO5Dpmsk1lgM";
 
+// `?? DEFAULT` alone only catches the var being genuinely absent — a host
+// env-var UI can also leave a var present-but-blank ("" or whitespace),
+// which `??` does NOT treat as missing (only null/undefined trigger it),
+// silently producing an empty key instead of falling back. Treat both the
+// same.
+function blankToUndefined(value: string | undefined): string | undefined {
+  return value !== undefined && value.trim() !== "" ? value : undefined;
+}
+
 /**
  * Client-safe environment values. Only NEXT_PUBLIC_* variables may appear
  * here, and each must be referenced as a literal `process.env.NEXT_PUBLIC_*`
@@ -27,5 +36,5 @@ export const publicEnv = {
   // Trimmed: a value pasted into a host's env var UI (or copied via
   // Set-Clipboard, which can append a trailing newline) can pick up
   // leading/trailing whitespace that silently breaks base64url decoding.
-  vapidPublicKey: (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? DEFAULT_VAPID_PUBLIC_KEY).trim(),
+  vapidPublicKey: (blankToUndefined(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) ?? DEFAULT_VAPID_PUBLIC_KEY).trim(),
 } as const;

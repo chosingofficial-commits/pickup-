@@ -60,12 +60,21 @@ export function getPushConfigStatus(): PushConfigStatus {
 // would silently fall back to local disk storage in production. Remove
 // this export (and its one caller in admin/settings/page.tsx) once hPanel's
 // var count is confirmed stable.
+// Three states, not two — "blank" (present but "" or whitespace-only) is
+// the exact class of bug that slipped past a plain `??`/`.default(...)`
+// fallback once already (see server.ts/public.ts's blankToUndefined), so
+// it gets surfaced here rather than collapsing into the same "no" as
+// genuinely unset.
+function classifyProcessEnv(name: string): { name: string; status: "unset" | "blank" | "set"; rawLength: number } {
+  const raw = process.env[name];
+  if (raw === undefined) return { name, status: "unset", rawLength: 0 };
+  if (raw.trim() === "") return { name, status: "blank", rawLength: raw.length };
+  return { name, status: "set", rawLength: raw.length };
+}
+
 export function getVapidEnvDiagnostics() {
   const runtimeSecrets = ["DATABASE_URL", "DATABASE_POOL_URL", "AUTH_SECRET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "WEB_PUSH_SECRET"] as const;
-  const runtimeFromProcessEnv = runtimeSecrets.map((name) => {
-    const raw = process.env[name];
-    return { name, presentInProcessEnv: raw !== undefined, rawLength: raw?.length ?? 0 };
-  });
+  const runtimeFromProcessEnv = runtimeSecrets.map(classifyProcessEnv);
   const runtimeFromParsedEnv = [
     { name: "DATABASE_URL (serverEnv)", length: serverEnv.DATABASE_URL?.length ?? 0 },
     { name: "DATABASE_POOL_URL (serverEnv)", length: serverEnv.DATABASE_POOL_URL?.length ?? 0 },
@@ -77,19 +86,14 @@ export function getVapidEnvDiagnostics() {
 
   // Still required in hPanel (no safe guessable default — see server.ts).
   const noDefaultVars = ["S3_ENDPOINT", "S3_PUBLIC_URL_BASE", "ENABLE_SUBDOMAIN_ROUTING", "APP_URL", "NEXT_PUBLIC_APP_URL"] as const;
-  const noDefaultFromProcessEnv = noDefaultVars.map((name) => {
-    const raw = process.env[name];
-    return { name, presentInProcessEnv: raw !== undefined, rawLength: raw?.length ?? 0 };
-  });
+  const noDefaultFromProcessEnv = noDefaultVars.map(classifyProcessEnv);
 
   // Now have a production-safe default baked into server.ts — should show
-  // "no" under process.env (unless you've deliberately kept an override in
-  // hPanel) but still a sensible non-zero length under "as parsed".
+  // "unset" or "blank" under process.env (unless you've deliberately kept
+  // an override in hPanel) but still a sensible non-zero length under "as
+  // parsed" either way, since blank is treated the same as unset now.
   const nowDefaultedVars = ["STORAGE_PROVIDER", "S3_REGION", "S3_BUCKET", "S3_PRIVATE_BUCKET", "S3_FORCE_PATH_STYLE", "VAPID_SUBJECT"] as const;
-  const nowDefaultedFromProcessEnv = nowDefaultedVars.map((name) => {
-    const raw = process.env[name];
-    return { name, presentInProcessEnv: raw !== undefined, rawLength: raw?.length ?? 0 };
-  });
+  const nowDefaultedFromProcessEnv = nowDefaultedVars.map(classifyProcessEnv);
   const nowDefaultedFromParsedEnv = [
     { name: "STORAGE_PROVIDER (serverEnv)", length: serverEnv.STORAGE_PROVIDER.length },
     { name: "S3_REGION (serverEnv)", length: serverEnv.S3_REGION?.length ?? 0 },
@@ -103,7 +107,7 @@ export function getVapidEnvDiagnostics() {
   // publicEnv.ts) — included separately since, unlike the server-only vars
   // above, it's inlined at BUILD time, so its process.env row reflects what
   // the BUILD saw, not necessarily what this runtime process sees.
-  const publicKeyFromProcessEnv = { name: "NEXT_PUBLIC_VAPID_PUBLIC_KEY", presentInProcessEnv: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY !== undefined, rawLength: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.length ?? 0 };
+  const publicKeyFromProcessEnv = classifyProcessEnv("NEXT_PUBLIC_VAPID_PUBLIC_KEY");
   const publicKeyFromParsedEnv = { name: "NEXT_PUBLIC_VAPID_PUBLIC_KEY (publicEnv.vapidPublicKey)", length: publicEnv.vapidPublicKey.length };
 
   const otherVapidLikeKeys = Object.keys(process.env)
