@@ -101,6 +101,35 @@ export default async function AdminSettingsPage() {
                 </ul>
               </>
             )}
+            <p className="font-semibold text-gray-700">Control group — other server secrets (already working)</p>
+            <table className="w-full text-left">
+              <thead>
+                <tr>
+                  <th className="pr-3 font-medium">Var</th>
+                  <th className="pr-3 font-medium">In process.env?</th>
+                  <th className="font-medium">Length</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vapidDiagnostics.controlFromProcessEnv.map((row) => (
+                  <tr key={row.name}>
+                    <td className="pr-3">{row.name}</td>
+                    <td className="pr-3">{row.presentInProcessEnv ? "yes" : "no"}</td>
+                    <td>{row.rawLength}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <table className="w-full text-left">
+              <tbody>
+                {vapidDiagnostics.controlFromParsedEnv.map((row) => (
+                  <tr key={row.name}>
+                    <td className="pr-3">{row.name}</td>
+                    <td>{row.length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

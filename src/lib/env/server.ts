@@ -108,6 +108,16 @@ const serverEnvSchema = z.object({
   // Trimmed: a value pasted into a host's env var UI (or copied via
   // Set-Clipboard, which can append a trailing newline) can pick up
   // leading/trailing whitespace that silently breaks base64url decoding.
+  //
+  // WEB_PUSH_SECRET is a second accepted name for the exact same VAPID
+  // private key value. Diagnostics on hPanel showed VAPID_PRIVATE_KEY never
+  // reaching this process's runtime environment at all (while unrelated
+  // vars like DATABASE_URL and AUTH_SECRET do), even right after a build
+  // that picked up NEXT_PUBLIC_VAPID_PUBLIC_KEY — the suspicion is a host
+  // side filter/special-case on names containing "PRIVATE_KEY". Prefer this
+  // name going forward; VAPID_PRIVATE_KEY stays supported as a fallback for
+  // any other host that doesn't have that problem.
+  WEB_PUSH_SECRET: z.string().trim().optional(),
   VAPID_PRIVATE_KEY: z.string().trim().optional(),
   VAPID_SUBJECT: z.string().trim().default("mailto:information@pickupn.com"),
 });

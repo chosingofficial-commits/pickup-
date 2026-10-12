@@ -29,18 +29,26 @@ function checkKeyLength(value: string, varName: string, expectedBytes: number): 
   return null;
 }
 
+// Same value, two accepted env var names — see server.ts's doc comment on
+// WEB_PUSH_SECRET for why. Whichever is set wins; its own name is used in
+// any diagnostic reason so it's clear which one the app actually read.
+function getPrivateKeySource(): { value: string; varName: string } {
+  if (serverEnv.WEB_PUSH_SECRET) return { value: serverEnv.WEB_PUSH_SECRET, varName: "WEB_PUSH_SECRET" };
+  return { value: serverEnv.VAPID_PRIVATE_KEY ?? "", varName: "VAPID_PRIVATE_KEY" };
+}
+
 /** Computed once per process (env vars don't change without a restart) and reused — never logs or returns the key values themselves, only pass/fail + a diagnostic reason. Exported for the admin-only "Push alerts: configured/not configured" status line. */
 export function getPushConfigStatus(): PushConfigStatus {
   const publicKey = publicEnv.vapidPublicKey;
-  const privateKey = serverEnv.VAPID_PRIVATE_KEY ?? "";
+  const { value: privateKey, varName: privateKeyVarName } = getPrivateKeySource();
 
   if (!publicKey) return { configured: false, reason: "NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set" };
-  if (!privateKey) return { configured: false, reason: "VAPID_PRIVATE_KEY is not set" };
+  if (!privateKey) return { configured: false, reason: "Neither WEB_PUSH_SECRET nor VAPID_PRIVATE_KEY is set" };
 
   const publicKeyIssue = checkKeyLength(publicKey, "NEXT_PUBLIC_VAPID_PUBLIC_KEY", EXPECTED_PUBLIC_KEY_BYTES);
   if (publicKeyIssue) return { configured: false, reason: publicKeyIssue };
 
-  const privateKeyIssue = checkKeyLength(privateKey, "VAPID_PRIVATE_KEY", EXPECTED_PRIVATE_KEY_BYTES);
+  const privateKeyIssue = checkKeyLength(privateKey, privateKeyVarName, EXPECTED_PRIVATE_KEY_BYTES);
   if (privateKeyIssue) return { configured: false, reason: privateKeyIssue };
 
   return { configured: true };
@@ -48,17 +56,22 @@ export function getPushConfigStatus(): PushConfigStatus {
 
 // TEMPORARY — admin-only debugging aid for the "hPanel has the var set but
 // the app still says it's missing" report. Shows presence + LENGTH only,
-// never a value, for each of the 3 VAPID env vars, read two ways: straight
-// off `process.env` (what this exact Node process actually received at
-// startup) and through the parsed serverEnv/publicEnv singletons (what the
-// app's code actually uses). Also lists any OTHER process.env key containing
-// "VAPID" case-insensitively — catches a typo'd var NAME (trailing space,
-// wrong case, stray character) that would make `process.env.VAPID_PRIVATE_KEY`
+// never a value, for each env var below, read two ways: straight off
+// `process.env` (what THIS request, in this exact running process, sees
+// right now) and through the parsed serverEnv/publicEnv singletons (what
+// the app's code actually uses, computed once when this process's modules
+// first loaded). Also lists any OTHER process.env key containing "VAPID"
+// case-insensitively — catches a typo'd var NAME (trailing space, wrong
+// case, stray character) that would make `process.env.VAPID_PRIVATE_KEY`
 // read as undefined even though hPanel shows a very-similar-looking var as
-// set. Remove this export (and its one caller in admin/settings/page.tsx)
+// set. A handful of unrelated, already-working server secrets (DATABASE_URL,
+// AUTH_SECRET, DATABASE_POOL_URL, S3 keys) are included purely as a control
+// group — comparing their process.env presence against the VAPID vars'
+// tells us whether this is a VAPID-specific delivery problem or something
+// broader. Remove this export (and its one caller in admin/settings/page.tsx)
 // once the real cause is found.
 export function getVapidEnvDiagnostics() {
-  const names = ["VAPID_PRIVATE_KEY", "VAPID_SUBJECT", "NEXT_PUBLIC_VAPID_PUBLIC_KEY"] as const;
+  const names = ["WEB_PUSH_SECRET", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT", "NEXT_PUBLIC_VAPID_PUBLIC_KEY"] as const;
   const fromProcessEnv = names.map((name) => {
     const raw = process.env[name];
     return { name, presentInProcessEnv: raw !== undefined, rawLength: raw?.length ?? 0 };
@@ -67,11 +80,27 @@ export function getVapidEnvDiagnostics() {
     .filter((key) => key.toUpperCase().includes("VAPID") && !(names as readonly string[]).includes(key))
     .map((key) => ({ key, length: process.env[key]?.length ?? 0 }));
   const fromParsedEnv = [
+    { name: "WEB_PUSH_SECRET (serverEnv)", length: serverEnv.WEB_PUSH_SECRET?.length ?? 0 },
     { name: "VAPID_PRIVATE_KEY (serverEnv)", length: serverEnv.VAPID_PRIVATE_KEY?.length ?? 0 },
     { name: "VAPID_SUBJECT (serverEnv)", length: serverEnv.VAPID_SUBJECT?.length ?? 0 },
     { name: "NEXT_PUBLIC_VAPID_PUBLIC_KEY (publicEnv.vapidPublicKey)", length: publicEnv.vapidPublicKey.length },
   ];
-  return { fromProcessEnv, otherVapidLikeKeys, fromParsedEnv };
+
+  // Control group — already-working secrets, same two-way comparison.
+  const controlNames = ["DATABASE_URL", "DATABASE_POOL_URL", "AUTH_SECRET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"] as const;
+  const controlFromProcessEnv = controlNames.map((name) => {
+    const raw = process.env[name];
+    return { name, presentInProcessEnv: raw !== undefined, rawLength: raw?.length ?? 0 };
+  });
+  const controlFromParsedEnv = [
+    { name: "DATABASE_URL (serverEnv)", length: serverEnv.DATABASE_URL?.length ?? 0 },
+    { name: "DATABASE_POOL_URL (serverEnv)", length: serverEnv.DATABASE_POOL_URL?.length ?? 0 },
+    { name: "AUTH_SECRET (serverEnv)", length: serverEnv.AUTH_SECRET?.length ?? 0 },
+    { name: "S3_ACCESS_KEY_ID (serverEnv)", length: serverEnv.S3_ACCESS_KEY_ID?.length ?? 0 },
+    { name: "S3_SECRET_ACCESS_KEY (serverEnv)", length: serverEnv.S3_SECRET_ACCESS_KEY?.length ?? 0 },
+  ];
+
+  return { fromProcessEnv, otherVapidLikeKeys, fromParsedEnv, controlFromProcessEnv, controlFromParsedEnv };
 }
 
 let vapidDetailsSet = false;
@@ -92,7 +121,7 @@ function ensureConfigured(): boolean {
     return false;
   }
   if (!vapidDetailsSet) {
-    webpush.setVapidDetails(serverEnv.VAPID_SUBJECT, publicEnv.vapidPublicKey, serverEnv.VAPID_PRIVATE_KEY!);
+    webpush.setVapidDetails(serverEnv.VAPID_SUBJECT, publicEnv.vapidPublicKey, getPrivateKeySource().value);
     vapidDetailsSet = true;
   }
   return true;
