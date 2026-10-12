@@ -9,6 +9,10 @@ const boolFromString = z
 
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  // Derived from NEXT_PUBLIC_APP_URL below when unset (see the preprocessing
+  // before safeParse) — one URL, not two separate vars to keep in sync. Set
+  // APP_URL explicitly only if the server-side URL must differ from the
+  // public one (an unusual setup), which is why it's still its own field.
   APP_URL: z.string().url().default("http://localhost:3000"),
   // Used by `prisma migrate deploy` (via prisma.config.ts) and as the
   // runtime fallback below — needs a session/direct connection (e.g.
@@ -83,7 +87,13 @@ const serverEnvSchema = z.object({
   EMAIL_FROM: z.string().default("Pick Up <no-reply@pickup.example>"),
 
   // Object storage (S3-compatible) — required in production so uploads are
-  // not written to an unreliable local filesystem.
+  // not written to an unreliable local filesystem. STORAGE_PROVIDER,
+  // S3_REGION, S3_BUCKET, S3_PRIVATE_BUCKET and S3_FORCE_PATH_STYLE all have
+  // production-safe defaults baked in below (see the preprocessing before
+  // safeParse) matching this deploy's actual Supabase Storage setup, so none
+  // of those five need to be set in hPanel anymore — only the real secrets
+  // (S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY) and the two values with no safe
+  // guessable default (S3_ENDPOINT, S3_PUBLIC_URL_BASE) still need to be.
   STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
   S3_ENDPOINT: z.string().optional(),
   S3_REGION: z.string().optional(),
@@ -104,25 +114,48 @@ const serverEnvSchema = z.object({
 
   // Web Push (vendor/rider order alerts) — see src/lib/push/send.ts. Optional:
   // sendPushToUser() no-ops (logged once) when unset, so a deploy without
-  // these configured yet keeps working exactly as before, just without push.
+  // this configured yet keeps working exactly as before, just without push.
   // Trimmed: a value pasted into a host's env var UI (or copied via
   // Set-Clipboard, which can append a trailing newline) can pick up
   // leading/trailing whitespace that silently breaks base64url decoding.
   //
-  // WEB_PUSH_SECRET is a second accepted name for the exact same VAPID
-  // private key value. Diagnostics on hPanel showed VAPID_PRIVATE_KEY never
-  // reaching this process's runtime environment at all (while unrelated
-  // vars like DATABASE_URL and AUTH_SECRET do), even right after a build
-  // that picked up NEXT_PUBLIC_VAPID_PUBLIC_KEY — the suspicion is a host
-  // side filter/special-case on names containing "PRIVATE_KEY". Prefer this
-  // name going forward; VAPID_PRIVATE_KEY stays supported as a fallback for
-  // any other host that doesn't have that problem.
+  // The VAPID private key's ONLY accepted name now. Diagnostics confirmed
+  // VAPID_PRIVATE_KEY never reached this process's runtime environment at
+  // all (while unrelated vars like DATABASE_URL and AUTH_SECRET do), even
+  // right after a build that correctly picked up NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  // — turned out to be this host's env vars only reaching the running
+  // process in the order they were added, capped well below the total
+  // count that had built up (see getVapidEnvDiagnostics' control group).
+  // The "PRIVATE_KEY" fallback was dropped once that was confirmed, rather
+  // than kept as a second thing to go stale.
   WEB_PUSH_SECRET: z.string().trim().optional(),
-  VAPID_PRIVATE_KEY: z.string().trim().optional(),
   VAPID_SUBJECT: z.string().trim().default("mailto:information@pickupn.com"),
 });
 
-const parsed = serverEnvSchema.safeParse(process.env);
+// A few fields are given production-safe fallbacks here, in front of
+// safeParse, rather than as a plain zod .default(...) — because the
+// fallback must apply ONLY when the real var is genuinely absent, and in
+// APP_URL's case the fallback is computed FROM another env var, not a
+// constant. Keeping this in one place (rather than scattering `??` fallbacks
+// across every file that reads these) is also what let each of these stop
+// needing its own line in hPanel.
+const isProduction = process.env.NODE_ENV === "production";
+const rawEnv = {
+  ...process.env,
+  // One URL to set (NEXT_PUBLIC_APP_URL, which is build-time inlined
+  // anyway) instead of two kept in sync by hand.
+  APP_URL: process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
+  // Matches this deploy's actual Supabase Storage setup — see the
+  // STORAGE_PROVIDER doc comment above. Only applied in production so
+  // local dev's deliberate "local" default (see .env.example) is untouched.
+  STORAGE_PROVIDER: process.env.STORAGE_PROVIDER ?? (isProduction ? "s3" : undefined),
+  S3_REGION: process.env.S3_REGION ?? "ap-south-1",
+  S3_BUCKET: process.env.S3_BUCKET ?? "pickup-uploads",
+  S3_PRIVATE_BUCKET: process.env.S3_PRIVATE_BUCKET ?? "pickup_documents",
+  S3_FORCE_PATH_STYLE: process.env.S3_FORCE_PATH_STYLE ?? "true",
+};
+
+const parsed = serverEnvSchema.safeParse(rawEnv);
 
 if (!parsed.success) {
   console.error("Invalid environment variables:", parsed.error.flatten().fieldErrors);

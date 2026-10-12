@@ -12,7 +12,7 @@ vi.mock("web-push", () => ({
   default: { setVapidDetails: setVapidDetailsMock, sendNotification: sendNotificationMock },
 }));
 vi.mock("@/lib/env/server", () => ({
-  serverEnv: { VAPID_PRIVATE_KEY: "A".repeat(43), VAPID_SUBJECT: "mailto:test@example.com" },
+  serverEnv: { WEB_PUSH_SECRET: "A".repeat(43), VAPID_SUBJECT: "mailto:test@example.com" },
 }));
 vi.mock("@/lib/env/public", () => ({
   // 87 base64url chars decodes to exactly 65 bytes, matching a real VAPID

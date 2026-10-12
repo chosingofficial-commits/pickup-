@@ -1,3 +1,10 @@
+// Public half of the production VAPID keypair — safe to hardcode: that's
+// the whole point of a VAPID keypair's "public" half (the private half,
+// WEB_PUSH_SECRET, must never appear in source). Baked in here so this one
+// fewer var needs to survive hPanel's env var count — NEXT_PUBLIC_VAPID_PUBLIC_KEY
+// still overrides it when set (e.g. for a deploy using a different keypair).
+const DEFAULT_VAPID_PUBLIC_KEY = "BDfRJjvVrcEwZ8Y_90B2DJQsrhPJdVBddanfdqV-ofbcRNxHSDNjcXvjC6NnI5ORaSU2bqX1r8snO5Dpmsk1lgM";
+
 /**
  * Client-safe environment values. Only NEXT_PUBLIC_* variables may appear
  * here, and each must be referenced as a literal `process.env.NEXT_PUBLIC_*`
@@ -20,5 +27,5 @@ export const publicEnv = {
   // Trimmed: a value pasted into a host's env var UI (or copied via
   // Set-Clipboard, which can append a trailing newline) can pick up
   // leading/trailing whitespace that silently breaks base64url decoding.
-  vapidPublicKey: (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "").trim(),
+  vapidPublicKey: (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? DEFAULT_VAPID_PUBLIC_KEY).trim(),
 } as const;

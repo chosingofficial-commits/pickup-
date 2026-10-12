@@ -231,7 +231,7 @@ Rider live-location sharing (`/api/rider/location`, `/api/orders/[orderId]/track
 - **`local-adapter.ts`** — writes to `public/uploads/dev/`. Development only; most hosting filesystems (including typical Node app hosting) are not guaranteed persistent across restarts/redeploys, so this must not be used in production.
 - **`s3-adapter.ts`** — any S3-compatible provider (AWS S3, Cloudflare R2, Wasabi, Backblaze B2, MinIO, or Hostinger Object Storage) via `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` / `S3_PUBLIC_URL_BASE`.
 
-Set `STORAGE_PROVIDER=s3` and the `S3_*` variables in production. Uploads (vendor documents, logos, product photos, menu item photos, ad creatives) all go through `POST /api/uploads`, which validates file type (JPEG/PNG/WebP/PDF) and size (8MB max) server-side regardless of which adapter is active.
+`STORAGE_PROVIDER`, `S3_REGION`, `S3_BUCKET`, `S3_PRIVATE_BUCKET` and `S3_FORCE_PATH_STYLE` all have a production-safe default baked into `src/lib/env/server.ts` matching this project's actual setup — leave them unset in production. Only `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY` (real secrets) and `S3_ENDPOINT`/`S3_PUBLIC_URL_BASE` (no safe guessable default) need to be set. Uploads (vendor documents, logos, product photos, menu item photos, ad creatives) all go through `POST /api/uploads`, which validates file type (JPEG/PNG/WebP/PDF) and size (8MB max) server-side regardless of which adapter is active.
 
 Seed/demo product images are deliberately omitted — product cards render a category-tinted placeholder (`src/components/product/product-image.tsx`) instead of stock photography, so the repository has no risk of copyright-encumbered images and there's nothing to swap out except real vendor-uploaded photos.
 
@@ -249,12 +249,12 @@ Wire either one up with `CRON_SECRET`-protected API routes and Hostinger's cron 
 Vendors get a push when a new order comes in; riders get one when a vendor clicks "Find rider" (to every eligible online rider) and when an order is directly assigned to them (e.g. by an admin). Standard Web Push (VAPID) — no third-party push service, no SMS, no native app. The site is also installable as a PWA (`src/app/manifest.ts`, `public/sw.js`) on the main domain and on the vendor/rider subdomains alike, since manifest/service-worker scope is per-origin and each subdomain registers its own.
 
 **Setup:**
-1. Generate a VAPID keypair — either `npx web-push generate-vapid-keys`, or ask Claude to generate one into your local `.env` without ever printing the private key.
-2. Set three env vars (see `.env.example`):
-   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — **inlined into the client bundle at build time.** Set this in your hosting provider's environment variables *before* running the build/deploy, not after — changing it later requires a rebuild, not just a restart.
-   - `WEB_PUSH_SECRET` (preferred) or `VAPID_PRIVATE_KEY` (fallback, read when `WEB_PUSH_SECRET` is unset) — server-only, signs every push. Never commit a real value; treat it like any other secret. Some hosts special-case or silently drop env vars whose name contains "PRIVATE_KEY" — if yours does, use `WEB_PUSH_SECRET` instead.
-   - `VAPID_SUBJECT` — a `mailto:` contact address push services may use to reach you about delivery problems (defaults to `mailto:information@pickupn.com`).
-3. That's it — no other service/account needed. If these three vars are unset, `sendPushToUser()` (`src/lib/push/send.ts`) silently no-ops (logging one warning) so the rest of the app keeps working exactly as before.
+This deploy's real VAPID keypair is already baked into the code — the public half as a hardcoded fallback in `src/lib/env/public.ts` (safe; that's the point of a VAPID keypair's public half), the subject as `VAPID_SUBJECT`'s schema default. The **only env var you actually need to set** is the private half:
+- `WEB_PUSH_SECRET` — server-only, signs every push. Never commit a real value; treat it like any other secret. **Do not use the name `VAPID_PRIVATE_KEY`** — Hostinger was confirmed to silently drop env vars added past a certain count from reaching the running process at runtime (unrelated to the "PRIVATE_KEY" substring specifically, despite first appearances — see the diagnostics panel described below), which is why this app's env var count was deliberately trimmed down and why `VAPID_PRIVATE_KEY` is no longer read at all.
+
+Generating a fresh keypair instead (e.g. for a different environment): `npx web-push generate-vapid-keys`, or ask Claude to do it into your local `.env` without ever printing the private key. Override the public half with `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (**inlined into the client bundle at build time** — set it before deploying, not after) and the subject with `VAPID_SUBJECT`.
+
+If `WEB_PUSH_SECRET` is unset, `sendPushToUser()` (`src/lib/push/send.ts`) silently no-ops (logging one warning) so the rest of the app keeps working exactly as before.
 
 **How it works:**
 - `PushSubscription` (additive table, one row per browser/device a user has enabled alerts on) stores each subscription's endpoint + encryption keys, scoped by `userId`. A 404/410 from the push service means that endpoint is gone for good — the row is deleted automatically, never retried.
