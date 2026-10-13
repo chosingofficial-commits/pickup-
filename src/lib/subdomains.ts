@@ -100,3 +100,64 @@ export function sectionFromHost(host: string | null | undefined, appUrl: string)
   }
   return null;
 }
+
+// Fallback used only when NEXT_PUBLIC_APP_URL can't supply a real domain
+// (unset, or still the local-dev default) — this app's actual production
+// domain, hardcoded as a last resort.
+const PRODUCTION_FALLBACK_DOMAIN = "pickupn.com";
+const PRODUCTION_SUBDOMAIN_PREFIXES = ["vendor.", "rider.", "admin.", "www."];
+
+/**
+ * Root hostname to treat as "the real production domain" when
+ * auto-detecting subdomain routing (see isSubdomainRoutingEnabled below).
+ * Prefers the hostname parsed from NEXT_PUBLIC_APP_URL — inlined into the
+ * client bundle at build time, so unlike a plain server-only env var it's
+ * unaffected by a host that fails to deliver some env vars to the running
+ * process at runtime — excluding "localhost" so local dev's usual
+ * NEXT_PUBLIC_APP_URL (http://localhost:3000) can never accidentally match
+ * a real host and switch routing on there. Falls back to the hardcoded
+ * real domain otherwise.
+ */
+export function productionRootDomain(nextPublicAppUrl: string | undefined): string {
+  if (nextPublicAppUrl) {
+    try {
+      const hostname = new URL(nextPublicAppUrl).hostname;
+      if (hostname && hostname !== "localhost") return hostname;
+    } catch {
+      // Not a valid URL — fall through to the hardcoded fallback.
+    }
+  }
+  return PRODUCTION_FALLBACK_DOMAIN;
+}
+
+/** True when `host` is exactly the production root domain or one of its known vendor/rider/admin/www subdomains — always an exact match, never a substring one, so a lookalike host (e.g. "pickupn.com.evil.com") can never pass. */
+export function isProductionHost(host: string | null | undefined, nextPublicAppUrl: string | undefined): boolean {
+  if (!host) return false;
+  const hostname = host.split(":")[0] || host;
+  const root = productionRootDomain(nextPublicAppUrl);
+  if (hostname === root) return true;
+  return PRODUCTION_SUBDOMAIN_PREFIXES.some((prefix) => hostname === `${prefix}${root}`);
+}
+
+/**
+ * Whether subdomain routing should be treated as on for this request.
+ * `enableSubdomainRoutingEnv` is the raw ENABLE_SUBDOMAIN_ROUTING value
+ * (pass process.env.ENABLE_SUBDOMAIN_ROUTING) — "false" is an explicit,
+ * unconditional override (an instant rollback switch, even on the real
+ * production domain). Otherwise routing auto-enables for the real
+ * production domain and its subdomains regardless of the env var (see
+ * isProductionHost) — this is what makes it keep working even on a deploy
+ * where this particular var fails to reach the running process. Everywhere
+ * else (local dev, a preview host, etc.) falls back to the env var exactly
+ * as before ("true" to opt in), so a local .env's
+ * ENABLE_SUBDOMAIN_ROUTING=true keeps working unchanged.
+ */
+export function isSubdomainRoutingEnabled(
+  host: string | null | undefined,
+  nextPublicAppUrl: string | undefined,
+  enableSubdomainRoutingEnv: string | undefined,
+): boolean {
+  if (enableSubdomainRoutingEnv === "false") return false;
+  if (isProductionHost(host, nextPublicAppUrl)) return true;
+  return enableSubdomainRoutingEnv === "true";
+}

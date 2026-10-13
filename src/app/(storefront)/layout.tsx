@@ -6,15 +6,15 @@ import { WhatsAppButton } from "@/components/layout/whatsapp-button";
 import { MinimalSubdomainHeader } from "@/components/layout/minimal-subdomain-header";
 import { getCurrentUser } from "@/lib/auth/session";
 import { roleHome } from "@/lib/auth/role-home";
-import { sectionFromHost } from "@/lib/subdomains";
+import { sectionFromHost, isSubdomainRoutingEnabled } from "@/lib/subdomains";
 import { publicEnv } from "@/lib/env/public";
 
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
-  // Deliberately reads process.env directly, same as src/proxy.ts — this
-  // layout shouldn't ever be coupled to an unrelated env var failing the
-  // full serverEnv schema.
-  const subdomainRoutingEnabled = process.env.ENABLE_SUBDOMAIN_ROUTING === "true";
   const host = (await headers()).get("host");
+  // Deliberately reads process.env directly, same as src/proxy.ts — see
+  // isSubdomainRoutingEnabled's doc comment (src/lib/subdomains.ts) for
+  // the full on/off/auto-detect logic.
+  const subdomainRoutingEnabled = isSubdomainRoutingEnabled(host, process.env.NEXT_PUBLIC_APP_URL, process.env.ENABLE_SUBDOMAIN_ROUTING);
   const section = subdomainRoutingEnabled ? sectionFromHost(host, publicEnv.appUrl) : null;
 
   // On a vendor/rider subdomain, only the shared account/advertise pages

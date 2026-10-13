@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { publicEnv } from "@/lib/env/public";
-import { sectionFromHost, sectionOrigin, mainOrigin } from "@/lib/subdomains";
+import { sectionFromHost, sectionOrigin, mainOrigin, isSubdomainRoutingEnabled } from "@/lib/subdomains";
 
 // Computed at request time (and cached for an hour) instead of baked into
 // the build, since the catalog changes continuously and a build shouldn't
@@ -23,11 +23,11 @@ const STATIC_PATHS = [
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Deliberately reads process.env directly, same as src/proxy.ts — this
-  // route shouldn't ever be coupled to an unrelated env var failing the
-  // full serverEnv schema.
-  const subdomainRoutingEnabled = process.env.ENABLE_SUBDOMAIN_ROUTING === "true";
   const host = (await headers()).get("host");
+  // Deliberately reads process.env directly, same as src/proxy.ts — see
+  // isSubdomainRoutingEnabled's doc comment (src/lib/subdomains.ts) for
+  // the full on/off/auto-detect logic.
+  const subdomainRoutingEnabled = isSubdomainRoutingEnabled(host, process.env.NEXT_PUBLIC_APP_URL, process.env.ENABLE_SUBDOMAIN_ROUTING);
   const section = subdomainRoutingEnabled ? sectionFromHost(host, publicEnv.appUrl) : null;
 
   // Vendor/rider sign-up now lives at <section>.<domain>/register — its own

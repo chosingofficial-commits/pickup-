@@ -1,27 +1,49 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SECTIONS, SECTION_PREFIX, isSharedPath, isMainDomainPath, sectionFromHost, sectionOrigin, mainOrigin } from "@/lib/subdomains";
+import {
+  SECTIONS,
+  SECTION_PREFIX,
+  isSharedPath,
+  isMainDomainPath,
+  sectionFromHost,
+  sectionOrigin,
+  mainOrigin,
+  isProductionHost,
+  productionRootDomain,
+  isSubdomainRoutingEnabled,
+} from "@/lib/subdomains";
+import { publicEnv } from "@/lib/env/public";
 
-// Deliberately reads process.env directly (not the Zod-validated serverEnv
-// module) — proxy runs on every single request, and its routing shouldn't
-// ever be coupled to (or crash from) an unrelated env var failing full
-// validation elsewhere in the app.
-function subdomainRoutingEnabled(): boolean {
-  return process.env.ENABLE_SUBDOMAIN_ROUTING === "true";
-}
-
-function appUrl(): string {
-  return process.env.APP_URL ?? "http://localhost:3000";
+function appUrl(host: string | null): string {
+  // publicEnv.appUrl is NEXT_PUBLIC_APP_URL (inlined into the bundle at
+  // build time), falling back to "http://localhost:3000" only when that
+  // var was never set at all. That generic localhost fallback must never
+  // actually be used to build a redirect while serving a real production
+  // host — substitute the hardcoded production domain instead whenever
+  // that's the case, so this can never redirect a real visitor to
+  // localhost.
+  if (publicEnv.appUrl === "http://localhost:3000" && isProductionHost(host, process.env.NEXT_PUBLIC_APP_URL)) {
+    return `https://${productionRootDomain(process.env.NEXT_PUBLIC_APP_URL)}`;
+  }
+  return publicEnv.appUrl;
 }
 
 // Routing only — never an authorization decision. Every page/action this
 // might route a request to still runs its own getCurrentUser()/role check
-// exactly as before; disabling ENABLE_SUBDOMAIN_ROUTING only changes which
+// exactly as before; subdomain routing being on or off only changes which
 // host a request is expected to arrive on, never who's allowed to see it.
 export function proxy(request: NextRequest) {
-  if (!subdomainRoutingEnabled()) return NextResponse.next();
-
-  const url = appUrl();
   const host = request.headers.get("host");
+  // Deliberately reads process.env directly (not the Zod-validated
+  // serverEnv module) — proxy runs on every single request, and its
+  // routing shouldn't ever be coupled to (or crash from) an unrelated env
+  // var failing full validation elsewhere in the app. See
+  // isSubdomainRoutingEnabled's doc comment (src/lib/subdomains.ts) for
+  // the full on/off/auto-detect logic.
+  if (!isSubdomainRoutingEnabled(host, process.env.NEXT_PUBLIC_APP_URL, process.env.ENABLE_SUBDOMAIN_ROUTING)) {
+    return NextResponse.next();
+  }
+
+  const url = appUrl(host);
   const { pathname, search } = request.nextUrl;
   const section = sectionFromHost(host, url);
 
