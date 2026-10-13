@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { config } from "./proxy";
 
 // publicEnv.appUrl (used by proxy.ts's appUrl()) is a module-level constant
 // computed once from process.env at import time — same singleton pattern as
@@ -177,5 +178,29 @@ describe("proxy — non-production hosts fall back to the env var exactly as bef
     const proxy = await freshProxy();
     const res = proxy(request("admin.localhost:3000", "/"));
     expect(res.headers.get("x-middleware-rewrite")).toBe("http://admin.localhost:3000/admin");
+  });
+});
+
+// Regression coverage for a real bug found by testing a subdomain in an
+// actual browser once auto-detection made routing really turn on: without
+// excluding these paths, the middleware's own fallback "anything else is
+// this section's own clean-URL route" rule rewrites e.g.
+// vendor.pickupn.com/sw.js to /vendor/sw.js (doesn't exist) — a 404 that
+// silently breaks the service worker, and therefore push notifications,
+// and the installable manifest, on every subdomain. The middleware never
+// even runs for a path the matcher excludes, so this can't be tested by
+// calling proxy() directly (matcher filtering happens one layer up, in
+// Next.js's own routing) — asserted against the matcher's regex source
+// itself instead.
+describe("proxy middleware matcher excludes PWA/service-worker static assets", () => {
+  const [pattern] = config.matcher;
+  const matcher = new RegExp(`^${pattern}$`);
+
+  it.each(["/sw.js", "/manifest.webmanifest", "/apple-icon.png", "/icons/icon-192.png", "/favicon.ico", "/sitemap.xml", "/robots.txt"])("does not match %s (middleware skipped, served as a static file)", (path) => {
+    expect(matcher.test(path)).toBe(false);
+  });
+
+  it.each(["/", "/vendor", "/vendor/register", "/login", "/cart"])("still matches an ordinary page path %s (middleware runs)", (path) => {
+    expect(matcher.test(path)).toBe(true);
   });
 });

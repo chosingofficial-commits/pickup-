@@ -92,5 +92,14 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/).*)"],
+  // sw.js, manifest.webmanifest, apple-icon.png and icons/* are also
+  // excluded here, same as favicon.ico/sitemap.xml/robots.txt above — found
+  // by actually testing a subdomain in a browser once auto-detection made
+  // routing really turn on: without this, a request for e.g.
+  // vendor.pickupn.com/sw.js falls through to the generic "anything else is
+  // this section's own clean-URL route" rewrite below, becoming
+  // /vendor/sw.js — which doesn't exist — a 404 that silently breaks the
+  // service worker (and therefore push notifications) and the installable
+  // manifest on every subdomain.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/|sw\\.js|manifest\\.webmanifest|apple-icon\\.png|icons/).*)"],
 };
