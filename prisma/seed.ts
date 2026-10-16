@@ -617,10 +617,10 @@ async function main() {
   // Site settings
   // ---------------------------------------------------------------------
   const settingDefaults: Record<string, string> = {
-    support_phone: "+8801700000000",
+    support_phone: "+8801310790678",
     support_email: "support@pickup.example",
     support_address: "Khagrachari Sadar, Khagrachari, Chattogram, Bangladesh",
-    whatsapp_number: "+8801700000000",
+    whatsapp_number: "+8801310790678",
     default_commission_rate_pct: "10",
     free_delivery_threshold: "500",
   };

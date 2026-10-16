@@ -15,6 +15,16 @@ export function formatBDT(amount: number | string | { toString(): string }): str
   return `${publicEnv.currencySymbol} ${formatted}`;
 }
 
+/**
+ * Capitalizes the first letter of every word, lowercasing the rest first —
+ * used for place names (service areas, neighbourhoods, towns) that come
+ * from free-text admin entry and can't be trusted to already be correctly
+ * cased (e.g. "khagrachari" entered instead of "Khagrachari").
+ */
+export function titleCase(value: string): string {
+  return value.toLowerCase().replace(/\b\p{L}/gu, (ch) => ch.toUpperCase());
+}
+
 export function slugify(input: string): string {
   return input
     .toLowerCase()

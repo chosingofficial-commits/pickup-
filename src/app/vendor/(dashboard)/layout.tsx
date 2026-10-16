@@ -7,12 +7,13 @@ import { IncomingOrderAlert } from "@/components/vendor-dashboard/incoming-order
 import { getCurrentUser } from "@/lib/auth/session";
 import { mainDomainHome } from "@/lib/auth/section-redirect";
 import { logoutAction } from "@/lib/actions/auth";
+import { WrongRoleNotice } from "@/components/auth/wrong-role-notice";
 
 export default async function VendorLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/vendor");
+  if (user.role !== "VENDOR") return <WrongRoleNotice section="Vendor" />;
   const storefrontHref = await mainDomainHome();
-  if (user.role !== "VENDOR") redirect(storefrontHref);
 
   if (!user.vendorProfile) {
     return (

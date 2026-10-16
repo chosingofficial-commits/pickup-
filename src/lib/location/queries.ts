@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
+import { titleCase } from "@/lib/utils";
 
 // These two are identical for every visitor and rarely change (an admin
 // activating a service area or delivery zone), so they're cached across
@@ -24,18 +25,21 @@ export const getActiveServiceAreas = unstable_cache(
 export async function getActiveServiceAreaLabel(): Promise<string | null> {
   const areas = await getActiveServiceAreas();
   if (areas.length === 0) return null;
-  return areas.map((a) => a.name).join(", ");
+  return areas.map((a) => titleCase(a.name)).join(", ");
 }
 
 export const getOrderableNeighbourhoods = unstable_cache(
   async () => {
-    return db.neighbourhood.findMany({
+    const neighbourhoods = await db.neighbourhood.findMany({
       where: {
         deliveryZones: { some: { isActive: true, serviceArea: { isActive: true } } },
       },
       include: { town: true },
       orderBy: { name: "asc" },
     });
+    // Place names are free-text admin entry — never assumed to already be
+    // correctly cased (see titleCase's doc comment).
+    return neighbourhoods.map((n) => ({ ...n, name: titleCase(n.name), town: { ...n.town, name: titleCase(n.town.name) } }));
   },
   ["orderable-neighbourhoods"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["locations"] },

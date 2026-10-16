@@ -28,7 +28,7 @@ export const publicEnv = {
   currencySymbol: process.env.NEXT_PUBLIC_CURRENCY_SYMBOL ?? "Tk",
   timezone: process.env.NEXT_PUBLIC_TIMEZONE ?? "Asia/Dhaka",
   defaultLocale: (process.env.NEXT_PUBLIC_DEFAULT_LOCALE as "en" | "bn") ?? "en",
-  whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+8801700000000",
+  whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+8801310790678",
   brandName: process.env.NEXT_PUBLIC_BRAND_NAME ?? "Pick Up",
   // Web Push's applicationServerKey — safe to expose (it's the whole point
   // of the "public" half of a VAPID keypair). Empty string when unset, which

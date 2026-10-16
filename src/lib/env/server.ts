@@ -105,10 +105,10 @@ const serverEnvSchema = z.object({
   S3_FORCE_PATH_STYLE: boolFromString,
 
   // Support / contact defaults, seeded into SiteSetting on first run.
-  SUPPORT_PHONE: z.string().default("+8801700000000"),
+  SUPPORT_PHONE: z.string().default("+8801310790678"),
   SUPPORT_EMAIL: z.string().default("support@pickup.example"),
   SUPPORT_ADDRESS: z.string().default("Khagrachari Sadar, Khagrachari, Chattogram, Bangladesh"),
-  WHATSAPP_NUMBER: z.string().default("+8801700000000"),
+  WHATSAPP_NUMBER: z.string().default("+8801310790678"),
 
   CRON_SECRET: z.string().optional(),
 

@@ -54,7 +54,7 @@ export default async function AdminSettingsPage() {
               <p className="text-sm font-medium text-brand-dark">Push alerts</p>
               {!pushStatus.configured && pushStatus.reason && <p className="mt-0.5 text-xs text-gray-500">{pushStatus.reason}</p>}
             </div>
-            <Badge variant={pushStatus.configured ? "brand" : "dark"}>{pushStatus.configured ? "Configured" : "Not configured"}</Badge>
+            <Badge variant={pushStatus.configured ? "brand" : "warning"}>{pushStatus.configured ? "Configured" : "Not configured"}</Badge>
           </div>
 
           <div className="mt-3 space-y-1 text-sm text-gray-600">

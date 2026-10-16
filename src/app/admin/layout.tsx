@@ -6,12 +6,13 @@ import { AdminNav } from "@/components/admin/admin-nav";
 import { getCurrentUser } from "@/lib/auth/session";
 import { mainDomainHome } from "@/lib/auth/section-redirect";
 import { logoutAction } from "@/lib/actions/auth";
+import { WrongRoleNotice } from "@/components/auth/wrong-role-notice";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/admin");
+  if (user.role !== "ADMIN") return <WrongRoleNotice section="Admin" />;
   const storefrontHref = await mainDomainHome();
-  if (user.role !== "ADMIN") redirect(storefrontHref);
 
   return (
     <div className="min-h-screen bg-brand-bg">

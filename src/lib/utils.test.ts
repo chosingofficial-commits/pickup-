@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBDT, slugify, cn } from "./utils";
+import { formatBDT, slugify, cn, titleCase } from "./utils";
 
 describe("formatBDT", () => {
   it("formats a whole number without decimals", () => {
@@ -35,6 +35,28 @@ describe("slugify", () => {
 
   it("collapses repeated whitespace and hyphens", () => {
     expect(slugify("Too   Many   Spaces")).toBe("too-many-spaces");
+  });
+});
+
+describe("titleCase", () => {
+  // Regression coverage for a real production report: a service area's
+  // name was entered as "khagrachari" and showed up lowercase in "Now
+  // delivering in khagrachari" — place names are free-text admin entry and
+  // can't be trusted to already be correctly cased.
+  it("capitalizes a lowercase single word", () => {
+    expect(titleCase("khagrachari")).toBe("Khagrachari");
+  });
+
+  it("capitalizes every word in a multi-word name", () => {
+    expect(titleCase("khagrachari sadar")).toBe("Khagrachari Sadar");
+  });
+
+  it("normalizes an all-caps name instead of leaving it shouting", () => {
+    expect(titleCase("KHAGRACHARI TOWN CENTRE")).toBe("Khagrachari Town Centre");
+  });
+
+  it("leaves an already-correct name unchanged", () => {
+    expect(titleCase("Khagrachari Sadar")).toBe("Khagrachari Sadar");
   });
 });
 

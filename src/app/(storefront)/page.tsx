@@ -25,6 +25,7 @@ import { getSiteSettings, SITE_SETTING_KEYS } from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getFavoritedVendorIds } from "@/lib/favorites/queries";
 import { publicEnv } from "@/lib/env/public";
+import { enabledPaymentMethods } from "@/lib/payments/method-settings";
 
 export const metadata: Metadata = {
   title: "Groceries, essentials & restaurant food delivered fast",
@@ -83,6 +84,14 @@ export default async function HomePage() {
       : null,
   ].filter((m): m is string => !!m);
   const freeDeliveryBannerMessage = freeDeliveryMessages.length > 0 ? freeDeliveryMessages.join("  ·  ") : null;
+
+  // "How Pick Up works" step 4 — reflects what a customer can actually pay
+  // with right now rather than a generic "or online" that's misleading
+  // whenever every online gateway is off and cash on delivery is the only
+  // real option.
+  const enabledMethods = enabledPaymentMethods(settings);
+  const paymentStepBody =
+    enabledMethods.length === 1 && enabledMethods[0] === "COD" ? "Pay cash on delivery, and enjoy — that's it." : "Pay on delivery or online, and enjoy — that's it.";
 
   return (
     <>
@@ -161,12 +170,17 @@ export default async function HomePage() {
         </Section>
       )}
 
-      <Section title={dict.home.specialOffersTitle}>
+      {/* "Special offers" only actually describes something when a
+          free-delivery offer is live (the one real "offer" on this page,
+          announced in the banner at the very top) — without that, this
+          heading sat above the vendor-recruitment banner implying an offer
+          that didn't exist. The banner itself always shows regardless. */}
+      <Section title={freeDeliveryBannerMessage ? dict.home.specialOffersTitle : undefined}>
         <VendorPromo title={dict.home.vendorPromoTitle} body={dict.home.vendorPromoBody} cta={dict.home.vendorPromoCta} />
       </Section>
 
       <Section title={dict.home.howItWorksTitle}>
-        <HowItWorks />
+        <HowItWorks paymentStepBody={paymentStepBody} />
       </Section>
 
       <Section>
