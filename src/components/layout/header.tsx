@@ -14,7 +14,6 @@ import { getCartItemCount, getWishlistItemCount } from "@/lib/cart/queries";
 import { getSelectedLocation } from "@/lib/location/cookie";
 import { getOrderableNeighbourhoods } from "@/lib/location/queries";
 import { logoutAction } from "@/lib/actions/auth";
-import { roleHome } from "@/lib/auth/role-home";
 
 const NAV_LINKS = [
   { href: "/marketplace?category=groceries", labelKey: "groceries" as const },
@@ -40,7 +39,15 @@ export async function Header() {
   ]);
 
   const neighbourhoodOptions = neighbourhoods.map((n) => ({ id: n.id, name: n.name, townName: n.town.name }));
-  const accountHref = user ? roleHome(user.role) : "/login";
+  // Always "/account", never roleHome(user.role) — this header only ever
+  // renders on the customer-facing domain (vendor/rider subdomains get
+  // MinimalSubdomainHeader instead, see (storefront)/layout.tsx), and a
+  // relative redirect to "/vendor" or "/rider" from here would cross to a
+  // different origin via proxy.ts where this session cookie was never set.
+  // See (storefront)/account/layout.tsx's comment for the full story — a
+  // vendor/rider/admin account browsing here is simply a logged-in
+  // customer in this context, same as anyone else.
+  const accountHref = user ? "/account" : "/login";
 
   return (
     <header className="sticky top-0 z-40 border-b border-border-brand bg-white/95 backdrop-blur">

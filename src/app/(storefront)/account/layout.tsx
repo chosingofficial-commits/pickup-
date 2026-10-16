@@ -8,15 +8,19 @@ import { logoutAction } from "@/lib/actions/auth";
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/account");
-  // Admins have their own dashboard at /admin; vendors and riders have their
-  // own dashboards too, which now include everything this section offers
-  // them (Profile, My ads, Notifications, Support, Password & security) —
-  // see /vendor/profile, /vendor/notifications, /vendor/support and their
-  // /rider equivalents. This section is customers-only.
-  if (user.role === "ADMIN") redirect("/admin");
-  if (user.role === "VENDOR") redirect("/vendor/profile");
-  if (user.role === "RIDER") redirect("/rider/profile");
-
+  // Deliberately NOT role-gated. This used to redirect ADMIN/VENDOR/RIDER
+  // accounts to /admin, /vendor/profile or /rider/profile instead — correct
+  // back when those dashboards rendered directly on this same domain (pre
+  // subdomain-routing), but now that vendor./rider./admin.pickupn.com are
+  // real separate origins with their own host-only session cookie, a
+  // relative redirect() to "/vendor/profile" sent the browser through
+  // proxy.ts to vendor.pickupn.com — where this pickupn.com-scoped session
+  // was never valid, landing on that subdomain's login screen instead of
+  // this page. A vendor/rider account can place orders as a customer the
+  // same as anyone else (see src/lib/orders/access.ts's canViewOrderGroup)
+  // and this page is already role-agnostic (just this User row's own
+  // name/email/phone, orders, addresses, etc. — never a CustomerProfile
+  // precondition), so there's no actual reason to bounce them elsewhere.
   return (
     <Container className="py-8">
       <div className="grid gap-6 lg:grid-cols-[220px_1fr]">

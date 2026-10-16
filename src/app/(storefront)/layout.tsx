@@ -5,7 +5,6 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { WhatsAppButton } from "@/components/layout/whatsapp-button";
 import { MinimalSubdomainHeader } from "@/components/layout/minimal-subdomain-header";
 import { getCurrentUser } from "@/lib/auth/session";
-import { roleHome } from "@/lib/auth/role-home";
 import { sectionFromHost, isSubdomainRoutingEnabled } from "@/lib/subdomains";
 import { publicEnv } from "@/lib/env/public";
 
@@ -31,7 +30,9 @@ export default async function StorefrontLayout({ children }: { children: React.R
   }
 
   const user = await getCurrentUser();
-  const accountHref = user ? roleHome(user.role) : "/login";
+  // Always "/account" — see header.tsx's identical comment on why this
+  // can never be roleHome(user.role) here.
+  const accountHref = user ? "/account" : "/login";
 
   return (
     <>
