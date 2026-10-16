@@ -21,6 +21,7 @@ import {
   Megaphone,
   Ban,
   Inbox,
+  LineChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ const GROUPS: { label: string; links: { href: string; label: string; icon: React
   {
     label: "Commerce",
     links: [
+      { href: "/admin/finance", label: "Finance", icon: LineChart },
       { href: "/admin/orders", label: "Orders", icon: ClipboardList },
       { href: "/admin/categories", label: "Categories", icon: Tag },
       { href: "/admin/coupons", label: "Coupons", icon: Ticket },
