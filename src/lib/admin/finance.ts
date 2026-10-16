@@ -31,6 +31,24 @@ function createdAtFilter(range: FinanceRange): Prisma.OrderWhereInput["createdAt
   return { ...(range.start ? { gte: range.start } : {}), ...(range.end ? { lt: range.end } : {}) };
 }
 
+/**
+ * A running "who owes whom" balance is meaningless as a bare negative
+ * number — admins kept reading "-22,896" as an amount rather than a sign
+ * flip. Spells it out in words instead: positive means `weOweLabel` is
+ * still owed by Pick Up; negative means the other side has already been
+ * paid more than they've earned.
+ */
+export function describeOwedBalance(amountTk: number, partyLabel: string): string {
+  if (Math.abs(amountTk) < 0.01) return "All settled — Tk 0 owed either way";
+  if (amountTk > 0) return `Pick Up owes ${partyLabel} ${formatTk(amountTk)}`;
+  const capitalized = partyLabel.charAt(0).toUpperCase() + partyLabel.slice(1);
+  return `${capitalized} owe Pick Up ${formatTk(Math.abs(amountTk))}`;
+}
+
+function formatTk(amountTk: number): string {
+  return `Tk ${amountTk.toLocaleString("en-BD", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
 function genericDateFilter(range: FinanceRange): { gte?: Date; lt?: Date } | undefined {
   if (!range.start && !range.end) return undefined;
   return { ...(range.start ? { gte: range.start } : {}), ...(range.end ? { lt: range.end } : {}) };
@@ -118,6 +136,10 @@ export type RefundsSummary = {
   totalTk: number;
   restaurant: { ordersCount: number; totalTk: number };
   shop: { ordersCount: number; totalTk: number };
+  /** REQUESTED + APPROVED — money not yet moved, dated by when requested (processedAt isn't set until PROCESSED). */
+  pendingCount: number;
+  pendingTk: number;
+  rejectedCount: number;
 };
 
 const PROCESSED_REFUND_WHERE = (range: FinanceRange) => ({ status: "PROCESSED" as const, processedAt: genericDateFilter(range) });
@@ -130,8 +152,9 @@ const PROCESSED_REFUND_WHERE = (range: FinanceRange) => ({ status: "PROCESSED" a
  */
 export async function getFinanceRefundsSummary(range: FinanceRange): Promise<RefundsSummary> {
   const where = PROCESSED_REFUND_WHERE(range);
+  const createdAt = genericDateFilter(range);
 
-  const [overall, restaurantAgg, shopAgg, items] = await Promise.all([
+  const [overall, restaurantAgg, shopAgg, items, pendingAgg, rejectedAgg] = await Promise.all([
     db.refund.aggregate({ where, _sum: { amount: true }, _count: { _all: true } }),
     db.refund.aggregate({ where: { ...where, order: { vendor: { businessType: "RESTAURANT" } } }, _sum: { amount: true }, _count: { _all: true } }),
     db.refund.aggregate({ where: { ...where, order: { vendor: { businessType: "GROCERY_VENDOR" } } }, _sum: { amount: true }, _count: { _all: true } }),
@@ -139,6 +162,8 @@ export async function getFinanceRefundsSummary(range: FinanceRange): Promise<Ref
     // box), so "items refunded" = every OrderItem belonging to an order that
     // has a processed refund in this range.
     db.orderItem.aggregate({ where: { order: { refunds: { some: where } } }, _sum: { quantity: true } }),
+    db.refund.aggregate({ where: { status: { in: ["REQUESTED", "APPROVED"] }, createdAt }, _sum: { amount: true }, _count: { _all: true } }),
+    db.refund.aggregate({ where: { status: "REJECTED", createdAt }, _count: { _all: true } }),
   ]);
 
   return {
@@ -147,6 +172,9 @@ export async function getFinanceRefundsSummary(range: FinanceRange): Promise<Ref
     totalTk: Number(overall._sum.amount ?? 0),
     restaurant: { ordersCount: restaurantAgg._count._all, totalTk: Number(restaurantAgg._sum.amount ?? 0) },
     shop: { ordersCount: shopAgg._count._all, totalTk: Number(shopAgg._sum.amount ?? 0) },
+    pendingCount: pendingAgg._count._all,
+    pendingTk: Number(pendingAgg._sum.amount ?? 0),
+    rejectedCount: rejectedAgg._count._all,
   };
 }
 
@@ -450,10 +478,42 @@ export async function getFinanceSeries(buckets: { key: string; label: string; st
 }
 
 // =============================================================================
+// DATA INTEGRITY — orders whose Order and CommissionEntry rows disagree
+// =============================================================================
+
+export type DataIntegrityIssue = { orderId: string; orderNumber: string; reason: string };
+
+/**
+ * Finds every DELIVERED order where Order.vendorEarnings and
+ * CommissionEntry.vendorEarnings disagree (or CommissionEntry is missing
+ * entirely) — the exact class of issue that caused the "Owed to vendors"
+ * check-table mismatch (see getFinanceCheckTable's note). All-time, not
+ * date-filtered — this is a data-health check, not a money figure, so it
+ * should surface a problem regardless of which period the admin happens to
+ * be viewing.
+ */
+export async function getFinanceDataIntegrityIssues(): Promise<DataIntegrityIssue[]> {
+  const delivered = await db.order.findMany({
+    where: { status: "DELIVERED" },
+    select: { id: true, orderNumber: true, vendorEarnings: true, commissionEntry: { select: { vendorEarnings: true } } },
+  });
+
+  const issues: DataIntegrityIssue[] = [];
+  for (const o of delivered) {
+    if (!o.commissionEntry) {
+      issues.push({ orderId: o.id, orderNumber: o.orderNumber, reason: "No matching CommissionEntry row" });
+    } else if (Number(o.commissionEntry.vendorEarnings) !== Number(o.vendorEarnings)) {
+      issues.push({ orderId: o.id, orderNumber: o.orderNumber, reason: "Order and CommissionEntry vendor earnings disagree" });
+    }
+  }
+  return issues;
+}
+
+// =============================================================================
 // 6) CHECK TABLE — old Money overview vs this page, same period
 // =============================================================================
 
-export type CheckRow = { label: string; oldValue: string; newValue: string; matches: boolean; note?: string };
+export type CheckRow = { label: string; oldValue: string; newValue: string; matches: boolean; note?: string; displayAsText?: boolean };
 
 /**
  * Compares this page's numbers against the existing getAdminMoneyOverview
@@ -503,17 +563,22 @@ export async function getFinanceCheckTable(): Promise<CheckRow[]> {
     },
     {
       label: "Owed to vendors (running balance, all time)",
-      oldValue: fmt(old.vendor.vendorsOwedAllTimeTk),
-      newValue: fmt(money.owedToVendorsAllTimeTk),
+      oldValue: describeOwedBalance(old.vendor.vendorsOwedAllTimeTk, "vendors"),
+      newValue: describeOwedBalance(money.owedToVendorsAllTimeTk, "vendors"),
       matches: Math.abs(old.vendor.vendorsOwedAllTimeTk - money.owedToVendorsAllTimeTk) < 0.01,
+      displayAsText: true,
       note:
-        "Can differ by a small amount: the old Money overview sums CommissionEntry.vendorEarnings, this page sums Order.vendorEarnings directly — normally identical (written together at checkout), but at least one seeded demo order has no matching CommissionEntry row, so the old number silently excludes it while this page's doesn't. A real difference here is a worthwhile signal that an order is missing its CommissionEntry row.",
+        "Can differ by a small amount: the old Money overview sums CommissionEntry.vendorEarnings, this page sums Order.vendorEarnings directly — normally identical (written together at checkout), but at least one seeded demo order has no matching CommissionEntry row, so the old number silently excludes it while this page's doesn't. See the data-integrity warning box above for the exact order(s).",
     },
     {
       label: "Owed to riders (running balance, all time)",
-      oldValue: fmt(old.rider.weOweRidersPoisha / 100),
-      newValue: fmt(money.owedToRidersAllTimeTk),
+      // Always non-negative by construction (it's already the isolated sum
+      // of negative-balance riders only — see getFinanceMoneySummary) —
+      // described in words anyway for consistency with the vendor row above.
+      oldValue: describeOwedBalance(old.rider.weOweRidersPoisha / 100, "riders"),
+      newValue: describeOwedBalance(money.owedToRidersAllTimeTk, "riders"),
       matches: Math.abs(old.rider.weOweRidersPoisha / 100 - money.owedToRidersAllTimeTk) < 0.01,
+      displayAsText: true,
     },
     {
       label: "COD cash still held by riders (running balance, all time)",

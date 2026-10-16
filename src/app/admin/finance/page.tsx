@@ -16,6 +16,8 @@ import {
   getFinanceMoneySummary,
   getFinanceSeries,
   getFinanceCheckTable,
+  getFinanceDataIntegrityIssues,
+  describeOwedBalance,
   type OrderTypeBreakdown,
 } from "@/lib/admin/finance";
 import { FinanceDateFilter } from "@/components/admin/finance/finance-date-filter";
@@ -86,7 +88,7 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
   const riderPage = Math.max(1, Number(params.riderPage) || 1);
   const orderPage = Math.max(1, Number(params.orderPage) || 1);
 
-  const [ordersBreakdown, refundsSummary, refundsList, vendorTotals, vendorRows, orderRows, riderTotals, riderRows, moneySummary, checkTable] = await Promise.all([
+  const [ordersBreakdown, refundsSummary, refundsList, vendorTotals, vendorRows, orderRows, riderTotals, riderRows, moneySummary, checkTable, integrityIssues] = await Promise.all([
     getFinanceOrdersBreakdown(range),
     getFinanceRefundsSummary(range),
     getFinanceRefundsList(range, refundPage),
@@ -97,6 +99,7 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
     getRiderCommissionRows(range, riderPage),
     getFinanceMoneySummary(range),
     getFinanceCheckTable(),
+    getFinanceDataIntegrityIssues(),
   ]);
 
   // Series only computed for a bounded range — "All time" grouped by day
@@ -141,9 +144,41 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
             shown as of right now, not limited to the date filter above, the same way a bank balance isn&apos;t a &quot;this month&quot; number.
           </p>
           <p>Every refund today is a full refund of the whole order (there&apos;s no partial/line-item refund yet) — &quot;products refunded&quot; shows that order&apos;s own items.</p>
+          <p>
+            <strong className="text-brand-dark">Who pays for a refund?</strong> This app doesn&apos;t record that — there&apos;s no field on a refund for &quot;Pick Up&quot;,
+            &quot;vendor&quot;, or &quot;split&quot;, and nothing in the code claws back a vendor&apos;s commission or a rider&apos;s delivery earning when an order is refunded (checked
+            directly: processing a refund only changes the order&apos;s status and the payment&apos;s status — vendor and rider balances are untouched). So today, every refund
+            effectively comes entirely out of <strong className="text-brand-dark">Pick Up&apos;s own pocket</strong> — that&apos;s exactly why &quot;Pick Up&apos;s net
+            earnings&quot; below subtracts the full refunded amount, not a vendor- or rider-adjusted share of it. If refunds should be split with vendors/riders in the future, that
+            needs a new field and a real deduction workflow — it isn&apos;t built yet.
+          </p>
           <p>Advertising income is tracked separately (see the main dashboard / Advertising) and isn&apos;t part of this page&apos;s numbers.</p>
         </CardContent>
       </Card>
+
+      {integrityIssues.length > 0 && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="space-y-2 pt-5">
+            <CardTitle className="text-amber-900">
+              {integrityIssues.length} order{integrityIssues.length === 1 ? "" : "s"} need{integrityIssues.length === 1 ? "s" : ""} checking
+            </CardTitle>
+            <p className="text-sm text-amber-800">
+              These delivered orders&apos; commission records don&apos;t agree with each other (see &quot;Owed to vendors&quot; in the check table below for why this matters) — most
+              often a leftover from data created outside the normal checkout flow (e.g. a seeded demo order).
+            </p>
+            <ul className="list-disc space-y-1 pl-5 text-sm">
+              {integrityIssues.map((issue) => (
+                <li key={issue.orderId}>
+                  <Link href={`/admin/orders/${issue.orderId}`} className="font-semibold text-brand-dark hover:text-brand-primary">
+                    {issue.orderNumber}
+                  </Link>{" "}
+                  <span className="text-amber-800">— {issue.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 2) Orders */}
       <Card>
@@ -208,9 +243,17 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
             <SummaryLine label="Vendor commission earned" value={formatBDT(moneySummary.vendorCommissionTk)} explanation="Pick Up's cut of item sales, at each order's own saved rate." />
             <SummaryLine label="Rider commission earned" value={formatBDT(moneySummary.riderCommissionTk)} explanation="Pick Up's cut of the delivery fee, at each delivery's own saved rate." />
             <SummaryLine label="Paid to vendors" value={formatBDT(moneySummary.paidToVendorsTk)} explanation="Payouts actually sent to vendors in this period." />
-            <SummaryLine label="Owed to vendors" value={formatBDT(moneySummary.owedToVendorsAllTimeTk)} explanation="Running balance, all time — not limited to this period." />
+            <SummaryLine
+              label="Owed to vendors"
+              value={describeOwedBalance(moneySummary.owedToVendorsAllTimeTk, "vendors")}
+              explanation="Running balance, all time, not limited to this period — commission vendors have earned minus what's already been paid out. Negative means a vendor has been paid more than they've earned so far."
+            />
             <SummaryLine label="Paid to riders" value={formatBDT(moneySummary.paidToRidersTk)} explanation="Payouts actually sent to riders in this period." />
-            <SummaryLine label="Owed to riders" value={formatBDT(moneySummary.owedToRidersAllTimeTk)} explanation="Running balance, all time — not limited to this period." />
+            <SummaryLine
+              label="Owed to riders"
+              value={describeOwedBalance(moneySummary.owedToRidersAllTimeTk, "riders")}
+              explanation="Running balance, all time, not limited to this period — a rider's balance nets their delivery earnings (Pick Up owes them) against COD cash they've collected but not handed over yet (they owe Pick Up); this line is only the riders currently in Pick Up's debt. See 'COD cash still held' below for the other direction."
+            />
             <div className="mt-2 rounded-control border-2 border-dashed border-border-brand p-3">
               <SummaryLine
                 label="Pick Up's net earnings"
@@ -247,6 +290,17 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
               </p>
             </div>
           </div>
+
+          <p className="text-sm text-gray-600">
+            <Link href="/admin/refunds" className="font-semibold text-brand-dark hover:text-brand-primary">
+              Pending refund requests: {refundsSummary.pendingCount} ({formatBDT(refundsSummary.pendingTk)})
+            </Link>
+            {" · "}
+            <Link href="/admin/refunds" className="font-semibold text-brand-dark hover:text-brand-primary">
+              Rejected: {refundsSummary.rejectedCount}
+            </Link>
+            <span className="text-gray-500"> — not counted as refunded above; open the Refunds page to review or act on these.</span>
+          </p>
 
           {refundsList.rows.length === 0 ? (
             <p className="text-sm text-gray-500">No processed refunds in this period.</p>
@@ -443,8 +497,8 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
                 {checkTable.map((row) => (
                   <tr key={row.label} className="border-b border-border-brand align-top last:border-0">
                     <td className="px-3 py-2 text-gray-600">{row.label}</td>
-                    <td className="px-3 py-2 text-right">{formatBDT(Number(row.oldValue))}</td>
-                    <td className="px-3 py-2 text-right">{formatBDT(Number(row.newValue))}</td>
+                    <td className="px-3 py-2 text-right">{row.displayAsText ? row.oldValue : formatBDT(Number(row.oldValue))}</td>
+                    <td className="px-3 py-2 text-right">{row.displayAsText ? row.newValue : formatBDT(Number(row.newValue))}</td>
                     <td className="px-3 py-2">
                       <Badge variant={row.matches ? "brand" : "warning"}>{row.matches ? "Matches" : "Differs — expected"}</Badge>
                       {row.note && <p className="mt-1 max-w-xs text-xs text-gray-500">{row.note}</p>}
