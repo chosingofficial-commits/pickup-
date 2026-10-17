@@ -10,7 +10,8 @@ import { VendorEditForm } from "@/components/admin/vendor-edit-form";
 import { AdminWeeklyHoursForm } from "@/components/admin/admin-weekly-hours-form";
 import { toggleVendorSuspensionAction, adminUpdateWeeklyHoursAction, adminUpdateShopWeeklyHoursAction } from "@/lib/actions/admin-vendors";
 import { getVendorDashboardStats } from "@/lib/vendor/queries";
-import { getVendorPayoutBalance } from "@/lib/vendor/payout-balance";
+import { getVendorMoneyBreakdown } from "@/lib/admin/vendor-payouts";
+import { VendorPayoutBreakdown } from "@/components/admin/vendor-payout-breakdown";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 
@@ -36,9 +37,9 @@ export default async function AdminVendorDetailPage({ params }: { params: Promis
     ? await db.menuItem.count({ where: { menu: { vendorId: vendor.id }, deletedAt: null } })
     : 0;
 
-  const [stats, balance, recentOrders] = await Promise.all([
+  const [stats, breakdown, recentOrders] = await Promise.all([
     getVendorDashboardStats(vendor.id),
-    getVendorPayoutBalance(vendor.id),
+    getVendorMoneyBreakdown(vendor.id),
     db.order.findMany({
       where: { vendorId: vendor.id },
       orderBy: { createdAt: "desc" },
@@ -215,17 +216,19 @@ export default async function AdminVendorDetailPage({ params }: { params: Promis
                   <dt className="text-xs text-gray-500">Commission earned (platform)</dt>
                   <dd className="font-semibold text-brand-dark">{formatBDT(stats.commissionPaid)}</dd>
                 </div>
-                <div>
-                  <dt className="text-xs text-gray-500">Vendor earnings</dt>
-                  <dd className="font-semibold text-brand-dark">{formatBDT(balance.earnings)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-gray-500">Pending payout (requested + approved)</dt>
-                  <dd className="font-semibold text-brand-dark">{formatBDT(balance.reserved)}</dd>
-                </div>
               </dl>
             </CardContent>
           </Card>
+
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-heading text-base font-bold text-brand-dark">Payouts &amp; balance</h2>
+              <Link href={`/admin/payouts?vendor=${encodeURIComponent(vendor.businessName)}`} className="text-xs font-semibold text-brand-primary hover:underline">
+                View payout history →
+              </Link>
+            </div>
+            <VendorPayoutBreakdown breakdown={breakdown} />
+          </div>
 
           {vendor.application && (
             <Card>
