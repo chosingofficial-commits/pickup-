@@ -61,12 +61,26 @@ export default async function VendorPayoutsPage() {
       {payouts.length > 0 && (
         <div className="space-y-2">
           {payouts.map((p) => (
-            <div key={p.id} className="flex items-center justify-between rounded-card border border-border-brand bg-white p-4">
-              <div>
-                <p className="text-sm font-semibold text-brand-dark">{formatBDT(p.amount)}</p>
-                <p className="text-xs text-gray-500">Requested {p.requestedAt.toLocaleDateString("en-BD", { dateStyle: "medium" })}</p>
+            <div key={p.id} className="rounded-card border border-border-brand bg-white p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-brand-dark">{formatBDT(p.amount)}</p>
+                  <p className="text-xs text-gray-500">Requested {p.requestedAt.toLocaleDateString("en-BD", { dateStyle: "medium" })}</p>
+                </div>
+                <Badge variant={p.status === "PAID" ? "brand" : p.status === "REJECTED" ? "danger" : "accent"}>{p.status}</Badge>
               </div>
-              <Badge variant={p.status === "PAID" ? "brand" : p.status === "REJECTED" ? "danger" : "accent"}>{p.status}</Badge>
+              {p.status === "REJECTED" && p.adminNote && <p className="mt-2 text-xs text-red-600">Reason: {p.adminNote}</p>}
+              {p.status === "PAID" && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Paid {p.processedAt?.toLocaleDateString("en-BD", { dateStyle: "medium" })}
+                  {p.referenceNo && (
+                    <>
+                      {" "}
+                      · Reference: <span className="font-mono">{p.referenceNo}</span>
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           ))}
         </div>

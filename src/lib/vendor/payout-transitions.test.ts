@@ -192,6 +192,20 @@ describe("transitionPayoutStatus", () => {
     expect(logs).toHaveLength(1);
   });
 
+  it("persists the rejection reason and the paid reference — what the vendor's own payouts page now displays", async () => {
+    await createEarnings(200);
+    const rejected = await setupPayout("PENDING", 100);
+    await transitionPayoutStatus(rejected.id, "REJECTED", await actor(), { adminNote: "Bank details could not be verified" });
+    const updatedRejected = await db.vendorPayout.findUniqueOrThrow({ where: { id: rejected.id } });
+    expect(updatedRejected.adminNote).toBe("Bank details could not be verified");
+
+    const toPay = await setupPayout("APPROVED", 100);
+    await transitionPayoutStatus(toPay.id, "PAID", await actor(), { referenceNo: "TRX123456" });
+    const updatedPaid = await db.vendorPayout.findUniqueOrThrow({ where: { id: toPay.id } });
+    expect(updatedPaid.referenceNo).toBe("TRX123456");
+    expect(updatedPaid.processedAt).not.toBeNull();
+  });
+
   // ---------------------------------------------------------------------
   // Eligibility re-check (server-side enforcement, not just the UI)
   // ---------------------------------------------------------------------

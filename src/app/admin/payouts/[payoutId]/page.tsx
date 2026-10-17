@@ -138,6 +138,7 @@ export default async function AdminPayoutDetailPage({
           <CardTitle>Payout destination</CardTitle>
           <p className="text-xs text-gray-500">On file from this vendor&apos;s registration — not editable here.</p>
           <p className="mt-2 text-sm font-medium text-brand-dark">{payoutDestination ?? "Not on file — contact the vendor before paying."}</p>
+          <p className="text-xs text-amber-700">Taken from the vendor&apos;s registration. Confirm with the vendor before sending money.</p>
           {payout.referenceNo && (
             <p className="text-xs text-gray-500">
               Last payment reference: <span className="font-mono">{payout.referenceNo}</span>
