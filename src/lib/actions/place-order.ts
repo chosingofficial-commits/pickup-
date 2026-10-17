@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getFullCart } from "@/lib/cart/queries";
 import { getCheckoutState, clearCheckoutState } from "@/lib/checkout/cookie";
 import { getSelectedCouponCode, setSelectedCouponCode } from "@/lib/cart/coupon-cookie";
-import { validateCoupon } from "@/lib/cart/coupon";
+import { validateCoupon, reserveCouponUsage } from "@/lib/cart/coupon";
 import { groupSubtotal, computeCouponDiscount, getFreeDeliveryReason, round2 } from "@/lib/cart/totals";
 import { getFreeDeliveryPromoSettingsUncached, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
 import { getTobaccoSettings } from "@/lib/tobacco/queries";
@@ -126,6 +126,17 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
 
   try {
     const { orderGroup, payment, grandTotal, vendorPushes } = await db.$transaction(async (tx) => {
+      // Re-checked here, inside the transaction, with a row lock — the
+      // validateCoupon call above ran before this transaction started and
+      // is only a best-effort preview; two concurrent checkouts racing for
+      // the same coupon's last use must be decided here, where only one can
+      // win. Rolls back the whole order (no stock change, nothing created)
+      // if this coupon has just been used up by someone else.
+      if (validatedCoupon?.ok) {
+        const reserved = await reserveCouponUsage(tx, validatedCoupon.coupon.id, user.id);
+        if (!reserved) throw new Error("COUPON_LIMIT_REACHED");
+      }
+
       const orderGroupNumber = `PU-${Date.now()}`;
 
       let runningSubtotal = 0;
@@ -376,6 +387,9 @@ export async function placeOrderAction(_prev: ActionState, formData: FormData): 
     if (err instanceof Error && err.message.startsWith("INSUFFICIENT_STOCK:")) {
       const name = err.message.slice("INSUFFICIENT_STOCK:".length);
       return { status: "error", message: `"${name}" just sold out. Please update your cart and try again.` };
+    }
+    if (err instanceof Error && err.message === "COUPON_LIMIT_REACHED") {
+      return { status: "error", message: "This coupon has reached its limit." };
     }
     console.error("placeOrderAction failed:", err);
     return { status: "error", message: "We couldn't place your order. Please try again." };

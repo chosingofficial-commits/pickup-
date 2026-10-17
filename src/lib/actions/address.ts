@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { addressSchema } from "@/lib/validation/address";
 import { updateCheckoutState } from "@/lib/checkout/cookie";
+import { findOwnedAddress } from "@/lib/checkout/address";
 import type { ActionState } from "./types";
 
 export async function addAddressAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -66,8 +67,16 @@ export async function addAddressAction(_prev: ActionState, formData: FormData): 
 }
 
 export async function selectCheckoutAddressAction(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/checkout");
+
   const addressId = String(formData.get("addressId") ?? "");
-  await updateCheckoutState({ addressId });
+  // Never trust the submitted id alone — same generic outcome whether it
+  // doesn't exist or just isn't this user's, so neither case leaks which.
+  const owned = await findOwnedAddress(user.id, addressId);
+  if (!owned) redirect("/checkout?error=address_not_found");
+
+  await updateCheckoutState({ addressId: owned.id });
   redirect("/checkout/schedule");
 }
 

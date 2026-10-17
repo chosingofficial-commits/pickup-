@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { getPeriodStart, type PeriodKey } from "@/lib/date/period";
 import { getRiderPaymentSummary, type RiderPaymentSummary } from "@/lib/rider/ledger";
+import { getVendorPayoutBalance } from "@/lib/vendor/payout-balance";
 
 /**
  * Online payments (non-COD) for the admin Payments page — "real" and
@@ -55,17 +56,19 @@ export async function getVendorPaymentSummary(period: PeriodKey): Promise<Vendor
   const since = getPeriodStart(period);
   const deliveredFilter = { order: { status: "DELIVERED" as const, updatedAt: since ? { gte: since } : undefined } };
 
-  const [commissionAgg, paidAgg, allTimeEarningsAgg, allTimePaidAgg] = await Promise.all([
+  const [commissionAgg, paidAgg, balance] = await Promise.all([
     db.commissionEntry.aggregate({ where: deliveredFilter, _sum: { commissionAmount: true } }),
     db.vendorPayout.aggregate({ where: { status: "PAID", processedAt: since ? { gte: since } : undefined }, _sum: { amount: true } }),
-    db.commissionEntry.aggregate({ where: { order: { status: "DELIVERED" } }, _sum: { vendorEarnings: true } }),
-    db.vendorPayout.aggregate({ where: { status: "PAID" }, _sum: { amount: true } }),
+    // Platform-wide version of the exact same formula the vendor payouts
+    // page and requestPayoutAction use — never a second, independently
+    // drifting formula for "owed to vendors."
+    getVendorPayoutBalance(),
   ]);
 
   return {
     commissionPeriodTk: Number(commissionAgg._sum.commissionAmount ?? 0),
     vendorsPaidPeriodTk: Number(paidAgg._sum.amount ?? 0),
-    vendorsOwedAllTimeTk: Number(allTimeEarningsAgg._sum.vendorEarnings ?? 0) - Number(allTimePaidAgg._sum.amount ?? 0),
+    vendorsOwedAllTimeTk: balance.available,
   };
 }
 

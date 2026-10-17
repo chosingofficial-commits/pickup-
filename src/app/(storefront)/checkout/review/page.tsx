@@ -12,7 +12,7 @@ import { validateCoupon } from "@/lib/cart/coupon";
 import { groupSubtotal, computeCouponDiscount, freeDeliveryApplies, round2 } from "@/lib/cart/totals";
 import { getFreeDeliveryPromoSettingsUncached, isFirstOrderCustomer } from "@/lib/promotions/free-delivery";
 import { getTobaccoSettings } from "@/lib/tobacco/queries";
-import { db } from "@/lib/db";
+import { getCheckoutAddressOrDefault } from "@/lib/checkout/address";
 import { formatBDT } from "@/lib/utils";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { formatVariantLabel } from "@/lib/catalog/variant-label";
@@ -30,7 +30,10 @@ export default async function CheckoutReviewPage() {
 
   const [{ groups }, address, couponCode, locale] = await Promise.all([
     getFullCart(user.id),
-    db.address.findUnique({ where: { id: state.addressId }, include: { neighbourhood: { include: { town: true } }, deliveryZone: true } }),
+    // Never trusts the cookie's addressId alone — falls back to the user's
+    // own default address if it doesn't belong to them (a forged or stale
+    // cookie must never reveal another customer's address here).
+    getCheckoutAddressOrDefault(user.id, state.addressId),
     getSelectedCouponCode(),
     getLocale(),
   ]);

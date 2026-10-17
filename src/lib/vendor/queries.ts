@@ -27,17 +27,16 @@ export async function getCategoriesForProductForm() {
   });
 }
 
+/**
+ * Earnings and payout balance are NOT computed here — see
+ * `getVendorPayoutBalance` in `@/lib/vendor/payout-balance`, the one shared
+ * formula every earnings/payout screen uses, so they can never disagree.
+ */
 export async function getVendorDashboardStats(vendorId: string) {
-  const [orderCount, revenueAgg, commissionAgg, payoutAgg, pendingOrders] = await Promise.all([
+  const [orderCount, revenueAgg, commissionAgg, pendingOrders] = await Promise.all([
     db.order.count({ where: { vendorId, status: { notIn: EXCLUDED_FROM_TOTAL_STATUSES } } }),
     db.order.aggregate({ where: { vendorId, status: "DELIVERED" }, _sum: { total: true } }),
-    // Only orders that actually reached DELIVERED count toward earnings —
-    // CommissionEntry rows are written at order-placement time, well before
-    // delivery, so an unfiltered sum here would count in-progress, cancelled,
-    // failed, returned, and refunded orders as available-for-payout money the
-    // platform hasn't (and may never) collect.
-    db.commissionEntry.aggregate({ where: { vendorId, order: { status: "DELIVERED" } }, _sum: { commissionAmount: true, vendorEarnings: true } }),
-    db.vendorPayout.aggregate({ where: { vendorId, status: "PENDING" }, _sum: { amount: true } }),
+    db.commissionEntry.aggregate({ where: { vendorId, order: { status: "DELIVERED" } }, _sum: { commissionAmount: true } }),
     db.order.count({ where: { vendorId, status: { in: PENDING_ORDER_STATUSES } } }),
   ]);
 
@@ -45,8 +44,6 @@ export async function getVendorDashboardStats(vendorId: string) {
     totalOrders: orderCount,
     revenue: Number(revenueAgg._sum.total ?? 0),
     commissionPaid: Number(commissionAgg._sum.commissionAmount ?? 0),
-    earnings: Number(commissionAgg._sum.vendorEarnings ?? 0),
-    pendingPayout: Number(payoutAgg._sum.amount ?? 0),
     pendingOrders,
   };
 }

@@ -1,10 +1,10 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
-import type { OrderStatus } from "@/generated/prisma/client";
+import type { OrderStatus, Prisma } from "@/generated/prisma/client";
 
 /** A cancelled or failed order never actually delivered the discount, so its redemption releases the coupon back for reuse — delivered (and still in-progress) orders keep counting. */
-const STATUSES_THAT_DONT_COUNT_TOWARD_COUPON_USAGE: OrderStatus[] = ["CANCELLED", "FAILED_DELIVERY"];
+export const STATUSES_THAT_DONT_COUNT_TOWARD_COUPON_USAGE: OrderStatus[] = ["CANCELLED", "FAILED_DELIVERY"];
 
 export type ValidatedCoupon = {
   id: string;
@@ -57,4 +57,32 @@ export async function validateCoupon(
       maxDiscountAmount: coupon.maxDiscountAmount != null ? Number(coupon.maxDiscountAmount) : null,
     },
   };
+}
+
+/**
+ * The real, race-safe usage check — `validateCoupon` above runs before the
+ * checkout transaction starts and is only a best-effort preview; two
+ * concurrent checkouts can both pass it and both reach here. This must run
+ * inside the same `db.$transaction` as the order write it's gating, so the
+ * row lock actually serializes concurrent redemptions of the same coupon:
+ * the second caller can't even read the usage count until the first's
+ * transaction has committed (or rolled back) and released the lock.
+ */
+export async function reserveCouponUsage(tx: Prisma.TransactionClient, couponId: string, customerId: string): Promise<boolean> {
+  await tx.$queryRaw`SELECT id FROM "Coupon" WHERE id = ${couponId} FOR UPDATE`;
+  const coupon = await tx.coupon.findUniqueOrThrow({ where: { id: couponId } });
+
+  if (coupon.usageLimit != null) {
+    const used = await tx.couponRedemption.count({
+      where: { couponId, order: { status: { notIn: STATUSES_THAT_DONT_COUNT_TOWARD_COUPON_USAGE } } },
+    });
+    if (used >= coupon.usageLimit) return false;
+  }
+
+  const usedByCustomer = await tx.couponRedemption.count({
+    where: { couponId, order: { customerId, status: { notIn: STATUSES_THAT_DONT_COUNT_TOWARD_COUPON_USAGE } } },
+  });
+  if (usedByCustomer >= coupon.perCustomerLimit) return false;
+
+  return true;
 }

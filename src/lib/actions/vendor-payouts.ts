@@ -2,39 +2,36 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getVendorDashboardStats } from "@/lib/vendor/queries";
+import { createVendorPayoutRequest } from "@/lib/vendor/payout-request";
 import type { ActionState } from "./types";
 
-const payoutSchema = z.object({ amount: z.coerce.number().positive("Enter a valid amount") });
+// A regex (not z.coerce.number + multipleOf) so "max 2 decimals" can't be
+// fooled by binary floating-point representation — e.g. 0.1 isn't exactly
+// representable, so a multipleOf(0.01) check on the coerced number can
+// reject a perfectly valid amount depending on rounding.
+const payoutSchema = z.object({
+  amount: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{1,2})?$/, "Enter a valid amount with at most 2 decimal places")
+    .transform(Number)
+    .refine((n) => n > 0 && Number.isFinite(n), "Enter a valid amount"),
+});
 
 export async function requestPayoutAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user?.vendorProfile) return { status: "error", message: "Please log in." };
 
-  const parsed = payoutSchema.safeParse({ amount: formData.get("amount") });
-  if (!parsed.success) return { status: "error", message: "Enter a valid amount." };
+  const parsed = payoutSchema.safeParse({ amount: String(formData.get("amount") ?? "") });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Enter a valid amount." };
 
-  const stats = await getVendorDashboardStats(user.vendorProfile.id);
-  const alreadyPending = stats.pendingPayout;
-  const alreadyPaidAgg = await db.vendorPayout.aggregate({ where: { vendorId: user.vendorProfile.id, status: "PAID" }, _sum: { amount: true } });
-  const available = stats.earnings - alreadyPending - Number(alreadyPaidAgg._sum.amount ?? 0);
-
-  if (parsed.data.amount > available) {
-    return { status: "error", message: `You can request up to Tk ${available.toFixed(2)}.` };
+  // The real protection is here, inside a locked transaction — the UI's own
+  // `max` attribute and disabled state are just convenience, never trusted.
+  const result = await createVendorPayoutRequest(user.vendorProfile.id, parsed.data.amount);
+  if (!result.ok) {
+    return { status: "error", message: `You can request up to Tk ${Math.max(0, result.available).toFixed(2)}.` };
   }
-
-  const now = new Date();
-  await db.vendorPayout.create({
-    data: {
-      vendorId: user.vendorProfile.id,
-      amount: parsed.data.amount,
-      status: "PENDING",
-      periodStart: new Date(now.getFullYear(), now.getMonth(), 1),
-      periodEnd: now,
-    },
-  });
 
   revalidatePath("/vendor/payouts");
   return { status: "success", message: "Payout requested. An admin will review it shortly." };

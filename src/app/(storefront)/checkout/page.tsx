@@ -12,12 +12,14 @@ import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Checkout — Delivery address" };
 
-export default async function CheckoutAddressPage() {
+export default async function CheckoutAddressPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/checkout");
 
   const { groups } = await getFullCart(user.id);
   if (groups.length === 0) redirect("/cart");
+
+  const { error } = await searchParams;
 
   const [addresses, neighbourhoods] = await Promise.all([
     db.address.findMany({
@@ -36,6 +38,12 @@ export default async function CheckoutAddressPage() {
       <div className="mx-auto max-w-lg">
         <h1 className="font-heading text-xl font-bold text-brand-dark">Delivery address</h1>
         <p className="mt-1 text-sm text-gray-600">Confirmed as {user.name} · {user.phone}</p>
+
+        {error === "address_not_found" && (
+          <p role="alert" className="mt-3 rounded-control bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+            Please choose one of your saved addresses below.
+          </p>
+        )}
 
         {addresses.length > 0 && (
           <div className="mt-5 space-y-3">

@@ -24,7 +24,10 @@ export async function getAdminOverviewStats() {
     // Same DELIVERED-only rule as totalSalesAgg/getDailySalesSeries above —
     // commission on an order that hasn't been delivered isn't realized revenue.
     db.commissionEntry.aggregate({ where: { order: { status: "DELIVERED" } }, _sum: { commissionAmount: true } }),
-    db.refund.aggregate({ where: { status: "REQUESTED" }, _sum: { amount: true }, _count: { _all: true } }),
+    // Includes APPROVED, not just REQUESTED — approved-but-not-yet-PROCESSED
+    // refunds are still money that hasn't moved yet, same rule the Finance
+    // page's getFinanceRefundsSummary already uses.
+    db.refund.aggregate({ where: { status: { in: ["REQUESTED", "APPROVED"] } }, _sum: { amount: true }, _count: { _all: true } }),
     db.vendorPayout.aggregate({ where: { status: "PENDING" }, _sum: { amount: true }, _count: { _all: true } }),
     // Riders with a negative balance (Pick Up owes them) — same figure as
     // getRiderPaymentSummary's weOweRidersPoisha, kept here too so the main

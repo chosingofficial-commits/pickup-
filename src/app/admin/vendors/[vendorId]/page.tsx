@@ -10,6 +10,7 @@ import { VendorEditForm } from "@/components/admin/vendor-edit-form";
 import { AdminWeeklyHoursForm } from "@/components/admin/admin-weekly-hours-form";
 import { toggleVendorSuspensionAction, adminUpdateWeeklyHoursAction, adminUpdateShopWeeklyHoursAction } from "@/lib/actions/admin-vendors";
 import { getVendorDashboardStats } from "@/lib/vendor/queries";
+import { getVendorPayoutBalance } from "@/lib/vendor/payout-balance";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 
@@ -35,8 +36,9 @@ export default async function AdminVendorDetailPage({ params }: { params: Promis
     ? await db.menuItem.count({ where: { menu: { vendorId: vendor.id }, deletedAt: null } })
     : 0;
 
-  const [stats, recentOrders] = await Promise.all([
+  const [stats, balance, recentOrders] = await Promise.all([
     getVendorDashboardStats(vendor.id),
+    getVendorPayoutBalance(vendor.id),
     db.order.findMany({
       where: { vendorId: vendor.id },
       orderBy: { createdAt: "desc" },
@@ -215,11 +217,11 @@ export default async function AdminVendorDetailPage({ params }: { params: Promis
                 </div>
                 <div>
                   <dt className="text-xs text-gray-500">Vendor earnings</dt>
-                  <dd className="font-semibold text-brand-dark">{formatBDT(stats.earnings)}</dd>
+                  <dd className="font-semibold text-brand-dark">{formatBDT(balance.earnings)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-gray-500">Pending payout</dt>
-                  <dd className="font-semibold text-brand-dark">{formatBDT(stats.pendingPayout)}</dd>
+                  <dt className="text-xs text-gray-500">Pending payout (requested + approved)</dt>
+                  <dd className="font-semibold text-brand-dark">{formatBDT(balance.reserved)}</dd>
                 </div>
               </dl>
             </CardContent>

@@ -6,6 +6,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { PushAlertsCard } from "@/components/push/push-alerts-card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorDashboardStats, getVendorOrders } from "@/lib/vendor/queries";
+import { getVendorPayoutBalance } from "@/lib/vendor/payout-balance";
 import { statusLabel } from "@/lib/orders/status-flow";
 import { formatBDT } from "@/lib/utils";
 import { db } from "@/lib/db";
@@ -17,8 +18,9 @@ export default async function VendorDashboardPage() {
   if (!user?.vendorProfile) return null;
 
   const isGroceryVendor = user.vendorProfile.businessType === "GROCERY_VENDOR";
-  const [stats, recentOrders, weeklyHoursCount] = await Promise.all([
+  const [stats, balance, recentOrders, weeklyHoursCount] = await Promise.all([
     getVendorDashboardStats(user.vendorProfile.id),
+    getVendorPayoutBalance(user.vendorProfile.id),
     getVendorOrders(user.vendorProfile.id).then((o) => o.slice(0, 8)),
     isGroceryVendor ? db.vendorWeeklyHours.count({ where: { vendorId: user.vendorProfile.id } }) : Promise.resolve(0),
   ]);
@@ -42,7 +44,7 @@ export default async function VendorDashboardPage() {
         <StatCard icon={ShoppingBag} label="Total orders" value={String(stats.totalOrders)} href="/vendor/orders?status=ACTIVE" />
         <StatCard icon={TrendingUp} label="Revenue (delivered)" value={formatBDT(stats.revenue)} href="/vendor/orders?status=DELIVERED" />
         <StatCard icon={Percent} label="Platform commission" value={formatBDT(stats.commissionPaid)} href="/vendor/payouts" />
-        <StatCard icon={Wallet} label="Your earnings" value={formatBDT(stats.earnings)} href="/vendor/payouts" />
+        <StatCard icon={Wallet} label="Your earnings" value={formatBDT(balance.earnings)} href="/vendor/payouts" />
         <StatCard icon={Clock} label="Pending orders" value={String(stats.pendingOrders)} href="/vendor/orders?status=PENDING" />
       </div>
 

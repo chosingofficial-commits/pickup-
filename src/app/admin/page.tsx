@@ -55,7 +55,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
         <Stat icon={Percent} label="Commission revenue" value={formatBDT(stats.commissionRevenue)} href="/admin/payouts" />
         <Stat
           icon={Undo2}
-          label="Pending refunds"
+          label="Pending refunds (requested + approved, not yet paid)"
           value={formatBDT(stats.pendingRefundsAmount)}
           hint={`${stats.pendingRefunds} request${stats.pendingRefunds === 1 ? "" : "s"}`}
           href="/admin/refunds"

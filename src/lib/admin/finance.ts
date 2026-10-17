@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { fromPoisha } from "@/lib/rider/ledger";
 import { getPeriodStart, type PeriodKey } from "@/lib/date/period";
 import { getAdminMoneyOverview } from "@/lib/admin/money";
+import { getVendorPayoutBalance } from "@/lib/vendor/payout-balance";
 import type { FinanceRange } from "@/lib/admin/finance-period";
 import type { BusinessType, OrderStatus, Prisma } from "@/generated/prisma/client";
 
@@ -409,7 +410,7 @@ export async function getFinanceMoneySummary(range: FinanceRange): Promise<Finan
   const deliveredWhere = DELIVERED_IN_RANGE(range);
   const genericRange = genericDateFilter(range);
 
-  const [deliveredAgg, freeDeliveryAgg, refundsAgg, riderCommission, vendorPayoutsAgg, vendorAllTime, vendorPayoutsAllTime, riderPayoutsAgg, riderBalancesAllTime, codHeldAllTime] =
+  const [deliveredAgg, freeDeliveryAgg, refundsAgg, riderCommission, vendorPayoutsAgg, vendorBalance, riderPayoutsAgg, riderBalancesAllTime, codHeldAllTime] =
     await Promise.all([
       db.order.aggregate({ where: deliveredWhere, _sum: { total: true, subtotal: true, deliveryFee: true, discount: true, commissionAmount: true } }),
       db.delivery.aggregate({
@@ -420,9 +421,10 @@ export async function getFinanceMoneySummary(range: FinanceRange): Promise<Finan
       getRiderCommissionTotals(range),
       db.vendorPayout.aggregate({ where: { status: "PAID", processedAt: genericRange }, _sum: { amount: true } }),
       // "Owed to vendors" is a running balance, never period-scoped — same
-      // convention as RiderProfile.balancePoisha (see the rules box).
-      db.order.aggregate({ where: { status: "DELIVERED" }, _sum: { vendorEarnings: true } }),
-      db.vendorPayout.aggregate({ where: { status: "PAID" }, _sum: { amount: true } }),
+      // convention as RiderProfile.balancePoisha (see the rules box). Uses
+      // the same shared formula as the vendor payouts page, so this page and
+      // the old Money overview can never drift apart on this figure again.
+      getVendorPayoutBalance(),
       db.riderLedgerEntry.aggregate({ where: { type: "PAYOUT", occurredAt: genericRange }, _sum: { amountPoisha: true } }),
       db.riderProfile.aggregate({ where: { balancePoisha: { lt: 0 } }, _sum: { balancePoisha: true } }),
       db.riderProfile.aggregate({ where: { balancePoisha: { gt: 0 } }, _sum: { balancePoisha: true } }),
@@ -436,7 +438,7 @@ export async function getFinanceMoneySummary(range: FinanceRange): Promise<Finan
   const freeDeliveryCostTk = fromPoisha(freeDeliveryAgg._sum.riderEarningPoisha ?? 0);
   const refundsTk = Number(refundsAgg._sum.amount ?? 0);
   const riderCommissionTk = riderCommission.riderCommissionTk;
-  const owedToVendorsAllTimeTk = Number(vendorAllTime._sum.vendorEarnings ?? 0) - Number(vendorPayoutsAllTime._sum.amount ?? 0);
+  const owedToVendorsAllTimeTk = vendorBalance.available;
   const owedToRidersAllTimeTk = Math.abs(fromPoisha(riderBalancesAllTime._sum.balancePoisha ?? 0));
   const codStillHeldAllTimeTk = fromPoisha(codHeldAllTime._sum.balancePoisha ?? 0);
 
@@ -567,8 +569,7 @@ export async function getFinanceCheckTable(): Promise<CheckRow[]> {
       newValue: describeOwedBalance(money.owedToVendorsAllTimeTk, "vendors"),
       matches: Math.abs(old.vendor.vendorsOwedAllTimeTk - money.owedToVendorsAllTimeTk) < 0.01,
       displayAsText: true,
-      note:
-        "Can differ by a small amount: the old Money overview sums CommissionEntry.vendorEarnings, this page sums Order.vendorEarnings directly — normally identical (written together at checkout), but at least one seeded demo order has no matching CommissionEntry row, so the old number silently excludes it while this page's doesn't. See the data-integrity warning box above for the exact order(s).",
+      note: "Both the old Money overview and this page now call the same shared getVendorPayoutBalance() formula, so this row always matches.",
     },
     {
       label: "Owed to riders (running balance, all time)",

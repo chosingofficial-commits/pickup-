@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { PayoutRequestForm } from "@/components/vendor-dashboard/payout-request-form";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getVendorDashboardStats } from "@/lib/vendor/queries";
+import { getVendorPayoutBalance } from "@/lib/vendor/payout-balance";
 import { db } from "@/lib/db";
 import { formatBDT } from "@/lib/utils";
 
@@ -13,13 +14,11 @@ export default async function VendorPayoutsPage() {
   const user = await getCurrentUser();
   if (!user?.vendorProfile) return null;
 
-  const [stats, payouts, paidAgg] = await Promise.all([
+  const [stats, payouts, balance] = await Promise.all([
     getVendorDashboardStats(user.vendorProfile.id),
     db.vendorPayout.findMany({ where: { vendorId: user.vendorProfile.id }, orderBy: { requestedAt: "desc" } }),
-    db.vendorPayout.aggregate({ where: { vendorId: user.vendorProfile.id, status: "PAID" }, _sum: { amount: true } }),
+    getVendorPayoutBalance(user.vendorProfile.id),
   ]);
-
-  const available = stats.earnings - stats.pendingPayout - Number(paidAgg._sum.amount ?? 0);
 
   return (
     <div className="space-y-6">
@@ -31,7 +30,7 @@ export default async function VendorPayoutsPage() {
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
               <dt className="text-xs text-gray-500">Your earnings</dt>
-              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(stats.earnings)}</dd>
+              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(balance.earnings)}</dd>
             </div>
             <div>
               <dt className="text-xs text-gray-500">Platform commission</dt>
@@ -39,15 +38,15 @@ export default async function VendorPayoutsPage() {
             </div>
             <div>
               <dt className="text-xs text-gray-500">Already paid out</dt>
-              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(Number(paidAgg._sum.amount ?? 0))}</dd>
+              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(balance.paid)}</dd>
             </div>
             <div>
               <dt className="text-xs text-gray-500">Available to withdraw</dt>
-              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(Math.max(0, available))}</dd>
+              <dd className="font-heading text-lg font-bold text-brand-dark">{formatBDT(Math.max(0, balance.available))}</dd>
             </div>
           </dl>
           <p className="mt-3 text-xs text-gray-500">
-            Your earnings = order subtotal minus platform commission, across all your orders. Available to withdraw = earnings minus pending and already-paid payout requests.
+            Your earnings = order subtotal minus platform commission, across all your orders. Available to withdraw = earnings minus pending, approved, and already-paid payout requests.
           </p>
         </CardContent>
       </Card>
@@ -55,7 +54,7 @@ export default async function VendorPayoutsPage() {
       <Card>
         <CardContent className="pt-5">
           <CardTitle className="mb-4">Request a payout</CardTitle>
-          <PayoutRequestForm available={Math.max(0, available)} />
+          <PayoutRequestForm available={Math.max(0, balance.available)} />
         </CardContent>
       </Card>
 
