@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
-import { updateCheckoutState, getCheckoutState } from "@/lib/checkout/cookie";
+import { updateCheckoutState } from "@/lib/checkout/cookie";
 import { cartRequiresAdvanceScheduling } from "@/lib/cart/queries";
 import { getSiteSettingsUncached } from "@/lib/settings";
 import { isPaymentMethodEnabled, PAYMENT_METHOD_PROVIDERS } from "@/lib/payments/method-settings";
@@ -48,11 +48,4 @@ export async function selectPaymentMethodAction(formData: FormData): Promise<voi
 
   await updateCheckoutState({ paymentMethod });
   redirect("/checkout/review");
-}
-
-export async function requireCheckoutReady(): Promise<{ addressId: string; scheduledFor: string | null; paymentMethod: string }> {
-  const state = await getCheckoutState();
-  if (!state.addressId) redirect("/checkout");
-  if (!state.paymentMethod) redirect("/checkout/payment");
-  return { addressId: state.addressId, scheduledFor: state.scheduledFor ?? null, paymentMethod: state.paymentMethod };
 }
